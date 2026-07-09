@@ -548,6 +548,7 @@ export const upNext = {
 // Real sync is backend work — this is the UI shape ahead of that pipeline.
 
 export type CalendarFeedVisibility = "details" | "busy_only";
+export type CalendarSyncStatus = "synced" | "syncing" | "error";
 
 export type CalendarFeed = {
   id: string;
@@ -556,16 +557,18 @@ export type CalendarFeed = {
   color: string;
   visibility: CalendarFeedVisibility;
   internal?: boolean; // the always-on GlaciaNav feed, not a subscribed ICS link
+  syncStatus?: CalendarSyncStatus;
+  lastSyncedMinutes?: number; // minutes ago; internal feed doesn't sync, it's live
 };
 
 export const calendarFeeds: CalendarFeed[] = [
   { id: "f1", ownerId: "nima", label: "GlaciaNav", color: "#0295ac", visibility: "details", internal: true },
-  { id: "f2", ownerId: "nima", label: "Personal Gmail", color: "#6e5be8", visibility: "busy_only" },
-  { id: "f3", ownerId: "nima", label: "MS365 work", color: "#2f6fd0", visibility: "busy_only" },
+  { id: "f2", ownerId: "nima", label: "Personal Gmail", color: "#6e5be8", visibility: "busy_only", syncStatus: "synced", lastSyncedMinutes: 6 },
+  { id: "f3", ownerId: "nima", label: "MS365 work", color: "#2f6fd0", visibility: "busy_only", syncStatus: "synced", lastSyncedMinutes: 18 },
   { id: "f4", ownerId: "sara", label: "GlaciaNav", color: "#0295ac", visibility: "details", internal: true },
-  { id: "f5", ownerId: "sara", label: "MS365 work", color: "#2f6fd0", visibility: "busy_only" },
+  { id: "f5", ownerId: "sara", label: "MS365 work", color: "#2f6fd0", visibility: "busy_only", syncStatus: "synced", lastSyncedMinutes: 11 },
   { id: "f6", ownerId: "jon", label: "GlaciaNav", color: "#0295ac", visibility: "details", internal: true },
-  { id: "f7", ownerId: "jon", label: "Personal Gmail", color: "#6e5be8", visibility: "busy_only" },
+  { id: "f7", ownerId: "jon", label: "Personal Gmail", color: "#6e5be8", visibility: "busy_only", syncStatus: "error", lastSyncedMinutes: 340 },
 ];
 
 export function feedsForOwner(ownerId: string): CalendarFeed[] {
@@ -588,6 +591,7 @@ export type CalendarEvent = {
   title: string;
   kind: CalendarEventKind;
   customerId?: string;
+  allDay?: boolean;
 };
 
 export const calendarEvents: CalendarEvent[] = [
@@ -596,6 +600,7 @@ export const calendarEvents: CalendarEvent[] = [
   { id: "e3", feedId: "f2", ownerId: "nima", day: "Mon", startHour: 16, endHour: 17, title: "Busy", kind: "busy" },
   { id: "e4", feedId: "f1", ownerId: "nima", day: "Tue", startHour: 11, endHour: 12.5, title: "Demo debrief · ArcticOps", kind: "recording", customerId: "arcticops" },
   { id: "e5", feedId: "f3", ownerId: "nima", day: "Wed", startHour: 9, endHour: 9.5, title: "Busy", kind: "busy" },
+  { id: "e5b", feedId: "f3", ownerId: "nima", day: "Wed", startHour: 10, endHour: 11, title: "Busy", kind: "busy" },
   { id: "e6", feedId: "f1", ownerId: "nima", day: "Thu", startHour: 13, endHour: 13.5, title: "Follow-up · Meridian", kind: "interview", customerId: "meridian" },
   { id: "e7", feedId: "f4", ownerId: "sara", day: "Mon", startHour: 9, endHour: 10, title: "Team standup", kind: "busy" },
   { id: "e8", feedId: "f5", ownerId: "sara", day: "Mon", startHour: 13, endHour: 15, title: "Busy", kind: "busy" },
@@ -607,6 +612,8 @@ export const calendarEvents: CalendarEvent[] = [
   { id: "e14", feedId: "f6", ownerId: "jon", day: "Wed", startHour: 10, endHour: 11, title: "Interview · Torres Alpine", kind: "interview" },
   { id: "e15", feedId: "f7", ownerId: "jon", day: "Thu", startHour: 15, endHour: 17, title: "Busy", kind: "busy" },
   { id: "e16", feedId: "f6", ownerId: "jon", day: "Fri", startHour: 9, endHour: 10, title: "Team standup", kind: "busy" },
+  { id: "e17", feedId: "f1", ownerId: "nima", day: "Wed", startHour: 8, endHour: 18, title: "Company offsite prep", kind: "hold", allDay: true },
+  { id: "e18", feedId: "f7", ownerId: "jon", day: "Fri", startHour: 8, endHour: 18, title: "Jon — OOO", kind: "busy", allDay: true },
 ];
 
 export function eventsForOwner(ownerId: string): CalendarEvent[] {

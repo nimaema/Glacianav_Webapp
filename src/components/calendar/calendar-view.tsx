@@ -3,14 +3,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  BookmarkSimple,
   CalendarBlank,
   CaretLeft,
   CaretRight,
+  CalendarCheck,
+  CircleDashed,
   Link as LinkIcon,
+  ListBullets,
+  Microphone,
   Plus,
+  SquaresFour,
   Trash,
   UsersThree,
   X,
+  type Icon,
 } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
 import { HeaderStat, PageHeader } from "@/components/ui/page-header";
@@ -33,11 +40,11 @@ const CURRENT_USER = "nima";
 const ROW_H = 38; // px per hour row, shared by grid rows, event blocks, and the now-line
 const GAP = 2; // px gutter between side-by-side overlapping events
 
-const KIND_META: Record<CalendarEventKind, { label: string; style: string; dot: string }> = {
-  interview: { label: "Interview", style: "border-data-cyan bg-data-cyan/20 text-ink", dot: "bg-data-cyan" },
-  recording: { label: "Recording", style: "border-[#6e5be8] bg-[rgba(110,91,232,0.16)] text-ink", dot: "bg-[#6e5be8]" },
-  busy: { label: "Busy", style: "border-transparent bg-[#d4e4ea] text-ink-2", dot: "bg-[#9cb8c1]" },
-  hold: { label: "Hold", style: "border-dashed border-melt/55 bg-transparent text-melt", dot: "bg-melt" },
+const KIND_META: Record<CalendarEventKind, { label: string; style: string; dot: string; icon: Icon }> = {
+  interview: { label: "Interview", style: "border-data-cyan bg-data-cyan/20 text-ink", dot: "bg-data-cyan", icon: CalendarCheck },
+  recording: { label: "Recording", style: "border-[#6e5be8] bg-[rgba(110,91,232,0.16)] text-ink", dot: "bg-[#6e5be8]", icon: Microphone },
+  busy: { label: "Busy", style: "border-transparent bg-[#d4e4ea] text-ink-2", dot: "bg-[#9cb8c1]", icon: CircleDashed },
+  hold: { label: "Hold", style: "border-dashed border-melt/55 bg-transparent text-melt", dot: "bg-melt", icon: BookmarkSimple },
 };
 
 // Monday of the week containing `d`.
@@ -71,6 +78,21 @@ function fmtHour(h: number) {
   return min === 0 ? `${h12}:00 ${period}` : `${h12}:${String(min).padStart(2, "0")} ${period}`;
 }
 
+function syncLabel(f: CalendarFeed) {
+  if (f.internal) return "Live";
+  if (f.syncStatus === "error") return "Sync failed";
+  if (f.syncStatus === "syncing") return "Syncing…";
+  const m = f.lastSyncedMinutes ?? 0;
+  return m < 60 ? `Synced ${m}m ago` : `Synced ${Math.round(m / 60)}h ago`;
+}
+
+function syncDotColor(f: CalendarFeed) {
+  if (f.internal) return "#27b577";
+  if (f.syncStatus === "error") return "#cf5040";
+  if (f.syncStatus === "syncing") return "#d9b23c";
+  return "#27b577";
+}
+
 // Simple greedy lane packing so overlapping events sit side by side instead
 // of stacking on top of one another.
 function layoutDay(events: CalendarEvent[]) {
@@ -89,6 +111,25 @@ function layoutDay(events: CalendarEvent[]) {
   }
   const totalLanes = laneEnds.length || 1;
   return placed.map((p) => ({ ...p, totalLanes }));
+}
+
+// Longest contiguous free windows across the visible week, ranked so the
+// most useful meeting-length gaps surface first instead of a wall of green.
+function bestWindows(freeSlots: Record<CalendarDay, boolean[]> | null, maxCount = 3) {
+  if (!freeSlots) return [];
+  const windows: { day: CalendarDay; startHour: number; endHour: number; length: number }[] = [];
+  for (const day of CALENDAR_DAYS) {
+    let runStart: number | null = null;
+    for (let i = 0; i <= CALENDAR_HOURS.length; i++) {
+      const free = i < CALENDAR_HOURS.length && freeSlots[day][i];
+      if (free && runStart === null) runStart = i;
+      if (!free && runStart !== null) {
+        windows.push({ day, startHour: CALENDAR_HOURS[runStart], endHour: CALENDAR_HOURS[i - 1] + 1, length: i - runStart });
+        runStart = null;
+      }
+    }
+  }
+  return windows.sort((a, b) => b.length - a.length).slice(0, maxCount);
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -152,12 +193,13 @@ function EventDetail({
         </span>
         <div className="flex items-center gap-2 text-[14px] text-ink-2">
           <CalendarBlank size={15} className="shrink-0 text-ink-3" />
-          {event.day} · {fmtHour(event.startHour)} – {fmtHour(event.endHour)}
+          {event.day} · {event.allDay ? "All day" : `${fmtHour(event.startHour)} – ${fmtHour(event.endHour)}`}
         </div>
         {feed && (
           <div className="flex items-center gap-2 text-[14px] text-ink-2">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: feed.color }} />
             {feed.label}
+            <span className="text-[12px] text-ink-3">· {syncLabel(feed)}</span>
           </div>
         )}
         {customer && (
@@ -206,22 +248,24 @@ function AddEventForm({
   const [day, setDay] = useState<CalendarDay>(draft.day);
   const [start, setStart] = useState(draft.hour);
   const [end, setEnd] = useState(Math.min(draft.hour + 1, CALENDAR_HOURS[CALENDAR_HOURS.length - 1] + 1));
+  const [allDay, setAllDay] = useState(false);
   const [feedId, setFeedId] = useState(feeds.find((f) => f.internal)?.id ?? feeds[0]?.id ?? "");
   const [customerId, setCustomerId] = useState("");
 
   const save = () => {
     const t = title.trim();
-    if (!t || end <= start) return;
+    if (!t || (!allDay && end <= start)) return;
     const feed = feeds.find((f) => f.id === feedId);
     onSave({
       feedId,
       ownerId: feed?.ownerId ?? CURRENT_USER,
       day,
-      startHour: start,
-      endHour: end,
+      startHour: allDay ? CALENDAR_HOURS[0] : start,
+      endHour: allDay ? CALENDAR_HOURS[CALENDAR_HOURS.length - 1] + 1 : end,
       title: t,
       kind,
       customerId: customerId || undefined,
+      allDay: allDay || undefined,
     });
   };
 
@@ -253,32 +297,38 @@ function AddEventForm({
             ))}
           </select>
         </div>
-        <div className="flex gap-2">
-          <select
-            value={start}
-            onChange={(e) => setStart(Number(e.target.value))}
-            aria-label="Start time"
-            className="recessed h-9 flex-1 cursor-pointer px-2.5 text-[13.5px] text-ink outline-none"
-          >
-            {CALENDAR_HOURS.map((h) => (
-              <option key={h} value={h}>
-                {fmtHour(h)}
-              </option>
-            ))}
-          </select>
-          <select
-            value={end}
-            onChange={(e) => setEnd(Number(e.target.value))}
-            aria-label="End time"
-            className="recessed h-9 flex-1 cursor-pointer px-2.5 text-[13.5px] text-ink outline-none"
-          >
-            {[...CALENDAR_HOURS, CALENDAR_HOURS[CALENDAR_HOURS.length - 1] + 1].map((h) => (
-              <option key={h} value={h}>
-                {fmtHour(h)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-[13px] font-semibold text-ink-2">
+          <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} className="h-3.5 w-3.5 cursor-pointer accent-[#0295ac]" />
+          All day
+        </label>
+        {!allDay && (
+          <div className="flex gap-2">
+            <select
+              value={start}
+              onChange={(e) => setStart(Number(e.target.value))}
+              aria-label="Start time"
+              className="recessed h-9 flex-1 cursor-pointer px-2.5 text-[13.5px] text-ink outline-none"
+            >
+              {CALENDAR_HOURS.map((h) => (
+                <option key={h} value={h}>
+                  {fmtHour(h)}
+                </option>
+              ))}
+            </select>
+            <select
+              value={end}
+              onChange={(e) => setEnd(Number(e.target.value))}
+              aria-label="End time"
+              className="recessed h-9 flex-1 cursor-pointer px-2.5 text-[13.5px] text-ink outline-none"
+            >
+              {[...CALENDAR_HOURS, CALENDAR_HOURS[CALENDAR_HOURS.length - 1] + 1].map((h) => (
+                <option key={h} value={h}>
+                  {fmtHour(h)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <select value={feedId} onChange={(e) => setFeedId(e.target.value)} aria-label="Calendar" className="recessed h-9 cursor-pointer px-2.5 text-[13.5px] text-ink outline-none">
           {feeds.map((f) => (
             <option key={f.id} value={f.id}>
@@ -309,6 +359,145 @@ function AddEventForm({
   );
 }
 
+function MiniMonth({
+  anchor,
+  weekStart,
+  todayKey,
+  onPick,
+}: {
+  anchor: Date;
+  weekStart: Date;
+  todayKey: string | null;
+  onPick: (d: Date) => void;
+}) {
+  const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const gridStart = startOfWeek(first);
+  const cells = Array.from({ length: 42 }, (_, i) => new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i));
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const monthLabel = anchor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+  return (
+    <div className="surfaced px-3.5 py-3">
+      <div className="mb-2 text-center text-[13px] font-bold text-ink">{monthLabel}</div>
+      <div className="grid grid-cols-7 gap-y-1">
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+          <span key={i} className="text-center text-[10.5px] font-bold text-ink-3">
+            {d}
+          </span>
+        ))}
+        {cells.map((d) => {
+          const inMonth = d.getMonth() === anchor.getMonth();
+          const key = d.toDateString();
+          const isToday = todayKey === key;
+          const inWeek = d >= weekStart && d <= weekEnd;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onPick(d)}
+              className={`mx-auto flex h-6 w-6 cursor-pointer items-center justify-center rounded-full font-mono text-[11.5px] tabular-nums transition-colors duration-150 ${
+                isToday
+                  ? "bg-melt font-bold text-white"
+                  : inWeek
+                    ? "bg-melt/15 font-semibold text-ink"
+                    : inMonth
+                      ? "text-ink-2 hover:bg-surface-2"
+                      : "text-ink-3/40 hover:bg-surface-2"
+              }`}
+            >
+              {d.getDate()}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AgendaView({
+  weekDates,
+  todayIndex,
+  events,
+  feeds,
+  onSelect,
+}: {
+  weekDates: { day: CalendarDay; date: Date }[];
+  todayIndex: number;
+  events: CalendarEvent[];
+  feeds: CalendarFeed[];
+  onSelect: (e: CalendarEvent) => void;
+}) {
+  return (
+    <div className="surfaced flex flex-col gap-5 p-4">
+      {weekDates.map(({ day, date }, i) => {
+        const dayEvents = events
+          .filter((e) => e.day === day)
+          .sort((a, b) => Number(!!b.allDay) - Number(!!a.allDay) || a.startHour - b.startHour);
+        return (
+          <div key={day}>
+            <div className="mb-2 flex items-center gap-2">
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[12.5px] font-bold tabular-nums ${
+                  i === todayIndex ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.07)] text-ink-2"
+                }`}
+              >
+                {date.getDate()}
+              </span>
+              <span className="text-[14px] font-semibold text-ink">
+                {date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+              </span>
+              {i === todayIndex && (
+                <span className="rounded-full bg-melt/10 px-2 py-0.5 text-[11px] font-bold text-melt">Today</span>
+              )}
+              <span className="ml-auto font-mono text-[12px] text-ink-3 tabular-nums">{dayEvents.length}</span>
+            </div>
+            {dayEvents.length === 0 ? (
+              <p className="recessed px-4 py-3 text-[13.5px] text-ink-2">Nothing scheduled.</p>
+            ) : (
+              <div className="flex flex-col divide-y divide-line-2 pl-1">
+                {dayEvents.map((e) => {
+                  const feed = feeds.find((f) => f.id === e.feedId);
+                  const meta = KIND_META[e.kind];
+                  const IconEl = meta.icon;
+                  const customer = e.customerId ? customerById(e.customerId) : undefined;
+                  return (
+                    <button
+                      key={e.id}
+                      type="button"
+                      onClick={() => onSelect(e)}
+                      className="grid cursor-pointer items-center gap-3 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2"
+                      style={{ gridTemplateColumns: "24px 92px minmax(0,1fr) 150px" }}
+                    >
+                      <span
+                        className="flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full"
+                        style={{ background: `${feed?.color ?? "#0295ac"}22`, color: feed?.color ?? "#0295ac" }}
+                      >
+                        <IconEl size={11} weight="bold" />
+                      </span>
+                      <span className="font-mono text-[12.5px] font-semibold text-ink-2 tabular-nums">
+                        {e.allDay ? "All day" : fmtHour(e.startHour)}
+                      </span>
+                      <span className="min-w-0 truncate text-[14px] font-semibold text-ink" title={e.title}>
+                        {e.title}
+                      </span>
+                      {customer ? (
+                        <span className="truncate text-[12.5px] font-bold text-melt">{customer.name}</span>
+                      ) : (
+                        <span className="truncate text-[12.5px] text-ink-3">{feed?.label}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CalendarView() {
   const [visibleFeedIds, setVisibleFeedIds] = useState<Set<string>>(
     new Set(calendarFeeds.filter((f) => f.ownerId === CURRENT_USER).map((f) => f.id)),
@@ -318,6 +507,7 @@ export function CalendarView() {
   const [feeds, setFeeds] = useState<CalendarFeed[]>(calendarFeeds);
   const [events, setEvents] = useState<CalendarEvent[]>(calendarEventsSeed);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [view, setView] = useState<"week" | "agenda">("week");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [addDraft, setAddDraft] = useState<{ day: CalendarDay; hour: number } | null>(null);
   const [now, setNow] = useState<Date | null>(null);
@@ -356,6 +546,14 @@ export function CalendarView() {
   // The seed data models one recurring template week; other weeks are
   // honestly empty until real ICS sync lands.
   const showEvents = weekOffset === 0;
+  const shownEvents = showEvents ? visibleEvents : [];
+
+  const jumpToDate = (d: Date) => {
+    const base = startOfWeek(now ?? new Date());
+    const target = startOfWeek(d);
+    const diffWeeks = Math.round((target.getTime() - base.getTime()) / (7 * 86_400_000));
+    setWeekOffset(diffWeeks);
+  };
 
   const toggleFeed = (id: string) => {
     setVisibleFeedIds((prev) => {
@@ -370,7 +568,7 @@ export function CalendarView() {
     const url = newFeedUrl.trim();
     if (!url) return;
     const id = `f-new-${feeds.length}-${url.length}`;
-    const feed: CalendarFeed = { id, ownerId: CURRENT_USER, label: "New calendar", color: "#f26d5f", visibility: "busy_only" };
+    const feed: CalendarFeed = { id, ownerId: CURRENT_USER, label: "New calendar", color: "#f26d5f", visibility: "busy_only", syncStatus: "syncing", lastSyncedMinutes: 0 };
     setFeeds((fs) => [...fs, feed]);
     setVisibleFeedIds((prev) => new Set(prev).add(id));
     setNewFeedUrl("");
@@ -399,7 +597,7 @@ export function CalendarView() {
   const freeSlots = useMemo(() => {
     if (availabilityWith.size === 0 || !showEvents) return null;
     const people = [CURRENT_USER, ...availabilityWith];
-    const busyByPerson = people.map((id) => events.filter((e) => e.ownerId === id));
+    const busyByPerson = people.map((id) => events.filter((e) => e.ownerId === id && !e.allDay));
     const result: Record<CalendarDay, boolean[]> = {} as Record<CalendarDay, boolean[]>;
     for (const day of CALENDAR_DAYS) {
       result[day] = CALENDAR_HOURS.map((hour) =>
@@ -408,6 +606,8 @@ export function CalendarView() {
     }
     return result;
   }, [availabilityWith, events, showEvents]);
+
+  const suggestedSlots = useMemo(() => bestWindows(freeSlots), [freeSlots]);
 
   const addEvent = (draft: Omit<CalendarEvent, "id">) => {
     setEvents((evs) => [...evs, { ...draft, id: `e-new-${evs.length}` }]);
@@ -420,6 +620,8 @@ export function CalendarView() {
   };
 
   const nowTop = now && (now.getHours() + now.getMinutes() / 60 - CALENDAR_HOURS[0]) * ROW_H;
+  const todaysMeetings =
+    todayIndex >= 0 ? shownEvents.filter((e) => e.day === weekDates[todayIndex].day && !e.allDay).length : 0;
 
   return (
     <>
@@ -429,34 +631,37 @@ export function CalendarView() {
         meta="Every feed you subscribe to, layered into one week — plus who else is free."
         actions={
           <>
-            <HeaderStat label="Feeds shown" value={visibleFeedIds.size} />
-            <HeaderStat
-              label="Interviews this week"
-              value={showEvents ? events.filter((e) => e.kind === "interview" && visibleFeedIds.has(e.feedId)).length : 0}
-              divider
-            />
+            <HeaderStat label="Today" value={todaysMeetings} />
+            <HeaderStat label="Interviews this week" value={shownEvents.filter((e) => e.kind === "interview").length} divider />
+            <HeaderStat label="Feeds shown" value={visibleFeedIds.size} divider />
           </>
         }
       />
 
       <div className="mx-auto flex max-w-[1600px] gap-6 px-7 py-6">
-        <aside className="flex w-[260px] shrink-0 flex-col gap-6">
+        <aside className="flex w-[264px] shrink-0 flex-col gap-6">
+          <MiniMonth anchor={monday} weekStart={monday} todayKey={now ? now.toDateString() : null} onPick={jumpToDate} />
+
           <section className="flex flex-col gap-2.5">
             <SectionHeader>My feeds</SectionHeader>
             <div className="surfaced flex flex-col gap-1 px-3 py-2.5">
               {myFeeds.map((f) => (
-                <label
-                  key={f.id}
-                  className="group flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-[13.5px] text-ink transition-colors duration-150 hover:bg-surface-2"
-                >
+                <div key={f.id} className="group flex items-center gap-2 rounded-md px-1.5 py-1.5 transition-colors duration-150 hover:bg-surface-2">
                   <input
                     type="checkbox"
                     checked={visibleFeedIds.has(f.id)}
                     onChange={() => toggleFeed(f.id)}
-                    className="h-3.5 w-3.5 cursor-pointer accent-[#0295ac]"
+                    aria-label={`Toggle ${f.label}`}
+                    className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-[#0295ac]"
                   />
                   <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: f.color }} />
-                  <span className="min-w-0 flex-1 truncate">{f.label}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13.5px] font-semibold text-ink">{f.label}</div>
+                    <div className="flex items-center gap-1 text-[11px] text-ink-3">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: syncDotColor(f) }} aria-hidden />
+                      {syncLabel(f)}
+                    </div>
+                  </div>
                   {f.internal ? (
                     <span className="shrink-0 text-[11px] font-semibold text-ink-3">internal</span>
                   ) : (
@@ -469,7 +674,7 @@ export function CalendarView() {
                       <Trash size={13} />
                     </button>
                   )}
-                </label>
+                </div>
               ))}
             </div>
             <div className="recessed flex items-center gap-1.5 px-2.5 py-2">
@@ -499,9 +704,9 @@ export function CalendarView() {
 
           <section className="flex flex-col gap-2.5">
             <SectionHeader>Kind</SectionHeader>
-            <div className="surfaced flex flex-col gap-1.5 px-3.5 py-3">
+            <div className="surfaced flex flex-wrap gap-x-3 gap-y-1.5 px-3.5 py-3">
               {(Object.keys(KIND_META) as CalendarEventKind[]).map((k) => (
-                <div key={k} className="flex items-center gap-2 text-[13px] text-ink-2">
+                <div key={k} className="flex items-center gap-1.5 text-[12.5px] text-ink-2">
                   <span className={`h-2.5 w-2.5 rounded-full ${KIND_META[k].dot}`} aria-hidden />
                   {KIND_META[k].label}
                 </div>
@@ -531,17 +736,37 @@ export function CalendarView() {
                 ))}
             </div>
             {freeSlots && (
-              <p className="recessed px-3 py-2.5 text-[12.5px] leading-snug text-ink-2">
-                Green columns below mark hours everyone selected is free — busy-only feeds still
-                count even though you can&apos;t see what&apos;s on them.
-              </p>
+              <>
+                <p className="recessed px-3 py-2.5 text-[12.5px] leading-snug text-ink-2">
+                  Green columns below mark hours everyone selected is free — busy-only feeds still
+                  count even though you can&apos;t see what&apos;s on them.
+                </p>
+                {suggestedSlots.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-3">Best windows</span>
+                    {suggestedSlots.map((w, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setAddDraft({ day: w.day, hour: w.startHour })}
+                        className="surfaced rise-on-hover flex items-center justify-between gap-2 px-3 py-2 text-left text-[13px] font-semibold text-ink"
+                      >
+                        <span>
+                          {w.day} · {fmtHour(w.startHour)} – {fmtHour(w.endHour)}
+                        </span>
+                        <Plus size={13} className="shrink-0 text-melt" weight="bold" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </section>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setWeekOffset((w) => w - 1)}
@@ -567,107 +792,171 @@ export function CalendarView() {
               </button>
               <span className="ml-2 text-[15px] font-semibold text-ink">{fmtRange(monday)}</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setAddDraft({ day: "Mon", hour: CALENDAR_HOURS[0] })}
-              className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
-            >
-              <Plus size={14} weight="bold" />
-              New event
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <div className="surfaced min-w-[720px] p-4">
-              <div className="grid" style={{ gridTemplateColumns: `48px repeat(${CALENDAR_DAYS.length}, minmax(0, 1fr))` }}>
-                <div />
-                {weekDates.map(({ day, date }, i) => (
-                  <div key={day} className="pb-2.5 text-center">
-                    <div className="text-[12.5px] font-bold uppercase tracking-[0.08em] text-ink-2">{day}</div>
-                    <div
-                      className={`mx-auto mt-1 flex h-6 w-6 items-center justify-center rounded-full font-mono text-[12.5px] font-bold tabular-nums ${
-                        i === todayIndex ? "bg-melt text-white" : "text-ink-3"
-                      }`}
-                    >
-                      {fmtDay(date)}
-                    </div>
-                  </div>
+            <div className="flex items-center gap-2">
+              <div role="tablist" aria-label="View" className="recessed flex gap-0.5 p-1">
+                {([
+                  { id: "week", label: "Week", icon: SquaresFour },
+                  { id: "agenda", label: "Agenda", icon: ListBullets },
+                ] as const).map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={view === v.id}
+                    onClick={() => setView(v.id)}
+                    className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[13px] font-semibold transition-colors duration-150 ${
+                      view === v.id ? "surfaced text-ink" : "text-ink-2 hover:text-ink"
+                    }`}
+                  >
+                    <v.icon size={13} />
+                    {v.label}
+                  </button>
                 ))}
-
-                <div className="flex flex-col">
-                  {CALENDAR_HOURS.map((h) => (
-                    <div key={h} style={{ height: ROW_H }} className="pr-2 text-right font-mono text-[11px] text-ink-3">
-                      {fmtHour(h)}
-                    </div>
-                  ))}
-                </div>
-
-                {weekDates.map(({ day }, i) => {
-                  const dayEvents = showEvents ? visibleEvents.filter((e) => e.day === day) : [];
-                  const laid = layoutDay(dayEvents);
-                  return (
-                    <div key={day} className={`relative border-l border-line-2 ${i === todayIndex ? "bg-melt/[0.04]" : ""}`}>
-                      {CALENDAR_HOURS.map((h) => (
-                        <button
-                          key={h}
-                          type="button"
-                          onClick={() => setAddDraft({ day, hour: h })}
-                          aria-label={`Add event, ${day} ${fmtHour(h)}`}
-                          style={{ height: ROW_H }}
-                          className={`block w-full cursor-pointer border-t border-line-2 transition-colors duration-150 hover:bg-melt/[0.06] ${
-                            freeSlots?.[day][CALENDAR_HOURS.indexOf(h)] ? "bg-[rgba(39,181,119,0.10)]" : ""
-                          }`}
-                        />
-                      ))}
-
-                      {i === todayIndex && nowTop != null && nowTop >= 0 && nowTop <= CALENDAR_HOURS.length * ROW_H && (
-                        <div className="pointer-events-none absolute left-0 right-0 z-10 flex items-center" style={{ top: nowTop }}>
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#cf5040]" />
-                          <span className="h-px flex-1 bg-[#cf5040]" />
-                        </div>
-                      )}
-
-                      {laid.map(({ event, lane, totalLanes }) => {
-                        const top = (event.startHour - CALENDAR_HOURS[0]) * ROW_H;
-                        const height = Math.max(18, (event.endHour - event.startHour) * ROW_H - 2);
-                        const widthPct = 100 / totalLanes;
-                        const feed = feeds.find((f) => f.id === event.feedId);
-                        const meta = KIND_META[event.kind];
-                        return (
-                          <button
-                            key={event.id}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedEvent(event);
-                            }}
-                            title={event.title}
-                            style={{
-                              top,
-                              height,
-                              left: `calc(${lane * widthPct}% + ${GAP / 2}px)`,
-                              width: `calc(${widthPct}% - ${GAP}px)`,
-                              borderLeftColor: feed?.color ?? "#0295ac",
-                              borderLeftWidth: 3,
-                            }}
-                            className={`absolute cursor-pointer overflow-hidden rounded border px-1.5 py-1 text-left text-[11.5px] font-semibold leading-tight transition-shadow duration-150 hover:shadow-[0_2px_8px_rgba(11,61,77,0.25)] ${meta.style}`}
-                          >
-                            {event.title}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
               </div>
-
-              {!showEvents && (
-                <p className="mt-3 text-center text-[13px] text-ink-2">
-                  No synced events for this week yet — feed sync will backfill this once connected.
-                </p>
-              )}
+              <button
+                type="button"
+                onClick={() => setAddDraft({ day: weekDates[todayIndex >= 0 ? todayIndex : 0].day, hour: CALENDAR_HOURS[0] })}
+                className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+              >
+                <Plus size={14} weight="bold" />
+                New event
+              </button>
             </div>
           </div>
+
+          {view === "agenda" ? (
+            <AgendaView weekDates={weekDates} todayIndex={todayIndex} events={shownEvents} feeds={feeds} onSelect={setSelectedEvent} />
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="surfaced min-w-[720px] p-4">
+                <div className="grid" style={{ gridTemplateColumns: `48px repeat(${CALENDAR_DAYS.length}, minmax(0, 1fr))` }}>
+                  <div />
+                  {weekDates.map(({ day, date }, i) => (
+                    <div key={day} className="pb-2.5 text-center">
+                      <div className={`text-[12.5px] font-bold uppercase tracking-[0.08em] ${i === todayIndex ? "text-melt" : "text-ink-2"}`}>{day}</div>
+                      <div
+                        className={`mx-auto mt-1 flex h-6 w-6 items-center justify-center rounded-full font-mono text-[12.5px] font-bold tabular-nums ${
+                          i === todayIndex ? "bg-melt text-white" : "text-ink-3"
+                        }`}
+                      >
+                        {fmtDay(date)}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div />
+                  {weekDates.map(({ day }) => {
+                    const allDayEvents = shownEvents.filter((e) => e.day === day && e.allDay);
+                    return (
+                      <div key={`allday-${day}`} className="flex flex-col gap-1 border-l border-line-2 px-1 pb-2">
+                        {allDayEvents.map((e) => {
+                          const feed = feeds.find((f) => f.id === e.feedId);
+                          return (
+                            <button
+                              key={e.id}
+                              type="button"
+                              onClick={() => setSelectedEvent(e)}
+                              title={e.title}
+                              className="cursor-pointer truncate rounded px-1.5 py-1 text-left text-[11px] font-bold transition-shadow duration-150 hover:shadow-[0_2px_6px_rgba(11,61,77,0.2)]"
+                              style={{ background: `${feed?.color ?? "#0295ac"}22`, color: feed?.color ?? "#0295ac" }}
+                            >
+                              {e.title}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+
+                  <div className="flex flex-col">
+                    {CALENDAR_HOURS.map((h) => (
+                      <div key={h} style={{ height: ROW_H }} className="pr-2 text-right font-mono text-[11px] text-ink-3">
+                        {fmtHour(h)}
+                      </div>
+                    ))}
+                  </div>
+
+                  {weekDates.map(({ day }, i) => {
+                    const dayEvents = shownEvents.filter((e) => e.day === day && !e.allDay);
+                    const laid = layoutDay(dayEvents);
+                    return (
+                      <div key={day} className={`relative border-l border-line-2 ${i === todayIndex ? "bg-melt/[0.05]" : ""}`}>
+                        {CALENDAR_HOURS.map((h, hi) => (
+                          <button
+                            key={h}
+                            type="button"
+                            onClick={() => setAddDraft({ day, hour: h })}
+                            aria-label={`Add event, ${day} ${fmtHour(h)}`}
+                            style={{ height: ROW_H }}
+                            className={`block w-full cursor-pointer border-t border-line-2 transition-colors duration-150 hover:bg-melt/[0.08] ${
+                              freeSlots?.[day][CALENDAR_HOURS.indexOf(h)]
+                                ? "bg-[rgba(39,181,119,0.10)]"
+                                : hi % 2 === 1
+                                  ? "bg-[rgba(11,61,77,0.015)]"
+                                  : ""
+                            }`}
+                          />
+                        ))}
+
+                        {i === todayIndex && nowTop != null && nowTop >= 0 && nowTop <= CALENDAR_HOURS.length * ROW_H && (
+                          <div className="pointer-events-none absolute left-0 right-0 z-10 flex items-center gap-1" style={{ top: nowTop }}>
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#cf5040]" />
+                            <span className="h-px flex-1 bg-[#cf5040]" />
+                          </div>
+                        )}
+
+                        {laid.map(({ event, lane, totalLanes }) => {
+                          const top = (event.startHour - CALENDAR_HOURS[0]) * ROW_H;
+                          const height = Math.max(18, (event.endHour - event.startHour) * ROW_H - 2);
+                          const widthPct = 100 / totalLanes;
+                          const feed = feeds.find((f) => f.id === event.feedId);
+                          const meta = KIND_META[event.kind];
+                          const IconEl = meta.icon;
+                          const roomy = height >= 40;
+                          return (
+                            <button
+                              key={event.id}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEvent(event);
+                              }}
+                              title={event.title}
+                              style={{
+                                top,
+                                height,
+                                left: `calc(${lane * widthPct}% + ${GAP / 2}px)`,
+                                width: `calc(${widthPct}% - ${GAP}px)`,
+                                borderLeftColor: feed?.color ?? "#0295ac",
+                                borderLeftWidth: 3,
+                              }}
+                              className={`absolute cursor-pointer overflow-hidden rounded border px-1.5 py-1 text-left text-[11.5px] font-semibold leading-tight transition-shadow duration-150 hover:shadow-[0_2px_8px_rgba(11,61,77,0.25)] ${meta.style}`}
+                            >
+                              <span className="flex items-center gap-1">
+                                <IconEl size={10} weight="bold" className="shrink-0" />
+                                <span className="truncate">{event.title}</span>
+                              </span>
+                              {roomy && (
+                                <span className="mt-0.5 block text-[10px] font-normal opacity-75">
+                                  {fmtHour(event.startHour)} – {fmtHour(event.endHour)}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {!showEvents && (
+                  <p className="mt-3 text-center text-[13px] text-ink-2">
+                    No synced events for this week yet — feed sync will backfill this once connected.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
