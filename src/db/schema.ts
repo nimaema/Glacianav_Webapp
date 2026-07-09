@@ -15,12 +15,21 @@ import {
   doublePrecision,
   integer,
   pgEnum,
+  pgSchema,
   pgTable,
   primaryKey,
   text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+
+// Supabase-managed auth schema — declared here only so profiles.authUserId
+// can carry a real foreign key. Never migrated (Supabase owns this table);
+// Drizzle just needs to know it exists to reference it.
+const authSchema = pgSchema("auth");
+export const authUsers = authSchema.table("users", {
+  id: uuid("id").primaryKey(),
+});
 
 // ─── Enums ───────────────────────────────────────────────────────────
 
@@ -50,10 +59,17 @@ export const entityTypeEnum = pgEnum("entity_type", ["conversation", "customer",
 
 // ─── People & workspace config ──────────────────────────────────────
 
-// 1:1 with Supabase auth.users(id) once auth is wired up — kept as a plain
-// uuid (not yet FK'd) until then so this schema is usable standalone.
+// profiles.id is its own app-managed uuid, NOT auth.users.id directly —
+// the seed script already wired 20+ FK rows (customers.owner_id, task
+// assignees, comments, activities, calendar feeds…) to the three profiles
+// created before any real login existed. Making profiles.id equal
+// auth.users.id would mean either cascading an update through every one of
+// those rows or re-seeding from scratch. authUserId links a profile to its
+// real identity on first sign-in instead (see src/lib/auth/ensure-profile.ts)
+// — same effect, none of the migration risk.
 export const profiles = pgTable("profiles", {
   id: uuid("id").defaultRandom().primaryKey(),
+  authUserId: uuid("auth_user_id").unique().references(() => authUsers.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   initials: text("initials").notNull(),
   color: text("color").notNull(),

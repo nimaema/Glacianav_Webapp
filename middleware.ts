@@ -1,10 +1,17 @@
-// Refreshes the Supabase auth session cookie on every request — required
-// by @supabase/ssr so a session doesn't silently expire mid-visit. Route
-// gating (redirect unauthenticated users to /login) lands with the actual
-// login page; this just keeps the cookie alive in the meantime.
+// Refreshes the Supabase auth session cookie on every request (required by
+// @supabase/ssr so a session doesn't silently expire mid-visit) and, once
+// AUTH_REQUIRED=true is set, redirects unauthenticated requests to /login.
+//
+// AUTH_REQUIRED defaults to unset/false on purpose: Azure SSO isn't
+// configured in the Supabase dashboard yet (needs a real Entra app
+// registration — see /login), so gating routes now would lock everyone out
+// with no way back in. Flip it on once a real sign-in has been verified to
+// work end-to-end.
 
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+
+const PUBLIC_PATHS = ["/login", "/auth/callback"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -36,8 +43,16 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // Touches the session so @supabase/ssr can refresh it if needed.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isPublicPath = PUBLIC_PATHS.some((p) => request.nextUrl.pathname.startsWith(p));
+
+  if (process.env.AUTH_REQUIRED === "true" && !user && !isPublicPath) {
+    const loginUrl = new URL("/login", request.url);
+    return NextResponse.redirect(loginUrl);
+  }
 
   return response;
 }

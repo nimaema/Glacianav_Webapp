@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Gear, ShieldCheck } from "@phosphor-icons/react";
+import { Check, Gear, ShieldCheck, SignOut } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Switch } from "@/components/ui/switch";
+import { signOut } from "@/lib/auth/actions";
 import { notificationPrefs, owners, type NotificationPrefs } from "@/lib/fixtures";
 
 const CURRENT_USER = "nima";
@@ -62,6 +63,14 @@ export function SettingsView() {
               <span className="ml-auto rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.06em] text-ink-2">
                 {me.role}
               </span>
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[13px] font-bold text-ink-2 transition-colors duration-150 hover:bg-danger/10 hover:text-danger"
+              >
+                <SignOut size={14} />
+                Sign out
+              </button>
             </div>
             <div>
               <p className="mb-2 text-[12.5px] font-semibold text-ink-2">Avatar color</p>

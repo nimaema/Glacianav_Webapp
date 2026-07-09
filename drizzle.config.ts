@@ -24,6 +24,10 @@ export default defineConfig({
   dbCredentials: {
     url: migrationUrl,
   },
+  // schema.ts declares auth.users as a stub (so profiles.authUserId can
+  // carry a real FK) — Supabase owns that table, so push/generate must
+  // never try to manage anything outside public.
+  schemaFilter: ["public"],
   strict: true,
   verbose: true,
 });
