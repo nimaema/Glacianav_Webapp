@@ -98,10 +98,15 @@ const SOURCE_W = 180;
 const ASSIGNEE_W = 72;
 const TASK_GRID = `${CHECK_W}px minmax(0,1fr) ${DUE_W}px ${SOURCE_W}px ${ASSIGNEE_W}px`;
 
+// Only genuinely distinct attention types belong here — kind "task" is
+// just a regular action item and already lives in the table below, so
+// showing it again here read as an unexplained duplicate.
+const alertItems = queue.filter((item) => item.kind !== "task");
+
 function AlertStrip() {
   return (
     <div className="flex flex-wrap gap-2">
-      {queue.map((item) => {
+      {alertItems.map((item) => {
         const { icon: IconEl, color } = QUEUE_ICON[item.kind];
         return (
           <Link
@@ -516,7 +521,12 @@ export function WorkView() {
                     <span className="text-right text-[11px] font-bold uppercase tracking-[0.1em] text-ink-3">Who</span>
                   </div>
                   <div className="surfaced flex flex-col divide-y divide-line-2 px-2">
-                    {filtered.map((t) => (
+                    {filtered.map((t) => {
+                      // Only an assignee can mark their own task done — an
+                      // unassigned task has no owner yet, so anyone can
+                      // claim it by completing it.
+                      const canComplete = t.assigneeIds.length === 0 || t.assigneeIds.includes(CURRENT_USER);
+                      return (
                       <div
                         key={t.key}
                         style={{ gridTemplateColumns: TASK_GRID }}
@@ -525,9 +535,11 @@ export function WorkView() {
                         <input
                           type="checkbox"
                           checked={t.status === "done"}
-                          onChange={() => toggleTask(t)}
+                          onChange={() => canComplete && toggleTask(t)}
+                          disabled={!canComplete}
                           aria-label={`Mark "${t.task}" ${t.status === "done" ? "open" : "done"}`}
-                          className="h-4 w-4 cursor-pointer accent-[#0295ac]"
+                          title={canComplete ? undefined : "Only an assignee can mark this task done"}
+                          className="h-4 w-4 cursor-pointer accent-[#0295ac] disabled:cursor-not-allowed disabled:opacity-35"
                         />
                         <span
                           className={`min-w-0 truncate text-[14px] ${
@@ -561,7 +573,8 @@ export function WorkView() {
                           )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                     {filtered.length === 0 && (
                       <p className="py-4 text-[14px] text-ink-2">
                         {search || sourceFilter !== "All" ? "No tasks match that filter." : "Nothing here — you're caught up."}

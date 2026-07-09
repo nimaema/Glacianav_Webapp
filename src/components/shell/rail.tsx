@@ -16,9 +16,8 @@ import {
   ShieldCheck,
   type Icon,
 } from "@phosphor-icons/react";
-import { counts } from "@/lib/fixtures";
 
-type NavItem = { href: string; label: string; icon: Icon; count?: number };
+type NavItem = { href: string; label: string; icon: Icon };
 type Section = { label: string | null; items: NavItem[] };
 
 const SECTIONS: Section[] = [
@@ -26,16 +25,16 @@ const SECTIONS: Section[] = [
   {
     label: "Records",
     items: [
-      { href: "/customers", label: "Customers", icon: Buildings, count: counts.customers },
       { href: "/validation-progress", label: "Validation Progress", icon: Kanban },
-      { href: "/contacts", label: "Contacts", icon: IdentificationCard, count: counts.contacts },
-      { href: "/library", label: "Library", icon: Books, count: counts.library },
+      { href: "/customers", label: "Customers", icon: Buildings },
+      { href: "/contacts", label: "Contacts", icon: IdentificationCard },
+      { href: "/library", label: "Library", icon: Books },
     ],
   },
   {
     label: "Plan",
     items: [
-      { href: "/work", label: "Work", icon: ListChecks, count: counts.work },
+      { href: "/work", label: "Work", icon: ListChecks },
       { href: "/calendar", label: "Calendar", icon: CalendarBlank },
     ],
   },
@@ -75,11 +74,6 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
       <span className="min-w-0 flex-1 truncate" title={item.label}>
         {item.label}
       </span>
-      {item.count !== undefined && (
-        <span className="ml-auto font-mono text-[12.5px] text-ink-3 tabular-nums">
-          {item.count}
-        </span>
-      )}
     </Link>
   );
 }
