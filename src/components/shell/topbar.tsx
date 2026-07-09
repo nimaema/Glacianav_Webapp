@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   MagnifyingGlass,
   Plus,
@@ -15,20 +14,6 @@ import {
 } from "@phosphor-icons/react";
 import { OPEN_PALETTE_EVENT } from "./command-palette";
 
-const TITLES: [string, string][] = [
-  ["/validation-progress", "Validation Progress"],
-  ["/customers", "Customers"],
-  ["/contacts", "Contacts"],
-  ["/library", "Library"],
-  ["/work", "Work"],
-  ["/calendar", "Calendar"],
-  ["/insights", "Insights"],
-  ["/ask", "Ask"],
-  ["/settings", "Settings"],
-  ["/admin", "Admin"],
-  ["/record", "Record"],
-];
-
 const NEW_ITEMS: { icon: Icon; label: string; hint?: string; href?: string }[] = [
   { icon: Microphone, label: "Record a conversation", hint: "⌘R", href: "/record" },
   { icon: UploadSimple, label: "Upload audio" },
@@ -37,10 +22,9 @@ const NEW_ITEMS: { icon: Icon; label: string; hint?: string; href?: string }[] =
 ];
 
 export function TopBar() {
-  const pathname = usePathname();
-  const title =
-    TITLES.find(([href]) => pathname.startsWith(href))?.[1] ?? "Home";
-
+  // The page itself carries its own title now (PageHeader) — repeating it
+  // here too read as two stacked headers saying the same word. The bar
+  // stays pure utility: global search, quick-create, notifications, avatar.
   const [newOpen, setNewOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -62,8 +46,6 @@ export function TopBar() {
 
   return (
     <header className="flex h-13 shrink-0 items-center gap-4 border-b border-line-2 bg-white/60 px-5">
-      <h1 className="text-[15px] font-semibold text-ink">{title}</h1>
-
       <button
         type="button"
         onClick={() => window.dispatchEvent(new CustomEvent(OPEN_PALETTE_EVENT))}

@@ -40,13 +40,10 @@ function Kpi({
 export function HeaderBand() {
   const { interviews, followups, processed } = kpis;
   return (
-    <header
-      data-rise
-      className="bg-[linear-gradient(180deg,#ffffff,#fbfdfe)] shadow-[0_1px_0_rgba(11,61,77,0.10),0_12px_24px_-18px_rgba(6,80,96,0.5)]"
-    >
-      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-8 gap-y-4 px-7 py-5">
+    <header className="strata-line">
+      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-8 gap-y-4 px-7 pb-5 pt-6">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-[-0.015em] text-ink">
+          <h1 className="text-[26px] font-semibold tracking-[-0.015em] text-ink">
             Good afternoon, Nima
           </h1>
           <p className="mt-0.5 text-[14.5px] text-ink-3">Tuesday, July 8</p>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Archive, Plus } from "@phosphor-icons/react";
+import { useRef, useState } from "react";
+import { Archive, DotsThreeVertical, Plus } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
 import {
   ownerById,
@@ -15,9 +15,63 @@ import {
 } from "@/lib/fixtures";
 import { SectionHeader } from "@/components/ui/section-header";
 import { useDnd } from "@/lib/dnd";
+import { useOutsideClick } from "@/lib/use-outside-click";
 import { CompatibilityBadge } from "./compatibility-badge";
 import { rowOpenHandlers } from "./row-open";
 import { FollowupPill } from "./status-pills";
+
+// Hover-revealed overflow menu, same corner-affordance language as the
+// Calendar feed row's hover-reveal remove button — archiving is a rare,
+// destructive action, so it earns a tucked-away menu instead of a
+// permanent full-width button competing with every card's content.
+function CardMenu({ onArchive }: { onArchive: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useOutsideClick(ref, () => setOpen(false), open);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        aria-label="Card actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink ${
+          open ? "bg-surface-2 text-ink" : "opacity-0 group-hover:opacity-100"
+        }`}
+      >
+        <DotsThreeVertical size={15} weight="bold" />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          onClick={(e) => e.stopPropagation()}
+          className="surfaced-lg absolute right-0 top-7 z-20 w-40 p-1.5"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(false);
+              onArchive();
+            }}
+            className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13.5px] font-semibold text-ink-2 transition-colors duration-150 hover:bg-danger/10 hover:text-danger"
+          >
+            <Archive size={14} />
+            Archive
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Every stage column is this width and never shrinks — however many stages
 // exist, they sit in one horizontal row and the board scrolls sideways
@@ -142,7 +196,7 @@ export function KanbanView({
                   role="button"
                   {...rowOpenHandlers(onOpen, c.id)}
                   {...dragProps(c.id)}
-                  className={`surfaced rise-on-hover relative cursor-pointer overflow-hidden py-3 pl-4.5 pr-3.5 ${
+                  className={`surfaced rise-on-hover group relative cursor-pointer overflow-hidden py-3 pl-4.5 pr-3.5 ${
                     dragId === c.id ? "opacity-45" : ""
                   }`}
                 >
@@ -160,24 +214,15 @@ export function KanbanView({
                         {primaryContactFor(c.id)?.name ?? "no contact yet"}
                       </p>
                     </div>
-                    <Avatar owner={ownerById(c.ownerId)} size={22} />
+                    <div className="flex shrink-0 items-center gap-1">
+                      <CardMenu onArchive={() => onArchive(c.id)} />
+                      <Avatar owner={ownerById(c.ownerId)} size={22} />
+                    </div>
                   </div>
                   <div className="mt-2.5 flex items-center justify-between gap-2">
                     <CompatibilityBadge compatibility={c.compatibility} />
                     <FollowupPill followup={c.followup} />
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onArchive(c.id);
-                    }}
-                    className="mt-2 flex h-7 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md text-[12.5px] font-bold text-ink-3 transition-colors duration-150 hover:bg-danger/10 hover:text-danger"
-                  >
-                    <Archive size={13} />
-                    Archive
-                  </button>
                   <div className="mt-2 flex items-center gap-1.5">
                     <span
                       aria-hidden

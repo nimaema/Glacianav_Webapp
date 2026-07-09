@@ -293,8 +293,8 @@ function CustomerRoomInner({ customer: c }: { customer: Customer }) {
 
   return (
     <>
-      <header className="border-b border-line-2 bg-white/80 shadow-[0_14px_36px_-30px_rgba(6,80,96,0.55)]">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-3 px-7 py-4">
+      <header className="strata-line">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-3 px-7 pt-6 pb-4">
           <Link
             href="/customers"
             aria-label="Back to customers"
