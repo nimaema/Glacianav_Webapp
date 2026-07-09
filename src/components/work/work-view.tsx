@@ -16,6 +16,7 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { AssigneePicker } from "@/components/ui/assignee-picker";
 import { HeaderStat, PageHeader } from "@/components/ui/page-header";
+import { SectionHeader } from "@/components/ui/section-header";
 import {
   conversationDetails,
   conversations,
@@ -104,29 +105,33 @@ const TASK_GRID = `${CHECK_W}px minmax(0,1fr) ${DUE_W}px ${SOURCE_W}px ${ASSIGNE
 const alertItems = queue.filter((item) => item.kind !== "task");
 
 function AlertStrip() {
+  if (alertItems.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-2">
-      {alertItems.map((item) => {
-        const { icon: IconEl, color } = QUEUE_ICON[item.kind];
-        return (
-          <Link
-            key={item.id}
-            href={QUEUE_HREF[item.kind](item)}
-            className="surfaced rise-on-hover flex items-center gap-2.5 rounded-full py-2 pl-2.5 pr-3.5"
-            data-rise
-          >
-            <span
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-              style={{ background: `${color}22`, color }}
+    <section className="flex flex-col gap-2.5">
+      <SectionHeader count={alertItems.length}>Needs attention</SectionHeader>
+      <div className="flex flex-wrap gap-2">
+        {alertItems.map((item) => {
+          const { icon: IconEl, color } = QUEUE_ICON[item.kind];
+          return (
+            <Link
+              key={item.id}
+              href={QUEUE_HREF[item.kind](item)}
+              className="surfaced rise-on-hover flex items-center gap-2.5 rounded-full py-2 pl-2.5 pr-3.5"
+              data-rise
             >
-              <IconEl size={13} weight="bold" />
-            </span>
-            <span className="text-[13px] font-semibold text-ink">{item.title}</span>
-            <span className="font-mono text-[12px] text-ink-3 tabular-nums">{item.when}</span>
-          </Link>
-        );
-      })}
-    </div>
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                style={{ background: `${color}22`, color }}
+              >
+                <IconEl size={13} weight="bold" />
+              </span>
+              <span className="text-[13px] font-semibold text-ink">{item.title}</span>
+              <span className="font-mono text-[12px] text-ink-3 tabular-nums">{item.when}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -311,6 +316,8 @@ export function WorkView() {
     return true;
   });
 
+  const canComplete = (t: WorkTask) => t.assigneeIds.length === 0 || t.assigneeIds.includes(CURRENT_USER);
+
   const toggleTask = (t: WorkTask) => {
     if (t.editable) {
       const [, customerId, taskId] = t.key.split("-");
@@ -369,63 +376,48 @@ export function WorkView() {
             <HeaderStat label="Going stale" value={staleCustomers.length} divider tone={staleCustomers.length > 0 ? "text-[#b23c2e]" : "text-ink"} />
           </>
         }
-      >
-        <div role="tablist" aria-label="Scope" className="recessed flex gap-0.5 p-1">
-          {(["Everyone", "Mine"] as const).map((s) => (
-            <button
-              key={s}
-              role="tab"
-              aria-selected={scope === s}
-              onClick={() => setScope(s)}
-              className={`h-8 cursor-pointer rounded-md px-3.5 text-[13px] font-semibold transition-colors duration-150 ${
-                scope === s ? "surfaced text-ink" : "text-ink-2 hover:text-ink"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </PageHeader>
+      />
 
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-5 px-7 py-6">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-6 px-7 py-6">
         <AlertStrip />
 
         <div className="flex gap-6">
-          <aside className="flex w-[196px] shrink-0 flex-col gap-4">
-            <nav aria-label="Task views" className="flex flex-col gap-px">
-              {TASK_VIEWS.map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setView(v.id)}
-                  aria-current={view === v.id ? "page" : undefined}
-                  className={`relative flex h-8 items-center gap-2 rounded-md px-2.5 text-[13.5px] transition-colors duration-150 ${
-                    view === v.id ? "bg-white/90 font-semibold text-ink" : "text-ink-2 hover:bg-white/60 hover:text-ink"
-                  }`}
-                >
-                  {view === v.id && (
-                    <span aria-hidden className="absolute -left-2 top-1 bottom-1 w-0.5 rounded bg-melt" />
-                  )}
-                  <span className="min-w-0 flex-1 truncate text-left">{v.label}</span>
-                  <span className="font-mono text-[12px] text-ink-3 tabular-nums">
-                    {v.id === "done" ? viewCounts.done : v.id === "all" ? viewCounts.all : viewCounts[v.id as Bucket]}
-                  </span>
-                </button>
-              ))}
-            </nav>
-            <div className="h-px bg-line-2" />
-            <button
-              type="button"
-              onClick={() => setView("stale")}
-              aria-current={view === "stale" ? "page" : undefined}
-              className={`relative flex h-8 items-center gap-2 rounded-md px-2.5 text-[13.5px] transition-colors duration-150 ${
-                view === "stale" ? "bg-white/90 font-semibold text-ink" : "text-ink-2 hover:bg-white/60 hover:text-ink"
-              }`}
-            >
-              {view === "stale" && <span aria-hidden className="absolute -left-2 top-1 bottom-1 w-0.5 rounded bg-melt" />}
-              <span className="min-w-0 flex-1 truncate text-left">Stale accounts</span>
-              <span className="font-mono text-[12px] text-ink-3 tabular-nums">{staleCustomers.length}</span>
-            </button>
+          <aside className="flex w-[208px] shrink-0 flex-col gap-4">
+            <SectionHeader>Views</SectionHeader>
+            <div className="surfaced flex flex-col gap-0.5 p-2">
+              <nav aria-label="Task views" className="flex flex-col gap-px">
+                {TASK_VIEWS.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setView(v.id)}
+                    aria-current={view === v.id ? "page" : undefined}
+                    className={`relative flex h-8 items-center gap-2 rounded-md px-2.5 text-[13.5px] transition-colors duration-150 ${
+                      view === v.id ? "bg-melt/10 font-semibold text-melt" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-left">{v.label}</span>
+                    <span className={`font-mono text-[12px] tabular-nums ${view === v.id ? "text-melt" : "text-ink-3"}`}>
+                      {v.id === "done" ? viewCounts.done : v.id === "all" ? viewCounts.all : viewCounts[v.id as Bucket]}
+                    </span>
+                  </button>
+                ))}
+              </nav>
+              <div className="my-1 h-px bg-line-2" />
+              <button
+                type="button"
+                onClick={() => setView("stale")}
+                aria-current={view === "stale" ? "page" : undefined}
+                className={`relative flex h-8 items-center gap-2 rounded-md px-2.5 text-[13.5px] transition-colors duration-150 ${
+                  view === "stale" ? "bg-melt/10 font-semibold text-melt" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                }`}
+              >
+                <span className="min-w-0 flex-1 truncate text-left">Stale accounts</span>
+                <span className={`font-mono text-[12px] tabular-nums ${view === "stale" ? "text-melt" : "text-ink-3"}`}>
+                  {staleCustomers.length}
+                </span>
+              </button>
+            </div>
           </aside>
 
           <div className="min-w-0 flex-1">
@@ -465,23 +457,23 @@ export function WorkView() {
               </div>
             ) : (
               <>
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <div className="recessed flex h-9 min-w-[200px] flex-1 items-center gap-1.5 px-2.5">
-                    <MagnifyingGlass size={14} className="shrink-0 text-ink-3" />
-                    <input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search tasks…"
-                      aria-label="Search tasks"
-                      className="h-full min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink-3"
-                    />
-                    {search && (
-                      <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="shrink-0 cursor-pointer text-ink-3 hover:text-ink">
-                        <X size={13} />
+                <div className="surfaced mb-3 flex flex-wrap items-center gap-3 px-3 py-2.5">
+                  <div role="tablist" aria-label="Scope" className="recessed flex shrink-0 gap-0.5 p-1">
+                    {(["Everyone", "Mine"] as const).map((s) => (
+                      <button
+                        key={s}
+                        role="tab"
+                        aria-selected={scope === s}
+                        onClick={() => setScope(s)}
+                        className={`h-7 cursor-pointer rounded-md px-3 text-[12.5px] font-semibold transition-colors duration-150 ${
+                          scope === s ? "surfaced text-ink" : "text-ink-2 hover:text-ink"
+                        }`}
+                      >
+                        {s}
                       </button>
-                    )}
+                    ))}
                   </div>
-                  <div role="tablist" aria-label="Source" className="recessed flex gap-0.5 p-1">
+                  <div role="tablist" aria-label="Source" className="recessed flex shrink-0 gap-0.5 p-1">
                     {(["All", "Conversations", "Manual"] as const).map((s) => (
                       <button
                         key={s}
@@ -496,12 +488,28 @@ export function WorkView() {
                       </button>
                     ))}
                   </div>
+                  <div className="h-6 w-px shrink-0 bg-line-2" />
+                  <div className="recessed flex h-8 min-w-[180px] flex-1 items-center gap-1.5 px-2.5">
+                    <MagnifyingGlass size={13} className="shrink-0 text-ink-3" />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search tasks…"
+                      aria-label="Search tasks"
+                      className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-3"
+                    />
+                    {search && (
+                      <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="shrink-0 cursor-pointer text-ink-3 hover:text-ink">
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setAdding((v2) => !v2)}
-                    className="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3.5 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+                    className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-melt px-3.5 text-[12.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
                   >
-                    <Plus size={15} weight="bold" />
+                    <Plus size={14} weight="bold" />
                     Add task
                   </button>
                 </div>
@@ -522,57 +530,54 @@ export function WorkView() {
                   </div>
                   <div className="surfaced flex flex-col divide-y divide-line-2 px-2">
                     {filtered.map((t) => {
-                      // Only an assignee can mark their own task done — an
-                      // unassigned task has no owner yet, so anyone can
-                      // claim it by completing it.
-                      const canComplete = t.assigneeIds.length === 0 || t.assigneeIds.includes(CURRENT_USER);
+                      const completableRow = canComplete(t);
                       return (
-                      <div
-                        key={t.key}
-                        style={{ gridTemplateColumns: TASK_GRID }}
-                        className="grid items-center gap-3 py-2.5"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={t.status === "done"}
-                          onChange={() => canComplete && toggleTask(t)}
-                          disabled={!canComplete}
-                          aria-label={`Mark "${t.task}" ${t.status === "done" ? "open" : "done"}`}
-                          title={canComplete ? undefined : "Only an assignee can mark this task done"}
-                          className="h-4 w-4 cursor-pointer accent-[#0295ac] disabled:cursor-not-allowed disabled:opacity-35"
-                        />
-                        <span
-                          className={`min-w-0 truncate text-[14px] ${
-                            t.status === "done" ? "text-ink-3 line-through" : "font-semibold text-ink"
-                          }`}
-                          title={t.task}
+                        <div
+                          key={t.key}
+                          style={{ gridTemplateColumns: TASK_GRID }}
+                          className="grid items-center gap-3 rounded-md py-2.5 transition-colors duration-150 hover:bg-surface-2"
                         >
-                          {t.task}
-                        </span>
-                        <span
-                          className={`truncate font-mono text-[12.5px] font-semibold tabular-nums ${
-                            bucketFor(t.dueLabel) === "Overdue" && t.status === "open" ? "text-[#b23c2e]" : "text-ink-2"
-                          }`}
-                        >
-                          {t.dueLabel ?? "—"}
-                        </span>
-                        <SourceChip source={t.source} />
-                        <div className="flex justify-end">
-                          {t.editable ? (
-                            <AssigneePicker assigneeIds={t.assigneeIds} onToggle={(id) => toggleAssignee(t, id)} />
-                          ) : t.assigneeIds.length > 0 ? (
-                            <span className="flex -space-x-1.5">
-                              {t.assigneeIds.map((id) => (
-                                <span key={id} className="rounded-full ring-2 ring-white">
-                                  <Avatar owner={ownerById(id)} size={22} />
-                                </span>
-                              ))}
-                            </span>
-                          ) : (
-                            <span className="text-[12px] text-ink-3">—</span>
-                          )}
+                          <input
+                            type="checkbox"
+                            checked={t.status === "done"}
+                            onChange={() => completableRow && toggleTask(t)}
+                            disabled={!completableRow}
+                            aria-label={`Mark "${t.task}" ${t.status === "done" ? "open" : "done"}`}
+                            title={completableRow ? undefined : "Only an assignee can mark this task done"}
+                            className="h-4 w-4 cursor-pointer accent-[#0295ac] disabled:cursor-not-allowed disabled:opacity-35"
+                          />
+                          <span
+                            className={`min-w-0 truncate text-[14px] ${
+                              t.status === "done" ? "text-ink-3 line-through" : "font-semibold text-ink"
+                            }`}
+                            title={t.task}
+                          >
+                            {t.task}
+                          </span>
+                          <span
+                            className={`truncate font-mono text-[12.5px] font-semibold tabular-nums ${
+                              bucketFor(t.dueLabel) === "Overdue" && t.status === "open" ? "text-[#b23c2e]" : "text-ink-2"
+                            }`}
+                          >
+                            {t.dueLabel ?? "—"}
+                          </span>
+                          <SourceChip source={t.source} />
+                          <div className="flex justify-end">
+                            {t.editable ? (
+                              <AssigneePicker assigneeIds={t.assigneeIds} onToggle={(id) => toggleAssignee(t, id)} />
+                            ) : t.assigneeIds.length > 0 ? (
+                              <span className="flex -space-x-1.5">
+                                {t.assigneeIds.map((id) => (
+                                  <span key={id} className="rounded-full ring-2 ring-white">
+                                    <Avatar owner={ownerById(id)} size={22} />
+                                  </span>
+                                ))}
+                              </span>
+                            ) : (
+                              <span className="text-[12px] text-ink-3">—</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
                       );
                     })}
                     {filtered.length === 0 && (

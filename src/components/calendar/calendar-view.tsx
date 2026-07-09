@@ -37,7 +37,7 @@ import {
 } from "@/lib/fixtures";
 
 const CURRENT_USER = "nima";
-const ROW_H = 38; // px per hour row, shared by grid rows, event blocks, and the now-line
+const ROW_H = 56; // px per hour row, shared by grid rows, event blocks, and the now-line
 const GAP = 2; // px gutter between side-by-side overlapping events
 
 const KIND_META: Record<CalendarEventKind, { label: string; style: string; dot: string; icon: Icon }> = {
@@ -429,7 +429,7 @@ function AgendaView({
   onSelect: (e: CalendarEvent) => void;
 }) {
   return (
-    <div className="surfaced flex flex-col gap-5 p-4">
+    <div className="surfaced flex flex-col gap-6 p-5">
       {weekDates.map(({ day, date }, i) => {
         const dayEvents = events
           .filter((e) => e.day === day)
@@ -765,7 +765,7 @@ export function CalendarView() {
         </aside>
 
         <div className="min-w-0 flex-1">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="surfaced mb-4 flex flex-wrap items-center justify-between gap-3 px-3 py-2">
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
@@ -786,11 +786,11 @@ export function CalendarView() {
               <button
                 type="button"
                 onClick={() => setWeekOffset(0)}
-                className="h-8 cursor-pointer rounded-md border border-line-2 px-3 text-[13px] font-bold text-ink-2 transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
+                className="recessed h-8 cursor-pointer px-3 text-[13px] font-bold text-ink-2 transition-colors duration-150 hover:text-ink"
               >
                 Today
               </button>
-              <span className="ml-2 text-[15px] font-semibold text-ink">{fmtRange(monday)}</span>
+              <span className="ml-2 text-[15.5px] font-semibold text-ink">{fmtRange(monday)}</span>
             </div>
             <div className="flex items-center gap-2">
               <div role="tablist" aria-label="View" className="recessed flex gap-0.5 p-1">
@@ -816,7 +816,7 @@ export function CalendarView() {
               <button
                 type="button"
                 onClick={() => setAddDraft({ day: weekDates[todayIndex >= 0 ? todayIndex : 0].day, hour: CALENDAR_HOURS[0] })}
-                className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+                className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-melt px-3 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
               >
                 <Plus size={14} weight="bold" />
                 New event
@@ -828,14 +828,14 @@ export function CalendarView() {
             <AgendaView weekDates={weekDates} todayIndex={todayIndex} events={shownEvents} feeds={feeds} onSelect={setSelectedEvent} />
           ) : (
             <div className="overflow-x-auto">
-              <div className="surfaced min-w-[720px] p-4">
-                <div className="grid" style={{ gridTemplateColumns: `48px repeat(${CALENDAR_DAYS.length}, minmax(0, 1fr))` }}>
+              <div className="surfaced min-w-[820px] p-5">
+                <div className="grid" style={{ gridTemplateColumns: `54px repeat(${CALENDAR_DAYS.length}, minmax(0, 1fr))` }}>
                   <div />
                   {weekDates.map(({ day, date }, i) => (
-                    <div key={day} className="pb-2.5 text-center">
-                      <div className={`text-[12.5px] font-bold uppercase tracking-[0.08em] ${i === todayIndex ? "text-melt" : "text-ink-2"}`}>{day}</div>
+                    <div key={day} className="pb-3 text-center">
+                      <div className={`text-[13px] font-bold uppercase tracking-[0.08em] ${i === todayIndex ? "text-melt" : "text-ink-2"}`}>{day}</div>
                       <div
-                        className={`mx-auto mt-1 flex h-6 w-6 items-center justify-center rounded-full font-mono text-[12.5px] font-bold tabular-nums ${
+                        className={`mx-auto mt-1.5 flex h-7 w-7 items-center justify-center rounded-full font-mono text-[13px] font-bold tabular-nums ${
                           i === todayIndex ? "bg-melt text-white" : "text-ink-3"
                         }`}
                       >
@@ -870,7 +870,7 @@ export function CalendarView() {
 
                   <div className="flex flex-col">
                     {CALENDAR_HOURS.map((h) => (
-                      <div key={h} style={{ height: ROW_H }} className="pr-2 text-right font-mono text-[11px] text-ink-3">
+                      <div key={h} style={{ height: ROW_H }} className="flex items-start justify-end pr-2.5 pt-0.5 font-mono text-[11.5px] text-ink-3">
                         {fmtHour(h)}
                       </div>
                     ))}

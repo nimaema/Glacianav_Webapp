@@ -577,7 +577,7 @@ export function feedsForOwner(ownerId: string): CalendarFeed[] {
 
 export const CALENDAR_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"] as const;
 export type CalendarDay = (typeof CALENDAR_DAYS)[number];
-export const CALENDAR_HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+export const CALENDAR_HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 
 export type CalendarEventKind = "interview" | "recording" | "busy" | "hold";
 
