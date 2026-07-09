@@ -1,9 +1,18 @@
-// ETL: fixtures.ts → the real schema. Run once against a freshly-migrated
-// database (`npm run db:push && npm run db:seed`) to get the same data the
-// UI has been running against all along, for real, so every screen can be
-// cut over from fixtures.ts to Drizzle queries with nothing changing on
-// screen. Re-running against a non-empty database will violate primary
-// key constraints by design — this seeds an empty database once.
+// SUPERSEDED (2026-07-09): the live database has since been migrated to
+// real data from the Notes/CRM apps (see migrate-real-data.ts) and the
+// fictional data this script inserts has been wiped. Do not run this
+// against the live project again — it would violate unique constraints
+// (profiles.email) and reintroduce the fictional customers/conversations
+// migrate-real-data.ts just removed. Kept only as a reference for the
+// fixtures.ts → schema.ts field-mapping conventions.
+//
+// Original purpose: ETL: fixtures.ts → the real schema. Run once against a
+// freshly-migrated database (`npm run db:push && npm run db:seed`) to get
+// the same data the UI has been running against all along, for real, so
+// every screen can be cut over from fixtures.ts to Drizzle queries with
+// nothing changing on screen. Re-running against a non-empty database will
+// violate primary key constraints by design — this seeds an empty database
+// once.
 
 // Env vars come from `tsx --env-file=.env.local` (see package.json's
 // db:seed script) — a plain in-file dotenv call doesn't work here because

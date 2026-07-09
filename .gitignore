@@ -41,6 +41,11 @@ yarn-error.log*
 # scaffold (no `supabase init` used), just machine-local CLI state
 /supabase/.temp
 
+# real internal data pulled from the Notes/CRM apps for the one-time
+# migration (src/db/migrate-real-data.ts) — recordings, transcripts,
+# real team/customer info. Never commit; script docs how it was extracted.
+/src/db/migration-data
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
