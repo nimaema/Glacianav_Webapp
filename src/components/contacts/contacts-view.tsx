@@ -5,14 +5,8 @@ import Link from "next/link";
 import { ArrowSquareOut, Check, IdentificationCard, PencilSimple, UserPlus, X } from "@phosphor-icons/react";
 import { PageHeader, HeaderStat } from "@/components/ui/page-header";
 import { ChannelBadge } from "@/components/customers/status-pills";
-import {
-  contacts as contactsSeed,
-  customers,
-  customerById,
-  segmentById,
-  type Contact,
-  type ContactChannel,
-} from "@/lib/fixtures";
+import { updateContact } from "@/lib/data/customers-actions";
+import type { Contact, ContactChannel, Customer, Segment } from "@/lib/fixtures";
 
 const inputClass =
   "recessed h-9 w-full px-2.5 text-[13.5px] text-ink outline-none placeholder:text-ink-3";
@@ -23,10 +17,21 @@ const CHANNELS: { key: ContactChannel; label: string }[] = [
   { key: "linkedin", label: "LinkedIn" },
 ];
 
-export function ContactsView() {
-  const [rows, setRows] = useState<Contact[]>(() => [...contactsSeed]);
+export function ContactsView({
+  contacts: initialContacts,
+  customers,
+  segments,
+}: {
+  contacts: Contact[];
+  customers: Customer[];
+  segments: Segment[];
+}) {
+  const [rows, setRows] = useState<Contact[]>(() => [...initialContacts]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Contact | null>(null);
+
+  const customerById = (id: string) => customers.find((c) => c.id === id);
+  const segmentById = (id: string) => segments.find((s) => s.id === id);
 
   const startEdit = (contact: Contact) => {
     setEditingId(contact.id);
@@ -54,11 +59,16 @@ export function ContactsView() {
       customerId: draft.customerId || undefined,
       preferredChannel: draft.preferredChannel ?? "email",
     };
-    const source = contactsSeed.find((contact) => contact.id === normalized.id);
-    if (source) Object.assign(source, normalized);
-    setRows((contacts) =>
-      contacts.map((contact) => (contact.id === normalized.id ? normalized : contact)),
-    );
+    setRows((rows) => rows.map((contact) => (contact.id === normalized.id ? normalized : contact)));
+    void updateContact(normalized.id, {
+      name: normalized.name,
+      role: normalized.role,
+      customerId: normalized.customerId,
+      email: normalized.email,
+      phone: normalized.phone,
+      linkedin: normalized.linkedin,
+      preferredChannel: normalized.preferredChannel,
+    });
     cancelEdit();
   };
 
@@ -83,6 +93,11 @@ export function ContactsView() {
       />
 
       <div className="mx-auto max-w-[1600px] px-7 py-6">
+        {rows.length === 0 ? (
+          <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">
+            No contacts yet. Add the first person to start linking them to accounts.
+          </p>
+        ) : (
         <div className="surfaced-lg overflow-x-auto p-1">
           <table className="w-full min-w-[980px] border-collapse text-[14.5px]">
             <thead>
@@ -274,6 +289,7 @@ export function ContactsView() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </>
   );

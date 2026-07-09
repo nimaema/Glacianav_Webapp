@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IdentificationCard } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/ui/page-header";
-import { createContact, customers, type ContactChannel } from "@/lib/fixtures";
+import { createContact } from "@/lib/data/customers-actions";
+import type { ContactChannel, Customer } from "@/lib/fixtures";
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -33,7 +34,7 @@ const CHANNELS: { key: ContactChannel; label: string }[] = [
   { key: "linkedin", label: "LinkedIn" },
 ];
 
-export function NewContactView() {
+export function NewContactView({ customers }: { customers: Customer[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
@@ -45,10 +46,10 @@ export function NewContactView() {
 
   const canSave = name.trim().length > 0;
 
-  const save = () => {
+  const save = async () => {
     const contactName = name.trim();
     if (!contactName) return;
-    createContact({
+    await createContact({
       name: contactName,
       role: role.trim() || undefined,
       email: email.trim() || undefined,

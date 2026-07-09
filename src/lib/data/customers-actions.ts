@@ -121,3 +121,31 @@ export async function createContact(input: {
   revalidateBoth();
   return { id };
 }
+
+export async function updateContact(
+  id: string,
+  patch: {
+    name: string;
+    role?: string;
+    customerId?: string;
+    email?: string;
+    phone?: string;
+    linkedin?: string;
+    preferredChannel?: ContactChannel;
+  },
+) {
+  await db
+    .update(contacts)
+    .set({
+      name: patch.name,
+      role: patch.role,
+      customerId: patch.customerId ?? null,
+      email: patch.email,
+      phone: patch.phone,
+      linkedin: patch.linkedin,
+      preferredChannel: patch.preferredChannel,
+    })
+    .where(eq(contacts.id, id));
+  revalidatePath("/contacts");
+  revalidateBoth();
+}

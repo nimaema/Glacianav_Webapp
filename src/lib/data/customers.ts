@@ -13,65 +13,13 @@ import { desc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { contacts, customers, profiles, segments, stages } from "@/db/schema";
 import type { Contact, Customer, Owner, Segment, Stage } from "@/lib/fixtures";
+import { toContactRow, toCustomerRow, toOwnerRow, toSegmentRow, toStageRow } from "@/lib/data/rows";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function toOwner(row: typeof profiles.$inferSelect): Owner {
-  return {
-    id: row.id,
-    name: row.name,
-    initials: row.initials,
-    color: row.color,
-    email: row.email ?? undefined,
-    role: row.role ?? undefined,
-    active: row.active ?? undefined,
-  };
-}
-
-function toSegment(row: typeof segments.$inferSelect): Segment {
-  return { id: row.id, name: row.name, color: row.color };
-}
-
-function toStage(row: typeof stages.$inferSelect): Stage {
-  return { key: row.key, label: row.label, tone: row.tone };
-}
-
-function toContact(row: typeof contacts.$inferSelect): Contact {
-  return {
-    id: row.id,
-    name: row.name,
-    role: row.role ?? undefined,
-    customerId: row.customerId ?? undefined,
-    email: row.email ?? undefined,
-    phone: row.phone ?? undefined,
-    linkedin: row.linkedin ?? undefined,
-    preferredChannel: row.preferredChannel ?? undefined,
-  };
-}
-
-function toCustomer(row: typeof customers.$inferSelect): Customer {
-  const lastTouched = row.lastTouchedAt ?? row.createdAt;
-  const idleDays = Math.max(0, Math.floor((Date.now() - lastTouched.getTime()) / DAY_MS));
-  return {
-    id: row.id,
-    name: row.name,
-    kind: row.kind,
-    segmentId: row.segmentId ?? "",
-    stage: row.stage ?? "",
-    followup: row.followup ?? "none",
-    problem: row.problem ?? "unknown",
-    compatibility: row.compatibility ?? null,
-    priority: row.priority ?? undefined,
-    website: row.website ?? undefined,
-    currentSolution: row.currentSolution ?? undefined,
-    interviewDate: row.interviewDate ?? undefined,
-    tags: row.tags ?? undefined,
-    idleDays,
-    ownerId: row.ownerId ?? "",
-    archived: row.archived ?? undefined,
-    nextStep: row.nextStep ?? undefined,
-  };
-}
+const toOwner = toOwnerRow;
+const toSegment = toSegmentRow;
+const toStage = toStageRow;
+const toContact = toContactRow;
+const toCustomer = toCustomerRow;
 
 export type CustomersPageData = {
   customers: Customer[];
