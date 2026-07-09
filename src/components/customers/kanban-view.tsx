@@ -8,7 +8,9 @@ import {
   primaryContactFor,
   segmentById,
   TONE_HEX,
+  type Contact,
   type Customer,
+  type Owner,
   type Segment,
   type Stage,
   type StageKey,
@@ -130,6 +132,8 @@ export function KanbanView({
   rows,
   stages,
   segments,
+  owners,
+  contacts,
   onOpen,
   onMoveStage,
   onAddStage,
@@ -139,13 +143,18 @@ export function KanbanView({
   rows: Customer[];
   stages: Stage[];
   segments: Segment[];
+  owners: Owner[];
+  contacts: Contact[];
   onOpen: (id: string) => void;
   onMoveStage: (id: string, stage: StageKey) => void;
   onAddStage: (label: string) => void;
   onRenameStage: (key: StageKey, label: string) => void;
   onArchive: (id: string) => void;
 }) {
-  const kanbanStages = stages.filter((s) => s.key !== "not_fit");
+  // "Not a fit" is a terminal/rejected stage — hidden from the active flow
+  // view, same convention as fixtures.ts's old "not_fit" exclusion, now
+  // pointed at the real stage key migrated from the CRM.
+  const kanbanStages = stages.filter((s) => s.key !== "not-a-fit");
   const { dragId, overKey, dragProps, dropProps } = useDnd((id, key) =>
     onMoveStage(id, key as StageKey),
   );
@@ -211,12 +220,12 @@ export function KanbanView({
                         {c.name}
                       </h3>
                       <p className="truncate text-[13px] text-ink-3">
-                        {primaryContactFor(c.id)?.name ?? "no contact yet"}
+                        {primaryContactFor(c.id, contacts)?.name ?? "no contact yet"}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <CardMenu onArchive={() => onArchive(c.id)} />
-                      <Avatar owner={ownerById(c.ownerId)} size={22} />
+                      <Avatar owner={ownerById(c.ownerId, owners)} size={22} />
                     </div>
                   </div>
                   <div className="mt-2.5 flex items-center justify-between gap-2">

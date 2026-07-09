@@ -58,19 +58,19 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
-      className={`relative mx-2 flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[15px] transition-colors duration-150 ${
+      className={`group relative mx-3 flex min-h-11 items-center gap-3 border-l-2 px-3 text-[14px] transition-colors duration-150 ${
         active
-          ? "bg-white/90 font-semibold text-ink"
-          : "text-ink-2 hover:bg-white/60 hover:text-ink"
+          ? "border-signal bg-white/[0.07] font-semibold text-white"
+          : "border-transparent text-deep-ink-2 hover:border-white/20 hover:bg-white/[0.04] hover:text-white"
       }`}
     >
       {active && (
         <span
           aria-hidden
-          className="absolute -left-2 top-1.5 bottom-1.5 w-0.5 rounded bg-melt"
+          className="absolute right-3 h-1.5 w-1.5 bg-signal"
         />
       )}
-      <IconEl size={18} className={active ? "text-melt" : "text-ink-3"} />
+      <IconEl size={18} className={active ? "text-signal" : "text-deep-ink-2"} />
       <span className="min-w-0 flex-1 truncate" title={item.label}>
         {item.label}
       </span>
@@ -86,17 +86,18 @@ export function Rail() {
   return (
     <nav
       aria-label="Primary"
-      className="hidden h-full w-[232px] shrink-0 flex-col border-r border-line-2 bg-white/50 md:flex"
+      className="hidden h-full w-[248px] shrink-0 flex-col bg-deep text-deep-ink md:flex"
     >
-      <div className="flex h-13 shrink-0 items-center border-b border-line-2 px-4 text-[15px] font-semibold tracking-[0.01em] text-ink">
-        GlaciaNav
+      <div className="flex h-20 shrink-0 items-center gap-3 border-b border-white/10 px-6">
+        <span className="grid h-8 w-8 place-items-center bg-signal font-mono text-[13px] font-bold text-deep">GN</span>
+        <div><p className="text-[15px] font-semibold tracking-[-0.01em]">GlaciaNav</p><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-deep-ink-2">Field workspace</p></div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-px overflow-y-auto pt-2.5">
+      <div className="flex flex-1 flex-col gap-1 overflow-y-auto py-4">
         {SECTIONS.map((section) => (
           <div key={section.label ?? "top"} className="flex flex-col gap-px">
             {section.label && (
-              <div className="px-4.5 pb-1 pt-3.5 text-[11.5px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+              <div className="px-6 pb-1 pt-5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-deep-ink-2">
                 {section.label}
               </div>
             )}
@@ -107,17 +108,17 @@ export function Rail() {
         ))}
       </div>
 
-      <div className="shrink-0 border-t border-line-2 py-2">
+      <div className="shrink-0 border-t border-white/10 py-3">
         {FOOT.map((item) => (
           <RailLink key={item.href} item={item} active={isActive(item.href)} />
         ))}
-        <div className="mx-2 mt-1.5 flex items-center gap-2.5 px-2.5 pb-1">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-melt text-[12px] font-bold text-white">
+        <div className="mx-3 mt-3 flex items-center gap-3 border-t border-white/10 px-3 pt-4">
+          <span className="flex h-8 w-8 items-center justify-center bg-white/10 text-[12px] font-bold text-signal">
             N
           </span>
-          <span className="text-[14.5px] font-semibold leading-tight text-ink">
+          <span className="text-[14px] font-semibold leading-tight text-white">
             Nima
-            <span className="block text-[12px] font-normal text-ink-3">admin</span>
+            <span className="block font-mono text-[10px] font-normal uppercase tracking-[0.12em] text-deep-ink-2">Admin</span>
           </span>
         </div>
       </div>

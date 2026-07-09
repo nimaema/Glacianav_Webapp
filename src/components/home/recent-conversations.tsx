@@ -26,7 +26,7 @@ function Wave({ points }: { points: number[] }) {
 
 export function RecentConversations({ items }: { items: RecentConversation[] }) {
   return (
-    <section aria-label="Recent conversations" className="mt-7">
+    <section aria-label="Recent conversations" className="mt-12 border-t border-ink/20 pt-6">
       <SectionHeader
         count={items.length}
         className="mb-3"
@@ -47,13 +47,13 @@ export function RecentConversations({ items }: { items: RecentConversation[] }) 
           Nothing shared with the team yet.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {items.map((c) => (
             <Link
               key={c.id}
               href={`/library?r=${c.id}`}
               data-rise
-              className="surfaced rise-on-hover flex items-center gap-4 px-4 py-3.5"
+              className="surfaced rise-on-hover flex min-h-24 items-center gap-4 p-5"
             >
               <Wave points={c.wave} />
               <div className="min-w-0 flex-1">

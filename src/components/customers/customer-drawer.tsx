@@ -17,14 +17,12 @@ import { Pill } from "@/components/ui/pill";
 import { Drawer } from "@/components/ui/drawer";
 import { DetailField } from "@/components/ui/detail-field";
 import {
-  conversationsForCustomer,
-  customerTasks,
-  detailsFor,
   ownerById,
   primaryContactFor,
   segmentById,
-  validationNotes,
+  type Contact,
   type Customer,
+  type Owner,
   type Segment,
   type Stage,
 } from "@/lib/fixtures";
@@ -55,27 +53,29 @@ export function CustomerDrawer({
   customer,
   stages,
   segments,
+  owners,
+  contacts,
   onClose,
 }: {
   customer: Customer | null;
   stages: Stage[];
   segments: Segment[];
+  owners: Owner[];
+  contacts: Contact[];
   onClose: () => void;
 }) {
   if (!customer) return null;
 
   const segment = segmentById(customer.segmentId, segments);
-  const owner = ownerById(customer.ownerId);
-  const contact = primaryContactFor(customer.id);
-  const conversations = conversationsForCustomer(customer.id);
-  const notes = validationNotes[customer.id] ?? [];
-
-  const openTasks =
-    conversations.reduce(
-      (sum, cv) =>
-        sum + (detailsFor(cv.id)?.actionItems?.filter((a) => a.status === "open").length ?? 0),
-      0,
-    ) + (customerTasks[customer.id]?.filter((t) => t.status === "open").length ?? 0);
+  const owner = ownerById(customer.ownerId, owners);
+  const contact = primaryContactFor(customer.id, contacts);
+  // TODO: real per-customer conversations/validation notes/tasks, once the
+  // Library cutover (conversation_participants join) lands — customers
+  // table has zero real rows right now anyway, so this drawer has nothing
+  // real to join against yet.
+  const conversations: { id: string; title: string; when: string; duration: string; wave: number[] }[] = [];
+  const notes: unknown[] = [];
+  const openTasks: number = 0;
 
   return (
     <Drawer open onClose={onClose} label={`${customer.name} quick view`}>
@@ -92,9 +92,7 @@ export function CustomerDrawer({
                 style={{ background: segment.color }}
               />
               {segment.name}
-              {primaryContactFor(customer.id) && (
-                <span>· {primaryContactFor(customer.id)!.name}</span>
-              )}
+              {contact && <span>· {contact.name}</span>}
             </p>
           </div>
           <button

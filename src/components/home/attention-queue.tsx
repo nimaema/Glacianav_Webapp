@@ -14,7 +14,7 @@ export function AttentionQueue({ items, skipId }: { items: AttentionItem[]; skip
   const rest = items.filter((i) => i.id !== skipId);
 
   return (
-    <section aria-label="Needs attention" className="flex flex-col gap-2.5">
+    <section aria-label="Needs attention" className="flex flex-col gap-3">
       <SectionHeader count={rest.length} className="mb-0.5">
         Needs attention
       </SectionHeader>
@@ -28,15 +28,15 @@ export function AttentionQueue({ items, skipId }: { items: AttentionItem[]; skip
             key={item.id}
             href={item.href}
             data-rise
-            className="surfaced rise-on-hover flex items-center gap-3 px-4 py-3"
+            className="surfaced rise-on-hover grid min-h-20 grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-4 sm:grid-cols-[auto_1fr_auto_auto]"
           >
             <Pill tone={meta.tone}>{meta.label}</Pill>
             <div className="min-w-0 flex-1">
-              <h3 className="truncate text-[15.5px] font-semibold text-ink">{item.title}</h3>
-              <p className="truncate text-[13.5px] text-ink-3">{item.reason}</p>
+              <h3 className="truncate text-[16px] font-semibold text-ink">{item.title}</h3>
+              <p className="truncate text-[14px] text-ink-2">{item.reason}</p>
             </div>
-            <span className="font-mono text-[12.5px] text-ink-3 tabular-nums">{item.when}</span>
-            <span className="h-8 shrink-0 cursor-pointer rounded-md border border-melt/60 px-3 text-[13.5px] font-bold leading-8 text-melt transition-colors duration-150 hover:bg-melt/10">
+            <span className="hidden font-mono text-[11px] text-ink-3 tabular-nums sm:block">{item.when}</span>
+            <span className="h-9 shrink-0 cursor-pointer border border-ink/20 px-3 text-[13px] font-bold leading-9 text-ink transition-colors hover:border-ink">
               {meta.action}
             </span>
           </Link>

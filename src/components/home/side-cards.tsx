@@ -22,7 +22,7 @@ function CardHeader({
 // with a way forward, not a fabricated schedule.
 export function TodayCard() {
   return (
-    <section data-rise className="surfaced px-4 py-3.5">
+    <section data-rise className="border-b border-ink/15 pb-6">
       <CardHeader icon={<CalendarBlank size={14} />}>Today</CardHeader>
       <p className="text-[13.5px] leading-relaxed text-ink-2">
         No calendar feed connected yet.
@@ -48,7 +48,7 @@ export function PipelineCard({ cadence, hasAnyCustomers }: { cadence: HomeData["
   const last = points[points.length - 1];
 
   return (
-    <section data-rise className="surfaced px-4 py-3.5">
+    <section data-rise className="border-b border-ink/15 pb-6">
       <CardHeader icon={<ChartBar size={14} />}>Pipeline pulse</CardHeader>
       {hasAnyCustomers ? null : (
         <Link
@@ -80,7 +80,7 @@ export function PipelineCard({ cadence, hasAnyCustomers }: { cadence: HomeData["
 
 export function ActivityCard({ items }: { items: HomeData["recentActivity"] }) {
   return (
-    <section data-rise className="surfaced px-4 py-3.5">
+    <section data-rise className="border-b border-ink/15 pb-6">
       <CardHeader icon={<UsersThree size={14} />}>Team activity</CardHeader>
       {items.length === 0 ? (
         <p className="text-[13.5px] text-ink-3">Nothing yet.</p>

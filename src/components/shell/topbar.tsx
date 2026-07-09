@@ -45,17 +45,17 @@ export function TopBar() {
   }, [newOpen]);
 
   return (
-    <header className="flex h-13 shrink-0 items-center gap-4 border-b border-line-2 bg-white/60 px-5">
+    <header className="flex h-20 shrink-0 items-center gap-4 border-b border-white/10 bg-deep px-5 text-deep-ink lg:px-8">
       <button
         type="button"
         onClick={() => window.dispatchEvent(new CustomEvent(OPEN_PALETTE_EVENT))}
-        className="flex h-9 w-70 max-w-[40vw] cursor-pointer items-center justify-between rounded-md bg-white/90 px-3 text-[14.5px] text-ink-3 shadow-[0_1px_2px_rgba(6,80,96,0.08)] transition-colors duration-150 hover:text-ink-2"
+        className="flex h-11 w-80 max-w-[45vw] cursor-pointer items-center justify-between border border-white/15 bg-white/[0.04] px-4 text-[14px] text-deep-ink-2 transition-colors hover:border-white/30 hover:text-white"
       >
         <span className="flex items-center gap-2">
           <MagnifyingGlass size={15} />
           Search
         </span>
-        <kbd className="rounded border border-line px-1 font-mono text-[11.5px] text-ink-3">
+        <kbd className="border border-white/15 px-1.5 py-0.5 font-mono text-[10px] text-deep-ink-2">
           ⌘K
         </kbd>
       </button>
@@ -67,9 +67,9 @@ export function TopBar() {
             onClick={() => setNewOpen((v) => !v)}
             aria-expanded={newOpen}
             aria-haspopup="menu"
-            className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-white/90 px-3 text-[14.5px] font-semibold text-ink-2 shadow-[0_1px_2px_rgba(6,80,96,0.08)] transition-colors duration-150 hover:text-ink"
+            className="flex h-11 cursor-pointer items-center gap-2 bg-signal px-4 text-[14px] font-bold text-deep transition-colors hover:bg-white"
           >
-            <Plus size={15} className="text-melt" weight="bold" />
+            <Plus size={16} weight="bold" />
             New
           </button>
           {newOpen && (
@@ -120,7 +120,7 @@ export function TopBar() {
         <button
           type="button"
           aria-label="Notifications, 1 unread"
-          className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-md bg-white/90 text-ink-2 shadow-[0_1px_2px_rgba(6,80,96,0.08)] transition-colors duration-150 hover:text-ink"
+          className="relative flex h-11 w-11 cursor-pointer items-center justify-center border border-white/15 text-deep-ink-2 transition-colors hover:border-white/30 hover:text-white"
         >
           <Bell size={17} />
           <span
@@ -129,7 +129,7 @@ export function TopBar() {
           />
         </button>
 
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-melt text-[13px] font-bold text-white">
+        <span className="flex h-11 w-11 items-center justify-center border border-white/15 bg-white/10 text-[13px] font-bold text-signal">
           N
         </span>
       </div>

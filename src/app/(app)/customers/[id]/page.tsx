@@ -1,9 +1,5 @@
 import { CustomerRoom } from "@/components/customers/customer-room";
-import { customers } from "@/lib/fixtures";
-
-export function generateStaticParams() {
-  return customers.map((c) => ({ id: c.id }));
-}
+import { getCustomersPageData } from "@/lib/data/customers";
 
 export default async function CustomerRoomPage({
   params,
@@ -11,5 +7,7 @@ export default async function CustomerRoomPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <CustomerRoom customerId={id} />;
+  const data = await getCustomersPageData();
+  const customer = data.customers.find((c) => c.id === id) ?? null;
+  return <CustomerRoom customer={customer} stages={data.stages} segments={data.segments} owners={data.owners} contacts={data.contacts} />;
 }

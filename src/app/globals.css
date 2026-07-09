@@ -1,178 +1,94 @@
 @import "tailwindcss";
 
-/* ═══ Firn tokens (light-first; "under the ice" dark ships later) ═══ */
+/* Northstar: an editorial field console for customer intelligence. */
 :root {
-  --ice-0: #e9f5f9;
-  --ice-1: #ddeff6;
-  --surface: #ffffff;
-  --surface-2: #f2f9fb;
-  --ink: #0a2e38;
-  --ink-2: #3e6470;
-  --ink-3: #54717e;
-  --line: #d2e5ec;
-  --line-2: #e2eef2;
-  --melt: #0295ac;
-  --melt-strong: #027487;
-  --melt-soft: rgba(2, 149, 172, 0.12);
-  --signal: #16cbdf;
-  --deep: #0b3d4d;
-  --deep-2: #0d4353;
-  --deep-ink: #d9eef2;
-  --deep-ink-2: #9cc3cc;
-  --c-cyan: #14b8ce;
-  --c-green: #27b577;
-  --c-violet: #6e5be8;
-  --c-coral: #f26d5f;
-  --c-blue: #2f6fd0;
-  --danger: #cf5040;
+  --ice-0: #e5e7df;
+  --ice-1: #d8dbd1;
+  --surface: #f6f7f1;
+  --surface-2: #eceee6;
+  --ink: #172019;
+  --ink-2: #4a554c;
+  --ink-3: #6b766d;
+  --line: #c8cec4;
+  --line-2: #d9ddd5;
+  --melt: #355c32;
+  --melt-strong: #244421;
+  --melt-soft: rgba(53, 92, 50, 0.12);
+  --signal: #d7f35b;
+  --deep: #111813;
+  --deep-2: #1c261e;
+  --deep-ink: #f3f5ed;
+  --deep-ink-2: #b8c2b8;
+  --c-cyan: #268f98;
+  --c-green: #3e854d;
+  --c-violet: #6f67a8;
+  --c-coral: #c96750;
+  --c-blue: #4d7399;
+  --danger: #b94d3f;
 }
 
 @theme inline {
-  --color-ice-0: var(--ice-0);
-  --color-ice-1: var(--ice-1);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-ink: var(--ink);
-  --color-ink-2: var(--ink-2);
-  --color-ink-3: var(--ink-3);
-  --color-line: var(--line);
-  --color-line-2: var(--line-2);
-  --color-melt: var(--melt);
-  --color-melt-strong: var(--melt-strong);
-  --color-signal: var(--signal);
-  --color-deep: var(--deep);
-  --color-deep-2: var(--deep-2);
-  --color-deep-ink: var(--deep-ink);
-  --color-deep-ink-2: var(--deep-ink-2);
-  --color-data-cyan: var(--c-cyan);
-  --color-data-green: var(--c-green);
-  --color-data-violet: var(--c-violet);
-  --color-data-coral: var(--c-coral);
-  --color-data-blue: var(--c-blue);
-  --color-danger: var(--danger);
-  --font-sans: var(--font-schibsted), "Helvetica Neue", system-ui, sans-serif;
-  --font-mono: var(--font-spline-mono), ui-monospace, Menlo, monospace;
-  --radius-firn: 10px;
-  --radius-firn-lg: 14px;
+  --color-ice-0: var(--ice-0); --color-ice-1: var(--ice-1);
+  --color-surface: var(--surface); --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink); --color-ink-2: var(--ink-2); --color-ink-3: var(--ink-3);
+  --color-line: var(--line); --color-line-2: var(--line-2);
+  --color-melt: var(--melt); --color-melt-strong: var(--melt-strong);
+  --color-signal: var(--signal); --color-deep: var(--deep); --color-deep-2: var(--deep-2);
+  --color-deep-ink: var(--deep-ink); --color-deep-ink-2: var(--deep-ink-2);
+  --color-data-cyan: var(--c-cyan); --color-data-green: var(--c-green);
+  --color-data-violet: var(--c-violet); --color-data-coral: var(--c-coral);
+  --color-data-blue: var(--c-blue); --color-danger: var(--danger);
+  --font-sans: var(--font-schibsted), "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-spline-mono), ui-monospace, monospace;
+  --radius-firn: 4px; --radius-firn-lg: 8px;
 }
 
 @layer base {
+  * { box-sizing: border-box; }
+  html { text-rendering: optimizeLegibility; font-feature-settings: "kern" 1, "liga" 1; }
   body {
-    background: linear-gradient(180deg, var(--ice-0), var(--ice-1));
+    background: var(--ice-0);
     color: var(--ink);
+    font-variant-numeric: lining-nums;
   }
-  :focus-visible {
-    outline: 2px solid var(--melt);
-    outline-offset: 2px;
-  }
+  ::selection { background: var(--signal); color: var(--deep); }
+  :focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
 }
 
-/* ═══ Depth grammar: surfaced objects and recessed pools.
-       1px-bordered boxes are not a sectioning device here. ═══ */
 @layer components {
   .surfaced {
-    background: linear-gradient(180deg, #ffffff, #fbfdfe);
+    background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: var(--radius-firn);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 1px 2px rgba(6, 80, 96, 0.08),
-      0 10px 20px -14px rgba(6, 80, 96, 0.45);
+    box-shadow: 4px 4px 0 rgba(17, 24, 19, 0.08);
   }
   .surfaced-lg {
-    background: linear-gradient(180deg, #fbfdfe, #f2f9fb);
+    background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: var(--radius-firn-lg);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 2px 6px -2px rgba(6, 80, 96, 0.18),
-      0 30px 60px -30px rgba(6, 80, 96, 0.55);
+    box-shadow: 10px 10px 0 rgba(17, 24, 19, 0.12);
   }
   .recessed {
-    background: rgba(11, 61, 77, 0.06);
-    border-radius: var(--radius-firn);
-    box-shadow:
-      inset 0 2px 6px -2px rgba(6, 80, 96, 0.18),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.5);
+    background: rgba(17, 24, 19, 0.055);
+    border-left: 3px solid var(--line);
+    border-radius: 0 var(--radius-firn) var(--radius-firn) 0;
   }
-  .risen {
-    transform: translateY(-1px);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 1px 2px rgba(6, 80, 96, 0.08),
-      0 14px 26px -14px rgba(6, 80, 96, 0.5),
-      0 0 0 1.5px rgba(2, 149, 172, 0.4);
-  }
-  .rise-on-hover {
-    transition:
-      transform 180ms ease,
-      box-shadow 180ms ease;
-  }
-  .rise-on-hover:hover {
-    transform: translateY(-1px);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 2px 4px rgba(6, 80, 96, 0.1),
-      0 16px 30px -16px rgba(6, 80, 96, 0.55);
-  }
-  /* strata section grounds, used when a page stacks bands */
-  .strata-line {
-    border-top: 1px solid rgba(11, 61, 77, 0.1);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  }
-  /* overlay entrances: drawers slide from the right, dialogs/palette surface up */
-  .anim-overlay-in {
-    animation: overlay-in 150ms ease both;
-  }
-  .anim-drawer-in {
-    animation: drawer-in 180ms ease both;
-  }
-  .anim-palette-in {
-    animation: palette-in 150ms ease both;
-  }
+  .risen { border-color: var(--ink); box-shadow: 6px 6px 0 rgba(17, 24, 19, 0.16); }
+  .rise-on-hover { transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease; }
+  .rise-on-hover:hover { transform: translate(-2px, -2px); border-color: var(--ink); box-shadow: 7px 7px 0 rgba(17, 24, 19, 0.14); }
+  .strata-line { border-top: 1px solid var(--line); }
+  .anim-overlay-in { animation: overlay-in 150ms ease both; }
+  .anim-drawer-in { animation: drawer-in 180ms ease both; }
+  .anim-palette-in { animation: palette-in 150ms ease both; }
 }
 
-@keyframes overlay-in {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes drawer-in {
-  from {
-    transform: translateX(18px);
-    opacity: 0;
-  }
-}
-@keyframes palette-in {
-  from {
-    transform: translateY(8px);
-    opacity: 0;
-  }
-}
-
-/* live-recording waveform bars; duration/delay set per bar inline */
-.wave-bar {
-  transform-origin: center;
-  animation: wave-level 1s ease-in-out infinite alternate;
-}
-@keyframes wave-level {
-  from {
-    transform: scaleY(0.25);
-  }
-  to {
-    transform: scaleY(1);
-  }
-}
+@keyframes overlay-in { from { opacity: 0; } }
+@keyframes drawer-in { from { transform: translateX(18px); opacity: 0; } }
+@keyframes palette-in { from { transform: translateY(8px); opacity: 0; } }
+.wave-bar { transform-origin: center; animation: wave-level 1s ease-in-out infinite alternate; }
+@keyframes wave-level { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .rise-on-hover {
-    transition: none;
-  }
-  .rise-on-hover:hover {
-    transform: none;
-  }
-  .anim-overlay-in,
-  .anim-drawer-in,
-  .anim-palette-in,
-  .wave-bar {
-    animation: none;
-  }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  .rise-on-hover:hover { transform: none; }
 }

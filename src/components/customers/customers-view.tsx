@@ -23,23 +23,18 @@ import {
   saveVisibleColumns,
   type BoardColumnId,
 } from "@/lib/board-columns";
-import {
-  customers,
-  owners,
-  primaryContactFor,
-  segments as segmentsSeed,
-  stages as stagesSeed,
-  SEGMENT_COLOR_ROTATION,
-  type Customer,
-  type Segment,
-  type Stage,
-} from "@/lib/fixtures";
+import { primaryContactFor, type Contact, type Customer, type Owner, type Segment, type Stage } from "@/lib/fixtures";
+import { addSegment as addSegmentAction, moveCustomerSegment } from "@/lib/data/customers-actions";
+
+const SEGMENT_COLOR_ROTATION = ["#2f6fd0", "#14b8ce", "#27b577", "#6e5be8", "#f26d5f"];
 
 function OwnerFilterMenu({
   ownerId,
+  owners,
   onChange,
 }: {
   ownerId: string | null;
+  owners: Owner[];
   onChange: (id: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -149,9 +144,20 @@ function ColumnsMenu({
   );
 }
 
-export function CustomersView() {
+export function CustomersView({
+  customers,
+  segments: segmentsSeed,
+  stages,
+  owners,
+  contacts,
+}: {
+  customers: Customer[];
+  segments: Segment[];
+  stages: Stage[];
+  owners: Owner[];
+  contacts: Contact[];
+}) {
   const [rows, setRows] = useState<Customer[]>(customers);
-  const [stages] = useState<Stage[]>(stagesSeed);
   const [segments, setSegments] = useState<Segment[]>(segmentsSeed);
   const [search, setSearch] = useState("");
   const [ownerFilter, setOwnerFilter] = useState<string | null>(null);
@@ -180,14 +186,16 @@ export function CustomersView() {
 
   const moveSegment = useCallback((id: string, segmentId: string) => {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, segmentId } : r)));
+    void moveCustomerSegment(id, segmentId);
   }, []);
 
   const addSegment = useCallback((name: string) => {
     setSegments((ss) => {
-      const id = `custom-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${ss.length}`;
+      const id = `pending-${ss.length}`;
       const color = SEGMENT_COLOR_ROTATION[ss.length % SEGMENT_COLOR_ROTATION.length];
       return [...ss, { id, name, color }];
     });
+    void addSegmentAction(name);
   }, []);
 
   const toggleGroup = useCallback((key: string) => {
@@ -214,7 +222,7 @@ export function CustomersView() {
     if (!q) return true;
     return (
       c.name.toLowerCase().includes(q) ||
-      (primaryContactFor(c.id)?.name.toLowerCase().includes(q) ?? false)
+      (primaryContactFor(c.id, contacts)?.name.toLowerCase().includes(q) ?? false)
     );
   });
 
@@ -258,27 +266,49 @@ export function CustomersView() {
               className="w-40 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink-3"
             />
           </div>
-          <OwnerFilterMenu ownerId={ownerFilter} onChange={setOwnerFilter} />
+          <OwnerFilterMenu ownerId={ownerFilter} owners={owners} onChange={setOwnerFilter} />
           <ColumnsMenu visible={visibleColumns} onToggle={toggleColumn} />
         </div>
       </PageHeader>
 
       <div className="mx-auto max-w-[1600px] px-7 py-6">
-        <BoardView
-          rows={filteredRows}
-          stages={stages}
-          segments={segments}
-          stageFilter={stageFilter}
-          visibleColumns={visibleColumns}
-          collapsedGroups={collapsedGroups}
-          onToggleGroup={toggleGroup}
-          onOpen={open}
-          onMoveSegment={moveSegment}
-          onAddSegment={addSegment}
-        />
+        {rows.length === 0 ? (
+          <div className="surfaced flex flex-col items-center gap-3 px-6 py-14 text-center">
+            <Buildings size={28} className="text-ink-3" />
+            <div>
+              <p className="text-[15.5px] font-semibold text-ink">No customer accounts yet</p>
+              <p className="mt-1 text-[13.5px] text-ink-2">
+                Add your first account to start tracking validation.
+              </p>
+            </div>
+            <Link
+              href="/customers/new"
+              className="mt-1 flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-melt px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+            >
+              <UserPlus size={15} />
+              New customer
+            </Link>
+          </div>
+        ) : (
+          <BoardView
+            rows={filteredRows}
+            stages={stages}
+            segments={segments}
+            owners={owners}
+            contacts={contacts}
+            stageFilter={stageFilter}
+            visibleColumns={visibleColumns}
+            collapsedGroups={collapsedGroups}
+            onToggleGroup={toggleGroup}
+            onOpen={open}
+            onMoveSegment={moveSegment}
+            onAddSegment={addSegment}
+          />
+        )}
         <StageDock
           rows={filteredRows}
           stages={stages}
+          owners={owners}
           activeStage={stageFilter}
           onSelect={setStageFilter}
         />
@@ -286,6 +316,8 @@ export function CustomersView() {
           customer={openCustomer}
           stages={stages}
           segments={segments}
+          owners={owners}
+          contacts={contacts}
           onClose={close}
         />
       </div>

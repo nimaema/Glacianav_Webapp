@@ -55,7 +55,7 @@ export function CassDock() {
       {open && (
         <section
           aria-label="Cass assistant"
-          className="w-[360px] rounded-[14px] bg-deep p-4 text-deep-ink shadow-[0_30px_60px_-20px_rgba(3,20,26,0.6)]"
+          className="w-[min(390px,calc(100vw-2rem))] border border-white/15 bg-deep p-5 text-deep-ink shadow-[10px_10px_0_rgba(17,24,19,.22)]"
         >
           <div className="mb-3 flex items-center justify-between">
             <span className="flex items-center gap-2 text-[15px] font-semibold">
@@ -120,9 +120,9 @@ export function CassDock() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex h-10 cursor-pointer items-center gap-2 rounded-full bg-deep px-4 text-[15px] font-bold text-deep-ink shadow-[0_8px_20px_-8px_rgba(11,61,77,0.6)] transition-transform duration-150 hover:-translate-y-px"
+        className="flex h-12 cursor-pointer items-center gap-2 bg-signal px-5 text-[14px] font-bold text-deep shadow-[5px_5px_0_rgba(17,24,19,.2)] transition-transform hover:-translate-y-px"
       >
-        <Sparkle size={17} className="text-signal" />
+        <Sparkle size={17} />
         Cass
       </button>
     </div>

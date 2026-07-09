@@ -10,11 +10,11 @@ function Kpi({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`flex flex-col gap-1 ${divider ? "border-l border-line-2 pl-6" : ""}`}>
-      <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-ink-3">
+    <div className={`flex flex-col gap-2 ${divider ? "border-l border-white/15 pl-6" : ""}`}>
+      <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-deep-ink-2">
         {label}
       </span>
-      <div className="flex items-center gap-2.5">{children}</div>
+      <div className="flex items-center gap-2.5 text-[28px] text-white [&>span]:!text-white">{children}</div>
     </div>
   );
 }
@@ -28,22 +28,24 @@ export function HeaderBand({ greetingName, stats }: { greetingName: string; stat
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
-    <header className="border-b border-line-2 bg-white/55">
-      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-8 gap-y-4 px-7 pb-5 pt-6">
+    <header className="relative overflow-hidden bg-deep text-deep-ink">
+      <div aria-hidden className="absolute right-[8%] top-0 h-full w-px rotate-[18deg] bg-white/10" />
+      <div className="mx-auto flex max-w-[1680px] flex-wrap items-end justify-between gap-10 px-6 py-10 lg:px-10 lg:py-14">
         <div>
-          <h1 className="text-[26px] font-semibold tracking-[-0.015em] text-ink">
+          <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.16em] text-signal">Workspace briefing · {todayLabel()}</p>
+          <h1 className="max-w-[760px] text-[clamp(2.5rem,5vw,5.5rem)] font-semibold leading-[0.92] tracking-[-0.055em] text-white">
             {greeting}, {greetingName}
           </h1>
-          <p className="mt-0.5 text-[14.5px] text-ink-3">{todayLabel()}</p>
+          <p className="mt-5 max-w-[52ch] text-[15px] leading-relaxed text-deep-ink-2">Your customer signal, follow-ups, and fieldwork are organized below.</p>
         </div>
 
-        <dl className="flex flex-wrap items-center gap-6 lg:gap-8">
+        <dl className="grid grid-cols-3 gap-6 border-t border-white/15 pt-5 lg:min-w-[480px]">
           <Kpi label="Open tasks">
             <span className="font-mono text-[20px] font-bold leading-none text-ink tabular-nums">
               {stats.openTasks}
             </span>
           </Kpi>
-          <Kpi label="Recordings this week" divider>
+          <Kpi label="Recordings" divider>
             <span className="font-mono text-[20px] font-bold leading-none text-ink tabular-nums">
               {stats.recordingsThisWeek}
             </span>

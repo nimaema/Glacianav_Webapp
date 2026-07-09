@@ -19,21 +19,21 @@ export function SectionHeader({
   className?: string;
 }) {
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
+    <div className={`flex items-center gap-3 ${className}`}>
       {icon ? (
-        <span className="flex shrink-0 items-center text-ink-2">{icon}</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center bg-deep text-signal">{icon}</span>
       ) : (
         <span
           aria-hidden
-          className="h-4 w-[3px] shrink-0 rounded-full"
+          className="h-3 w-3 shrink-0"
           style={{ background: tick ?? "rgba(11,61,77,0.30)" }}
         />
       )}
-      <h2 className="whitespace-nowrap text-[12.5px] font-bold uppercase tracking-[0.11em] text-ink-2">
+      <h2 className="whitespace-nowrap font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-ink-2">
         {children}
       </h2>
       {count !== undefined && (
-        <span className="rounded-full bg-[rgba(11,61,77,0.07)] px-2 py-0.5 font-mono text-[11.5px] font-bold text-ink-2 tabular-nums">
+        <span className="border border-ink/15 px-2 py-0.5 font-mono text-[10px] font-bold text-ink-2 tabular-nums">
           {count}
         </span>
       )}

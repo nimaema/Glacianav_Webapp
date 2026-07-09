@@ -7,8 +7,9 @@ import { Pill } from "@/components/ui/pill";
 import {
   ownerById,
   primaryContactFor,
-  validationNotes,
+  type Contact,
   type Customer,
+  type Owner,
   type Segment,
   type Stage,
 } from "@/lib/fixtures";
@@ -102,7 +103,13 @@ type DragHandleProps = {
   onDragEnd?: () => void;
 };
 
-function cellContent(id: BoardColumnId, c: Customer, stages: Stage[]): React.ReactNode {
+function cellContent(
+  id: BoardColumnId,
+  c: Customer,
+  stages: Stage[],
+  contacts: Contact[],
+  notesCount: number,
+): React.ReactNode {
   const dash = <span className="text-[13px] text-ink-3">—</span>;
   switch (id) {
     case "stage":
@@ -116,7 +123,7 @@ function cellContent(id: BoardColumnId, c: Customer, stages: Stage[]): React.Rea
     case "compatibility":
       return <CompatibilityBadge compatibility={c.compatibility} />;
     case "channel": {
-      const channel = primaryContactFor(c.id)?.preferredChannel;
+      const channel = primaryContactFor(c.id, contacts)?.preferredChannel;
       return channel ? <ChannelBadge channel={channel} /> : dash;
     }
     case "tags":
@@ -154,11 +161,10 @@ function cellContent(id: BoardColumnId, c: Customer, stages: Stage[]): React.Rea
         dash
       );
     case "notes": {
-      const count = validationNotes[c.id]?.length ?? 0;
-      return count > 0 ? (
+      return notesCount > 0 ? (
         <span className="flex items-center gap-1 font-mono text-[13px] text-ink-2 tabular-nums">
           <NotePencil size={13} className="text-ink-3" />
-          {count}
+          {notesCount}
         </span>
       ) : (
         dash
@@ -172,6 +178,8 @@ function cellContent(id: BoardColumnId, c: Customer, stages: Stage[]): React.Rea
 function CustomerRow({
   c,
   stages,
+  owners,
+  contacts,
   visible,
   onOpen,
   dragProps,
@@ -179,11 +187,14 @@ function CustomerRow({
 }: {
   c: Customer;
   stages: Stage[];
+  owners: Owner[];
+  contacts: Contact[];
   visible: BoardColumnId[];
   onOpen: (id: string) => void;
   dragProps?: DragHandleProps;
   dimmed?: boolean;
 }) {
+  const primaryContact = primaryContactFor(c.id, contacts);
   return (
     <article
       role="button"
@@ -196,17 +207,15 @@ function CustomerRow({
     >
       <div className="min-w-0 truncate text-[14.5px]">
         <span className="font-semibold text-ink">{c.name}</span>
-        {primaryContactFor(c.id) && (
-          <span className="text-ink-3"> · {primaryContactFor(c.id)!.name}</span>
-        )}
+        {primaryContact && <span className="text-ink-3"> · {primaryContact.name}</span>}
       </div>
       {visible.map((id) => (
         <div key={id} className="min-w-0 overflow-hidden">
-          {cellContent(id, c, stages)}
+          {cellContent(id, c, stages, contacts, 0)}
         </div>
       ))}
       <div className="flex justify-end">
-        <Avatar owner={ownerById(c.ownerId)} size={32} />
+        <Avatar owner={ownerById(c.ownerId, owners)} size={32} />
       </div>
     </article>
   );
@@ -277,6 +286,8 @@ export function BoardView({
   rows,
   stages,
   segments,
+  owners,
+  contacts,
   stageFilter,
   visibleColumns,
   collapsedGroups,
@@ -288,6 +299,8 @@ export function BoardView({
   rows: Customer[];
   stages: Stage[];
   segments: Segment[];
+  owners: Owner[];
+  contacts: Contact[];
   stageFilter: string | null;
   visibleColumns: Set<BoardColumnId>;
   collapsedGroups: Set<string>;
@@ -340,6 +353,8 @@ export function BoardView({
                       key={c.id}
                       c={c}
                       stages={stages}
+                      owners={owners}
+                      contacts={contacts}
                       visible={visible}
                       onOpen={onOpen}
                       dragProps={dragProps(c.id)}

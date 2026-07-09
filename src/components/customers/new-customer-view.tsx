@@ -5,16 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Buildings, User } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/ui/page-header";
-import {
-  createContact,
-  createCustomer,
-  owners,
-  segments,
-  unassignedContacts,
-  type ContactChannel,
-  type CustomerKind,
-  type Priority,
-} from "@/lib/fixtures";
+import type { Contact, ContactChannel, CustomerKind, Owner, Priority, Segment } from "@/lib/fixtures";
+import { createContact, createCustomer } from "@/lib/data/customers-actions";
 
 const KINDS: { key: CustomerKind; label: string; icon: typeof Buildings }[] = [
   { key: "company", label: "Company", icon: Buildings },
@@ -179,7 +171,15 @@ function ContactFields({
   );
 }
 
-export function NewCustomerView() {
+export function NewCustomerView({
+  segments,
+  owners,
+  unassignedContacts: openContacts,
+}: {
+  segments: Segment[];
+  owners: Owner[];
+  unassignedContacts: Contact[];
+}) {
   const router = useRouter();
   const [kind, setKind] = useState<CustomerKind>("company");
   const [name, setName] = useState("");
@@ -188,7 +188,6 @@ export function NewCustomerView() {
   const [priority, setPriority] = useState<Priority | "">("");
   const [website, setWebsite] = useState("");
 
-  const openContacts = unassignedContacts();
   const [contactMode, setContactMode] = useState<"existing" | "new">(
     openContacts.length > 0 ? "existing" : "new",
   );
@@ -200,46 +199,56 @@ export function NewCustomerView() {
   const [phone, setPhone] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [preferredChannel, setPreferredChannel] = useState<ContactChannel>("email");
+  const [saving, setSaving] = useState(false);
 
-  const canSave = name.trim().length > 0;
+  const canSave = name.trim().length > 0 && !saving;
 
-  const save = () => {
+  const save = async () => {
     const customerName = name.trim();
     if (!customerName) return;
+    setSaving(true);
 
-    let contactId: string | undefined;
-    if (kind === "individual") {
-      contactId = createContact({
+    try {
+      let contactId: string | undefined;
+      if (kind === "individual") {
+        contactId = (
+          await createContact({
+            name: customerName,
+            role: role.trim() || undefined,
+            email: email.trim() || undefined,
+            phone: phone.trim() || undefined,
+            linkedin: linkedin.trim() || undefined,
+            preferredChannel,
+          })
+        ).id;
+      } else if (contactMode === "existing" && existingContactId) {
+        contactId = existingContactId;
+      } else if (contactMode === "new" && contactName.trim()) {
+        contactId = (
+          await createContact({
+            name: contactName.trim(),
+            role: role.trim() || undefined,
+            email: email.trim() || undefined,
+            phone: phone.trim() || undefined,
+            linkedin: linkedin.trim() || undefined,
+            preferredChannel,
+          })
+        ).id;
+      }
+
+      const customer = await createCustomer({
         name: customerName,
-        role: role.trim() || undefined,
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
-        linkedin: linkedin.trim() || undefined,
-        preferredChannel,
-      }).id;
-    } else if (contactMode === "existing" && existingContactId) {
-      contactId = existingContactId;
-    } else if (contactMode === "new" && contactName.trim()) {
-      contactId = createContact({
-        name: contactName.trim(),
-        role: role.trim() || undefined,
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
-        linkedin: linkedin.trim() || undefined,
-        preferredChannel,
-      }).id;
+        kind,
+        segmentId,
+        ownerId,
+        priority: priority || undefined,
+        website: website.trim() || undefined,
+        contactId,
+      });
+      router.push(`/customers/${customer.id}`);
+    } finally {
+      setSaving(false);
     }
-
-    const customer = createCustomer({
-      name: customerName,
-      kind,
-      segmentId,
-      ownerId,
-      priority: priority || undefined,
-      website: website.trim() || undefined,
-      contactId,
-    });
-    router.push(`/customers/${customer.id}`);
   };
 
   return (
@@ -421,11 +430,11 @@ export function NewCustomerView() {
           <div className="flex gap-2 pt-1">
             <button
               type="button"
-              onClick={save}
+              onClick={() => void save()}
               disabled={!canSave}
               className="h-10 cursor-pointer rounded-md bg-melt px-5 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Create customer
+              {saving ? "Creating…" : "Create customer"}
             </button>
             <Link
               href="/customers"

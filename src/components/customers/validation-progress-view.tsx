@@ -9,23 +9,35 @@ import { KanbanView } from "./kanban-view";
 import { CompatibilityBadge } from "./compatibility-badge";
 import { HeaderStat, PageHeader } from "@/components/ui/page-header";
 import {
-  customers,
   ownerById,
   primaryContactFor,
   segmentById,
-  segments as segmentsSeed,
-  stages as stagesSeed,
-  STAGE_TONE_ROTATION,
+  type Contact,
   type Customer,
+  type Owner,
   type Segment,
   type Stage,
   type StageKey,
 } from "@/lib/fixtures";
+import { addStage as addStageAction, moveCustomerStage, renameStage as renameStageAction, setCustomerArchived } from "@/lib/data/customers-actions";
 
-export function ValidationProgressView() {
+const STAGE_TONE_ROTATION = ["blue", "cyan", "green", "violet", "coral", "gray"] as const;
+
+export function ValidationProgressView({
+  customers,
+  segments,
+  stages: stagesSeed,
+  owners,
+  contacts,
+}: {
+  customers: Customer[];
+  segments: Segment[];
+  stages: Stage[];
+  owners: Owner[];
+  contacts: Contact[];
+}) {
   const [rows, setRows] = useState<Customer[]>(() => [...customers]);
   const [stages, setStages] = useState<Stage[]>(stagesSeed);
-  const [segments] = useState<Segment[]>(segmentsSeed);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,35 +53,27 @@ export function ValidationProgressView() {
   );
 
   const moveStage = useCallback((id: string, stage: StageKey) => {
-    setRows((rs) =>
-      rs.map((r) => {
-        if (r.id !== id) return r;
-        Object.assign(r, { stage });
-        return { ...r, stage };
-      }),
-    );
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, stage } : r)));
+    void moveCustomerStage(id, stage);
   }, []);
 
   const setArchived = useCallback((id: string, archived: boolean) => {
-    setRows((rs) =>
-      rs.map((r) => {
-        if (r.id !== id) return r;
-        Object.assign(r, { archived });
-        return { ...r, archived };
-      }),
-    );
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, archived } : r)));
+    void setCustomerArchived(id, archived);
   }, []);
 
   const addStage = useCallback((label: string) => {
     setStages((ss) => {
-      const key = `custom-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${ss.length}`;
+      const key = `pending-${ss.length}`;
       const tone = STAGE_TONE_ROTATION[ss.length % STAGE_TONE_ROTATION.length];
       return [...ss, { key, label, tone }];
     });
+    void addStageAction(label);
   }, []);
 
   const renameStage = useCallback((key: StageKey, label: string) => {
     setStages((ss) => ss.map((s) => (s.key === key ? { ...s, label } : s)));
+    void renameStageAction(key, label);
   }, []);
 
   const activeRows = rows.filter((c) => !c.archived);
@@ -104,6 +108,8 @@ export function ValidationProgressView() {
           rows={activeRows}
           stages={stages}
           segments={segments}
+          owners={owners}
+          contacts={contacts}
           onOpen={open}
           onMoveStage={moveStage}
           onAddStage={addStage}
@@ -140,11 +146,11 @@ export function ValidationProgressView() {
                         {customer.name}
                       </button>
                       <p className="truncate text-[12.5px] text-ink-3">
-                        {primaryContactFor(customer.id)?.name ?? segment.name}
+                        {primaryContactFor(customer.id, contacts)?.name ?? segment.name}
                       </p>
                     </div>
                     <CompatibilityBadge compatibility={customer.compatibility} />
-                    <Avatar owner={ownerById(customer.ownerId)} size={24} />
+                    <Avatar owner={ownerById(customer.ownerId, owners)} size={24} />
                     <button
                       type="button"
                       onClick={() => setArchived(customer.id, false)}
@@ -167,6 +173,8 @@ export function ValidationProgressView() {
           customer={openCustomer}
           stages={stages}
           segments={segments}
+          owners={owners}
+          contacts={contacts}
           onClose={close}
         />
       </div>

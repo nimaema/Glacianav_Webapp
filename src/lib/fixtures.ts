@@ -384,12 +384,12 @@ export const contacts: Contact[] = [
   },
 ];
 
-export function contactsForCustomer(customerId: string): Contact[] {
-  return contacts.filter((p) => p.customerId === customerId);
+export function contactsForCustomer(customerId: string, from: Contact[] = contacts): Contact[] {
+  return from.filter((p) => p.customerId === customerId);
 }
 
-export function primaryContactFor(customerId: string): Contact | undefined {
-  return contactsForCustomer(customerId)[0];
+export function primaryContactFor(customerId: string, from: Contact[] = contacts): Contact | undefined {
+  return contactsForCustomer(customerId, from)[0];
 }
 
 // Contacts not (yet) tied to any account — pickable when assigning a
@@ -518,8 +518,8 @@ export const teamActivity = [
 
 export const counts = { customers: 41, library: 128, work: 7, contacts: contacts.length };
 
-export function ownerById(id: string): Owner {
-  return owners.find((o) => o.id === id) ?? owners[0];
+export function ownerById(id: string, from: Owner[] = owners): Owner {
+  return from.find((o) => o.id === id) ?? from[0];
 }
 
 export function segmentById(id: string, from: Segment[] = segments): Segment {

@@ -1,7 +1,7 @@
 "use client";
 
 import { Avatar } from "@/components/ui/avatar";
-import { ownerById, TONE_HEX, type Customer, type Stage } from "@/lib/fixtures";
+import { ownerById, TONE_HEX, type Customer, type Owner, type Stage } from "@/lib/fixtures";
 
 /**
  * Floating stage filter, CRM-style: one pill per stage with a count and
@@ -11,11 +11,13 @@ import { ownerById, TONE_HEX, type Customer, type Stage } from "@/lib/fixtures";
 export function StageDock({
   rows,
   stages,
+  owners,
   activeStage,
   onSelect,
 }: {
   rows: Customer[];
   stages: Stage[];
+  owners: Owner[];
   activeStage: string | null;
   onSelect: (key: string | null) => void;
 }) {
@@ -54,7 +56,7 @@ export function StageDock({
                     key={id}
                     className={`rounded-full ring-2 ${active ? "ring-melt" : "ring-white"}`}
                   >
-                    <Avatar owner={ownerById(id)} size={20} />
+                    <Avatar owner={ownerById(id, owners)} size={20} />
                   </span>
                 ))}
               </span>

@@ -22,24 +22,18 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { ConversationRow } from "@/components/library/conversation-row";
 import { useOutsideClick } from "@/lib/use-outside-click";
 import {
-  conversationsForCustomer,
-  contacts as contactsSeed,
-  customerActivity,
-  customerById,
-  customerTasks,
-  detailsFor,
-  owners,
   ownerById,
-  segments,
   segmentById,
-  stages,
-  validationNotes,
   COMPATIBILITY_LEVELS,
   type Contact,
   type ContactChannel,
   type CompatibilityLevel,
+  type Conversation,
   type Customer,
   type ManualTask,
+  type Owner,
+  type Segment,
+  type Stage,
   type StageKey,
   type ValidationNote,
 } from "@/lib/fixtures";
@@ -158,13 +152,23 @@ function ReadField({
   );
 }
 
-// Looks the customer up on the client rather than trusting a server-side
-// prop: customers created via /customers/new only exist in the browser's
-// copy of the fixtures module (no backend yet), so a server-resolved lookup
-// would 404 on anything created after the last build.
-export function CustomerRoom({ customerId }: { customerId: string }) {
-  const c = customerById(customerId);
-  if (!c) {
+// Customer is resolved server-side now (real DB lookup, src/lib/data/
+// customers.ts) and passed in as a prop, rather than looked up client-side
+// from a fixtures array.
+export function CustomerRoom({
+  customer,
+  stages,
+  segments,
+  owners,
+  contacts,
+}: {
+  customer: Customer | null;
+  stages: Stage[];
+  segments: Segment[];
+  owners: Owner[];
+  contacts: Contact[];
+}) {
+  if (!customer) {
     return (
       <div className="mx-auto max-w-[560px] px-7 py-16 text-center">
         <p className="text-[16px] font-semibold text-ink">Customer not found</p>
@@ -180,10 +184,24 @@ export function CustomerRoom({ customerId }: { customerId: string }) {
       </div>
     );
   }
-  return <CustomerRoomInner customer={c} />;
+  return (
+    <CustomerRoomInner customer={customer} stages={stages} segments={segments} owners={owners} contacts={contacts} />
+  );
 }
 
-function CustomerRoomInner({ customer: c }: { customer: Customer }) {
+function CustomerRoomInner({
+  customer: c,
+  stages,
+  segments,
+  owners,
+  contacts: contactsSeed,
+}: {
+  customer: Customer;
+  stages: Stage[];
+  segments: Segment[];
+  owners: Owner[];
+  contacts: Contact[];
+}) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("Overview");
   const [editingOverview, setEditingOverview] = useState(false);
@@ -203,26 +221,32 @@ function CustomerRoomInner({ customer: c }: { customer: Customer }) {
   const [contactRows, setContactRows] = useState<Contact[]>(contactsSeed);
   const [contactToAdd, setContactToAdd] = useState("");
 
-  const segment = segmentById(segmentId);
-  const owner = ownerById(ownerId);
+  const segment = segmentById(segmentId, segments);
+  const owner = ownerById(ownerId, owners);
   const associatedContacts = contactRows.filter((p) => p.customerId === c.id);
   const availableContacts = contactRows.filter((p) => p.customerId !== c.id);
-  const convos = conversationsForCustomer(c.id);
-  const activity = customerActivity[c.id] ?? [];
+  // TODO: real per-customer conversations/activity/validation-notes/tasks
+  // once the Library cutover builds the conversation_participants join —
+  // customers table has zero real rows to join against right now anyway.
+  const convos: Conversation[] = [];
+  const activity: { when: string; text: string; ownerId: string }[] = [];
 
-  const [notes, setNotes] = useState<ValidationNote[]>(validationNotes[c.id] ?? []);
+  const [notes, setNotes] = useState<ValidationNote[]>([]);
   const [noteDraft, setNoteDraft] = useState("");
   const [addingNote, setAddingNote] = useState(false);
 
-  const conversationTasks = convos.flatMap((cv) =>
-    (detailsFor(cv.id)?.actionItems ?? []).map((a) => ({
-      ...a,
-      key: `${cv.id}-${a.id}`,
-      conversationId: cv.id as string | undefined,
-      conversationTitle: cv.title as string | undefined,
-    })),
-  );
-  const [manualTasks, setManualTasks] = useState<ManualTask[]>(customerTasks[c.id] ?? []);
+  const conversationTasks: {
+    id: string;
+    task: string;
+    assigneeIds: string[];
+    dueLabel?: string;
+    status: "open" | "done";
+    sourceMs?: number;
+    key: string;
+    conversationId?: string;
+    conversationTitle?: string;
+  }[] = [];
+  const [manualTasks, setManualTasks] = useState<ManualTask[]>([]);
   const [taskDraft, setTaskDraft] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const tasks = [
@@ -834,7 +858,7 @@ function CustomerRoomInner({ customer: c }: { customer: Customer }) {
                   <div className="flex flex-col gap-2.5">
                     {activity.slice(0, 3).map((a) => (
                       <div key={a.text} className="flex items-center gap-2.5 text-[13.5px] text-ink-2">
-                        <Avatar owner={ownerById(a.ownerId)} size={22} />
+                        <Avatar owner={ownerById(a.ownerId, owners)} size={22} />
                         <span className="min-w-0 flex-1 truncate">{a.text}</span>
                         <span className="shrink-0 font-mono text-[12.5px] font-semibold text-ink-2 tabular-nums">
                           {a.when}
@@ -864,7 +888,7 @@ function CustomerRoomInner({ customer: c }: { customer: Customer }) {
         {tab === "Validation notes" && (
           <div className="flex max-w-[860px] flex-col gap-3">
             {notes.map((n) => {
-              const who = ownerById(n.authorId);
+              const who = ownerById(n.authorId, owners);
               return (
                 <article key={n.id} className="surfaced px-5 py-4">
                   <p className="flex items-center gap-2.5 text-[13.5px]">
@@ -972,7 +996,7 @@ function CustomerRoomInner({ customer: c }: { customer: Customer }) {
                     <span className="flex shrink-0 -space-x-1.5">
                       {t.assigneeIds.map((id) => (
                         <span key={id} className="rounded-full ring-2 ring-white">
-                          <Avatar owner={ownerById(id)} size={22} />
+                          <Avatar owner={ownerById(id, owners)} size={22} />
                         </span>
                       ))}
                     </span>
@@ -1068,7 +1092,7 @@ function CustomerRoomInner({ customer: c }: { customer: Customer }) {
                     className="absolute -left-[26.5px] top-1.5 h-2.5 w-2.5 rounded-full bg-melt/60 ring-4 ring-[#eef7fa]"
                   />
                   <p className="flex items-center gap-2.5 text-[14px] text-ink">
-                    <Avatar owner={ownerById(a.ownerId)} size={22} />
+                    <Avatar owner={ownerById(a.ownerId, owners)} size={22} />
                     <span className="min-w-0 flex-1">{a.text}</span>
                     <span className="shrink-0 font-mono text-[12.5px] font-semibold text-ink-2 tabular-nums">
                       {a.when}
