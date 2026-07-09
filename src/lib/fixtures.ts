@@ -6,6 +6,9 @@ export type Owner = {
   name: string;
   initials: string;
   color: string; // data-palette hex
+  email?: string;
+  role?: "admin" | "member";
+  active?: boolean;
 };
 
 export type Segment = {
@@ -88,10 +91,47 @@ export type QueueItem = {
 };
 
 export const owners: Owner[] = [
-  { id: "nima", name: "Nima", initials: "N", color: "#0295ac" },
-  { id: "sara", name: "Sara", initials: "SA", color: "#6e5be8" },
-  { id: "jon", name: "Jon", initials: "JR", color: "#27b577" },
+  { id: "nima", name: "Nima", initials: "N", color: "#0295ac", email: "nima@glacianav.com", role: "admin", active: true },
+  { id: "sara", name: "Sara", initials: "SA", color: "#6e5be8", email: "sara@glacianav.com", role: "member", active: true },
+  { id: "jon", name: "Jon", initials: "JR", color: "#27b577", email: "jon@glacianav.com", role: "member", active: true },
 ];
+
+export type NotificationPrefs = {
+  staleDays: number;
+  followupLeadHours: number;
+  interviewLeadMinutes: number;
+  emailDigest: boolean;
+};
+
+export const notificationPrefs: Record<string, NotificationPrefs> = {
+  nima: { staleDays: 7, followupLeadHours: 24, interviewLeadMinutes: 30, emailDigest: true },
+  sara: { staleDays: 5, followupLeadHours: 12, interviewLeadMinutes: 15, emailDigest: true },
+  jon: { staleDays: 7, followupLeadHours: 24, interviewLeadMinutes: 30, emailDigest: false },
+};
+
+export type AppConfig = {
+  ssoEnabled: boolean;
+  ssoTenant: string;
+  allowedDomains: string[];
+  autoProvision: boolean;
+  publicIntake: boolean;
+};
+
+export const appConfig: AppConfig = {
+  ssoEnabled: true,
+  ssoTenant: "glacianav.onmicrosoft.com",
+  allowedDomains: ["glacianav.com"],
+  autoProvision: true,
+  publicIntake: true,
+};
+
+export const queueHealth = {
+  pending: 0,
+  processing: 1,
+  failed: 0,
+  last24h: 6,
+  avgProcessMinutes: 4.2,
+};
 
 export const segments: Segment[] = [
   { id: "heli", name: "Heli-ski operators", color: "#14b8ce" },
@@ -500,6 +540,78 @@ export const upNext = {
   prep: 'Last conversation: pain 8/10 · "We plan around the icefall, not through it."',
   customerId: "jokull",
 };
+
+// ─── Calendar: layered ICS feeds + this week's events ──────────────────
+// Mirrors the planned calendar_feeds/calendar_events schema: every user can
+// subscribe any number of external ICS links (Gmail, MS365, Apple…) plus
+// the always-on internal GlaciaNav feed (interviews, recordings, tasks).
+// Real sync is backend work — this is the UI shape ahead of that pipeline.
+
+export type CalendarFeedVisibility = "details" | "busy_only";
+
+export type CalendarFeed = {
+  id: string;
+  ownerId: string;
+  label: string;
+  color: string;
+  visibility: CalendarFeedVisibility;
+  internal?: boolean; // the always-on GlaciaNav feed, not a subscribed ICS link
+};
+
+export const calendarFeeds: CalendarFeed[] = [
+  { id: "f1", ownerId: "nima", label: "GlaciaNav", color: "#0295ac", visibility: "details", internal: true },
+  { id: "f2", ownerId: "nima", label: "Personal Gmail", color: "#6e5be8", visibility: "busy_only" },
+  { id: "f3", ownerId: "nima", label: "MS365 work", color: "#2f6fd0", visibility: "busy_only" },
+  { id: "f4", ownerId: "sara", label: "GlaciaNav", color: "#0295ac", visibility: "details", internal: true },
+  { id: "f5", ownerId: "sara", label: "MS365 work", color: "#2f6fd0", visibility: "busy_only" },
+  { id: "f6", ownerId: "jon", label: "GlaciaNav", color: "#0295ac", visibility: "details", internal: true },
+  { id: "f7", ownerId: "jon", label: "Personal Gmail", color: "#6e5be8", visibility: "busy_only" },
+];
+
+export function feedsForOwner(ownerId: string): CalendarFeed[] {
+  return calendarFeeds.filter((f) => f.ownerId === ownerId);
+}
+
+export const CALENDAR_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"] as const;
+export type CalendarDay = (typeof CALENDAR_DAYS)[number];
+export const CALENDAR_HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+
+export type CalendarEventKind = "interview" | "recording" | "busy" | "hold";
+
+export type CalendarEvent = {
+  id: string;
+  feedId: string;
+  ownerId: string;
+  day: CalendarDay;
+  startHour: number;
+  endHour: number;
+  title: string;
+  kind: CalendarEventKind;
+  customerId?: string;
+};
+
+export const calendarEvents: CalendarEvent[] = [
+  { id: "e1", feedId: "f1", ownerId: "nima", day: "Mon", startHour: 9, endHour: 10, title: "Team standup", kind: "busy" },
+  { id: "e2", feedId: "f1", ownerId: "nima", day: "Mon", startHour: 14, endHour: 15, title: "Interview · Jökull", kind: "interview", customerId: "jokull" },
+  { id: "e3", feedId: "f2", ownerId: "nima", day: "Mon", startHour: 16, endHour: 17, title: "Busy", kind: "busy" },
+  { id: "e4", feedId: "f1", ownerId: "nima", day: "Tue", startHour: 11, endHour: 12.5, title: "Demo debrief · ArcticOps", kind: "recording", customerId: "arcticops" },
+  { id: "e5", feedId: "f3", ownerId: "nima", day: "Wed", startHour: 9, endHour: 9.5, title: "Busy", kind: "busy" },
+  { id: "e6", feedId: "f1", ownerId: "nima", day: "Thu", startHour: 13, endHour: 13.5, title: "Follow-up · Meridian", kind: "interview", customerId: "meridian" },
+  { id: "e7", feedId: "f4", ownerId: "sara", day: "Mon", startHour: 9, endHour: 10, title: "Team standup", kind: "busy" },
+  { id: "e8", feedId: "f5", ownerId: "sara", day: "Mon", startHour: 13, endHour: 15, title: "Busy", kind: "busy" },
+  { id: "e9", feedId: "f4", ownerId: "sara", day: "Tue", startHour: 10, endHour: 11, title: "Interview · Salome Berger", kind: "interview", customerId: "jokull" },
+  { id: "e10", feedId: "f5", ownerId: "sara", day: "Wed", startHour: 14, endHour: 16, title: "Busy", kind: "busy" },
+  { id: "e11", feedId: "f4", ownerId: "sara", day: "Thu", startHour: 9, endHour: 10, title: "Team standup", kind: "busy" },
+  { id: "e12", feedId: "f6", ownerId: "jon", day: "Mon", startHour: 9, endHour: 10, title: "Team standup", kind: "busy" },
+  { id: "e13", feedId: "f7", ownerId: "jon", day: "Mon", startHour: 11, endHour: 12, title: "Busy", kind: "busy" },
+  { id: "e14", feedId: "f6", ownerId: "jon", day: "Wed", startHour: 10, endHour: 11, title: "Interview · Torres Alpine", kind: "interview" },
+  { id: "e15", feedId: "f7", ownerId: "jon", day: "Thu", startHour: 15, endHour: 17, title: "Busy", kind: "busy" },
+  { id: "e16", feedId: "f6", ownerId: "jon", day: "Fri", startHour: 9, endHour: 10, title: "Team standup", kind: "busy" },
+];
+
+export function eventsForOwner(ownerId: string): CalendarEvent[] {
+  return calendarEvents.filter((e) => e.ownerId === ownerId);
+}
 
 // ─── Library: topics + conversations (the notes-app model, unified) ───
 // Topics are user-created colored collections with their own members — the
