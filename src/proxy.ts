@@ -2,18 +2,26 @@
 // @supabase/ssr so a session doesn't silently expire mid-visit) and, once
 // AUTH_REQUIRED=true is set, redirects unauthenticated requests to /login.
 //
-// AUTH_REQUIRED defaults to unset/false on purpose: Azure SSO isn't
-// configured in the Supabase dashboard yet (needs a real Entra app
-// registration — see /login), so gating routes now would lock everyone out
-// with no way back in. Flip it on once a real sign-in has been verified to
-// work end-to-end.
+// Named proxy.ts, not middleware.ts: Next.js 16 renamed the convention, and
+// critically changed the default runtime — middleware.ts defaults to Edge
+// Runtime (deprecated, and where AUTH_REQUIRED wasn't reliably visible via
+// process.env in the self-hosted Docker deployment — worked in `docker run`
+// smoke tests, silently no-opped under docker-compose in production),
+// proxy.ts defaults to Node.js runtime, the same process.env every other
+// server file in this app already uses without issue.
+//
+// AUTH_REQUIRED defaults to unset/false when absent from .env on purpose:
+// Azure SSO must be configured in the Supabase dashboard first (needs a
+// real Entra app registration — see /login), so gating routes before that
+// would lock everyone out with no way back in. Flip it on once a real
+// sign-in has been verified to work end-to-end.
 
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   // No project connected yet (fixture-data phase) — skip rather than throw,
