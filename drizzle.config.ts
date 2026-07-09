@@ -1,5 +1,9 @@
 import { defineConfig } from "drizzle-kit";
-import "dotenv/config";
+import { config } from "dotenv";
+
+// Next.js reads .env.local by convention; plain `dotenv/config` only reads
+// .env by default, so point it at the same file explicitly.
+config({ path: ".env.local" });
 
 // Migrations need DDL, which Supabase's transaction pooler (DATABASE_URL,
 // port 6543) doesn't support — DIRECT_URL (session pooler or direct,

@@ -5,7 +5,11 @@
 // screen. Re-running against a non-empty database will violate primary
 // key constraints by design — this seeds an empty database once.
 
-import "dotenv/config";
+// Env vars come from `tsx --env-file=.env.local` (see package.json's
+// db:seed script) — a plain in-file dotenv call doesn't work here because
+// ESM fully evaluates ./client (which reads DATABASE_URL at module load
+// time) before any of this file's own top-level statements run, regardless
+// of where an in-file config() call sits relative to the import.
 import { db } from "./client";
 import * as schema from "./schema";
 import * as fx from "../lib/fixtures";

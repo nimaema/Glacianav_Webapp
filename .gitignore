@@ -37,6 +37,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# supabase CLI local cache (linked-project ref etc.) — not local dev
+# scaffold (no `supabase init` used), just machine-local CLI state
+/supabase/.temp
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
