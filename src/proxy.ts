@@ -22,11 +22,19 @@ import { type NextRequest, NextResponse } from "next/server";
 const PUBLIC_PATHS = ["/login", "/auth/callback"];
 
 export async function proxy(request: NextRequest) {
+  // TEMP DEBUG — remove once the production gating bug is isolated.
+  console.log("[proxy] hit", request.nextUrl.pathname, {
+    AUTH_REQUIRED: process.env.AUTH_REQUIRED,
+    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
+
   let response = NextResponse.next({ request });
 
   // No project connected yet (fixture-data phase) — skip rather than throw,
   // so the app keeps working exactly as before until env vars are set.
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.log("[proxy] early return: missing supabase env");
     return response;
   }
 
@@ -56,6 +64,7 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isPublicPath = PUBLIC_PATHS.some((p) => request.nextUrl.pathname.startsWith(p));
+  console.log("[proxy] gate check", { user: !!user, isPublicPath, willRedirect: process.env.AUTH_REQUIRED === "true" && !user && !isPublicPath });
 
   if (process.env.AUTH_REQUIRED === "true" && !user && !isPublicPath) {
     const loginUrl = new URL("/login", request.url);
