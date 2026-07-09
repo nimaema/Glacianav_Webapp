@@ -40,7 +40,7 @@ function Kpi({
 export function HeaderBand() {
   const { interviews, followups, processed } = kpis;
   return (
-    <header className="strata-line">
+    <header className="border-b border-line-2 bg-white/55">
       <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-8 gap-y-4 px-7 pb-5 pt-6">
         <div>
           <h1 className="text-[26px] font-semibold tracking-[-0.015em] text-ink">

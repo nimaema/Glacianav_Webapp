@@ -3,20 +3,14 @@
 import type { Icon } from "@phosphor-icons/react";
 
 /**
- * The module header band. Per DESIGN.md's depth grammar, sectioning never
- * uses a bordered/shadowed white card — that read as a second toolbar
- * stacked directly under the top bar (literally repeating the page title
- * that already sits there), which is exactly the "1px-bordered box for
- * sectioning" the design language rules out. This band sits flush on the
- * icefield instead, using `.strata-line` (the ground-transition hairline
- * DESIGN.md defines for stacked bands) as its only edge.
- *
- * Two rows, not one: identity + primary actions/stats share the top row so
- * a CTA or a stat strip always reads as "about this title" rather than
- * floating in the middle of the header. Meta description and secondary
- * controls (search, filters, lens tabs) share the row below — description
- * and controls are both "supporting" content, so pairing them keeps a
- * tablist from ever looking orphaned between the title and the stats.
+ * The module header band — a distinct, grounded stratum (own flat tint +
+ * hairline edge), not a floating title with nothing under it and not the
+ * old bordered/shadowed white card either (that duplicated the top bar's
+ * own chrome). Two rows: identity + primary actions/stats share the top
+ * row so a CTA or a stat strip always reads as "about this title" rather
+ * than floating in the middle. Meta description and secondary controls
+ * (search, filters, lens tabs) share the row below, paired instead of
+ * orphaned between the title and the stats.
  */
 export function PageHeader({
   title,
@@ -32,7 +26,7 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="strata-line">
+    <header className="border-b border-line-2 bg-white/55">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-7 pb-5 pt-6">
         <div className="flex flex-wrap items-center gap-4">
           {IconEl && (
