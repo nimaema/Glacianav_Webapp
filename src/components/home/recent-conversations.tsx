@@ -1,34 +1,34 @@
 import Link from "next/link";
-import { ArrowRight } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, Microphone } from "@phosphor-icons/react/dist/ssr";
 import { Pill } from "@/components/ui/pill";
 import { SectionHeader } from "@/components/ui/section-header";
-import { statusChips } from "@/lib/conversation-status";
-import { conversations, participantsFor, topicById } from "@/lib/fixtures";
+import type { RecentConversation } from "@/lib/data/home";
 
 function Wave({ points }: { points: number[] }) {
+  // Real recordings migrated from the Notes app don't have stored waveform
+  // samples (that data lived client-side during capture, not persisted) —
+  // a plain mic glyph reads better than an empty/flat bar chart.
+  if (points.length === 0) {
+    return (
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-melt/10 text-melt" aria-hidden>
+        <Microphone size={13} weight="bold" />
+      </span>
+    );
+  }
   return (
     <span className="flex h-6 shrink-0 items-end gap-[2.5px]" aria-hidden>
       {points.map((v, i) => (
-        <span
-          key={i}
-          className="w-[3px] rounded-full bg-melt/70"
-          style={{ height: `${v}px` }}
-        />
+        <span key={i} className="w-[3px] rounded-full bg-melt/70" style={{ height: `${v}px` }} />
       ))}
     </span>
   );
 }
 
-// The two freshest processed recordings shared with the team.
-const recent = conversations
-  .filter((c) => c.shared && c.status !== "processing")
-  .slice(0, 2);
-
-export function RecentConversations() {
+export function RecentConversations({ items }: { items: RecentConversation[] }) {
   return (
     <section aria-label="Recent conversations" className="mt-7">
       <SectionHeader
-        count={recent.length}
+        count={items.length}
         className="mb-3"
         action={
           <Link
@@ -42,14 +42,13 @@ export function RecentConversations() {
       >
         Recent conversations
       </SectionHeader>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {recent.map((c) => {
-          const participants = participantsFor(c);
-          const context =
-            participants.length > 0
-              ? participants.map((p) => p.name).join(", ")
-              : topicById(c.topicId).name;
-          return (
+      {items.length === 0 ? (
+        <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">
+          Nothing shared with the team yet.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {items.map((c) => (
             <Link
               key={c.id}
               href={`/library?r=${c.id}`}
@@ -58,27 +57,21 @@ export function RecentConversations() {
             >
               <Wave points={c.wave} />
               <div className="min-w-0 flex-1">
-                <h3 className="truncate text-[15px] font-semibold text-ink">
-                  {c.title}
-                </h3>
+                <h3 className="truncate text-[15px] font-semibold text-ink">{c.title}</h3>
                 <p className="truncate text-[13.5px] text-ink-3">
-                  {context} ·{" "}
+                  {c.context} ·{" "}
                   <span className="font-mono text-[12.5px] tabular-nums">
-                    {c.when} · {c.duration}
+                    {c.when} · {c.durationLabel}
                   </span>
                 </p>
               </div>
               <div className="flex shrink-0 gap-1.5">
-                {statusChips(c).map((chip) => (
-                  <Pill key={chip.label} tone={chip.tone}>
-                    {chip.label}
-                  </Pill>
-                ))}
+                <Pill tone={c.reviewed ? "gray" : "green"}>{c.reviewed ? "Reviewed" : "Summary ready"}</Pill>
               </div>
             </Link>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

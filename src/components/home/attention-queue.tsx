@@ -1,55 +1,45 @@
+import Link from "next/link";
 import { Pill, type PillTone } from "@/components/ui/pill";
 import { SectionHeader } from "@/components/ui/section-header";
-import { queue, type QueueKind } from "@/lib/fixtures";
+import type { AttentionItem } from "@/lib/data/home";
 
-const KIND_META: Record<QueueKind, { label: string; tone: PillTone }> = {
-  interview: { label: "Interview", tone: "cyan" },
-  review: { label: "Review", tone: "violet" },
-  followup: { label: "Follow-up", tone: "coral" },
-  task: { label: "Task", tone: "green" },
-  stale: { label: "Stale", tone: "gray" },
+const KIND_META: Record<AttentionItem["kind"], { label: string; tone: PillTone; action: string }> = {
+  review: { label: "Review", tone: "violet", action: "Review" },
+  task: { label: "Task", tone: "green", action: "Open" },
 };
 
-// The imminent interview lives in the Up next hero card, not the queue.
-const items = queue.filter((item) => !(item.kind === "interview" && item.hot));
+// The top item already features in the Up next hero card — skip it here so
+// it isn't shown twice.
+export function AttentionQueue({ items, skipId }: { items: AttentionItem[]; skipId?: string }) {
+  const rest = items.filter((i) => i.id !== skipId);
 
-export function AttentionQueue() {
   return (
     <section aria-label="Needs attention" className="flex flex-col gap-2.5">
-      <SectionHeader count={items.length} className="mb-0.5">
+      <SectionHeader count={rest.length} className="mb-0.5">
         Needs attention
       </SectionHeader>
-      {items.map((item) => {
+      {rest.length === 0 && (
+        <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">Nothing else needs attention.</p>
+      )}
+      {rest.map((item) => {
         const meta = KIND_META[item.kind];
         return (
-          <article
+          <Link
             key={item.id}
+            href={item.href}
             data-rise
-            className={`surfaced rise-on-hover flex items-center gap-3 px-4 py-3 ${
-              item.hot ? "risen" : ""
-            }`}
+            className="surfaced rise-on-hover flex items-center gap-3 px-4 py-3"
           >
             <Pill tone={meta.tone}>{meta.label}</Pill>
             <div className="min-w-0 flex-1">
-              <h3 className="truncate text-[15.5px] font-semibold text-ink">
-                {item.title}
-              </h3>
+              <h3 className="truncate text-[15.5px] font-semibold text-ink">{item.title}</h3>
               <p className="truncate text-[13.5px] text-ink-3">{item.reason}</p>
             </div>
-            <span className="font-mono text-[12.5px] text-ink-3 tabular-nums">
-              {item.when}
+            <span className="font-mono text-[12.5px] text-ink-3 tabular-nums">{item.when}</span>
+            <span className="h-8 shrink-0 cursor-pointer rounded-md border border-melt/60 px-3 text-[13.5px] font-bold leading-8 text-melt transition-colors duration-150 hover:bg-melt/10">
+              {meta.action}
             </span>
-            <button
-              type="button"
-              className={`h-8 cursor-pointer rounded-md px-3 text-[13.5px] font-bold transition-colors duration-150 ${
-                item.hot
-                  ? "bg-melt text-white hover:bg-melt-strong"
-                  : "border border-melt/60 text-melt hover:bg-melt/10"
-              }`}
-            >
-              {item.action}
-            </button>
-          </article>
+          </Link>
         );
       })}
     </section>
