@@ -1,0 +1,140 @@
+"use client";
+
+import { CheckCircle, ListBullets, ListChecks } from "@phosphor-icons/react";
+import { Avatar } from "@/components/ui/avatar";
+import { Pill } from "@/components/ui/pill";
+import { DetailField } from "@/components/ui/detail-field";
+import { rowOpenHandlers } from "@/components/customers/row-open";
+import { statusChips } from "@/lib/conversation-status";
+import {
+  detailsFor,
+  ownerById,
+  participantsFor,
+  topicById,
+  type Conversation,
+  type Topic,
+} from "@/lib/fixtures";
+
+export function Wave({ points, dim }: { points: number[]; dim?: boolean }) {
+  return (
+    <span className="flex h-6 shrink-0 items-end gap-[2.5px]" aria-hidden>
+      {points.map((v, i) => (
+        <span
+          key={i}
+          className={`w-[3px] rounded-full ${dim ? "bg-[rgba(11,61,77,0.18)]" : "bg-melt/70"}`}
+          style={{ height: `${v}px` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+type DragHandleProps = {
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
+};
+
+/** An audio recording — waveform-led, with the notes-pipeline detail row
+ * (open actions / decisions / chapters). Distinct from NoteCard so the two
+ * content types never blur into each other in a list. */
+export function RecordingCard({
+  conversation: c,
+  onOpen,
+  showAuthor,
+  showVisibility,
+  dragProps,
+  dimmed,
+  topic: topicOverride,
+}: {
+  conversation: Conversation;
+  onOpen: (id: string) => void;
+  showAuthor?: boolean;
+  showVisibility?: boolean;
+  dragProps?: DragHandleProps;
+  dimmed?: boolean;
+  topic?: Topic;
+}) {
+  const topic = topicOverride ?? topicById(c.topicId);
+  const participants = participantsFor(c);
+  const author = ownerById(c.authorId);
+  const d = detailsFor(c.id);
+
+  const openActions = d?.actionItems?.filter((a) => a.status === "open").length ?? 0;
+  const decisionCount = d?.decisions?.length ?? 0;
+  const chapterCount = d?.chapters?.length ?? 0;
+
+  return (
+    <article
+      role="button"
+      {...rowOpenHandlers(onOpen, c.id)}
+      {...dragProps}
+      className={`surfaced rise-on-hover flex cursor-pointer items-start gap-4 px-4 py-3 ${
+        dimmed ? "opacity-45" : ""
+      }`}
+    >
+      <div className="flex shrink-0 flex-col items-center gap-1 pt-0.5">
+        <Wave points={c.wave} dim={c.status === "processing"} />
+        <span className="font-mono text-[11.5px] font-semibold text-ink-2 tabular-nums">
+          {c.duration}
+        </span>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <h3 className="truncate text-[15px] font-semibold text-ink">{c.title}</h3>
+          {participants.length > 0 && (
+            <span className="truncate text-[13px] text-ink-2">
+              {participants[0].name}
+              {participants.length > 1 && ` +${participants.length - 1}`}
+            </span>
+          )}
+        </div>
+
+        <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[13.5px] text-ink-2">
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 shrink-0 rounded-[2px]"
+            style={{ background: topic.color }}
+          />
+          {topic.name}
+          {showAuthor && <span>· {author.name}</span>}
+          {d && <span>· {d.source === "record" ? "recorded" : "uploaded"}</span>}
+          <span className="font-mono text-[13px] font-semibold tabular-nums">· {c.when}</span>
+        </p>
+
+        {(openActions > 0 || decisionCount > 0 || chapterCount > 0) && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            {openActions > 0 && (
+              <DetailField icon={<ListChecks size={13} />}>
+                {openActions} open action{openActions === 1 ? "" : "s"}
+              </DetailField>
+            )}
+            {decisionCount > 0 && (
+              <DetailField icon={<CheckCircle size={13} />}>
+                {decisionCount} decision{decisionCount === 1 ? "" : "s"}
+              </DetailField>
+            )}
+            {chapterCount > 0 && (
+              <DetailField icon={<ListBullets size={13} />}>
+                {chapterCount} chapter{chapterCount === 1 ? "" : "s"}
+              </DetailField>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {showVisibility && <Pill tone="gray">{c.shared ? "Shared" : "Private"}</Pill>}
+          {statusChips(c).map((chip) => (
+            <Pill key={chip.label} tone={chip.tone}>
+              {chip.label}
+            </Pill>
+          ))}
+        </div>
+        {showAuthor && <Avatar owner={author} size={28} />}
+      </div>
+    </article>
+  );
+}

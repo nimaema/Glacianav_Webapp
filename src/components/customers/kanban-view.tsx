@@ -1,0 +1,263 @@
+"use client";
+
+import { useState } from "react";
+import { Archive, Plus } from "@phosphor-icons/react";
+import { Avatar } from "@/components/ui/avatar";
+import {
+  ownerById,
+  primaryContactFor,
+  segmentById,
+  TONE_HEX,
+  type Customer,
+  type Segment,
+  type Stage,
+  type StageKey,
+} from "@/lib/fixtures";
+import { SectionHeader } from "@/components/ui/section-header";
+import { useDnd } from "@/lib/dnd";
+import { CompatibilityBadge } from "./compatibility-badge";
+import { rowOpenHandlers } from "./row-open";
+import { FollowupPill } from "./status-pills";
+
+// Every stage column is this width and never shrinks — however many stages
+// exist, they sit in one horizontal row and the board scrolls sideways
+// instead of ever wrapping columns onto a second line.
+const COLUMN_WIDTH = 300;
+
+function StageLabel({
+  stage,
+  onRename,
+}: {
+  stage: Stage;
+  onRename: (label: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(stage.label);
+
+  const commit = () => {
+    const label = draft.trim();
+    if (label) onRename(label);
+    else setDraft(stage.label);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") {
+            setDraft(stage.label);
+            setEditing(false);
+          }
+        }}
+        className="w-full bg-transparent text-[12.5px] font-bold uppercase tracking-[0.11em] text-ink-2 outline-none"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      title="Rename stage"
+      className="cursor-text whitespace-nowrap text-left text-[12.5px] font-bold uppercase tracking-[0.11em] text-ink-2 transition-colors duration-150 hover:text-ink"
+    >
+      {stage.label}
+    </button>
+  );
+}
+
+export function KanbanView({
+  rows,
+  stages,
+  segments,
+  onOpen,
+  onMoveStage,
+  onAddStage,
+  onRenameStage,
+  onArchive,
+}: {
+  rows: Customer[];
+  stages: Stage[];
+  segments: Segment[];
+  onOpen: (id: string) => void;
+  onMoveStage: (id: string, stage: StageKey) => void;
+  onAddStage: (label: string) => void;
+  onRenameStage: (key: StageKey, label: string) => void;
+  onArchive: (id: string) => void;
+}) {
+  const kanbanStages = stages.filter((s) => s.key !== "not_fit");
+  const { dragId, overKey, dragProps, dropProps } = useDnd((id, key) =>
+    onMoveStage(id, key as StageKey),
+  );
+
+  const [addingStage, setAddingStage] = useState(false);
+  const [newStageLabel, setNewStageLabel] = useState("");
+
+  const commitNewStage = () => {
+    const label = newStageLabel.trim();
+    if (label) onAddStage(label);
+    setNewStageLabel("");
+    setAddingStage(false);
+  };
+
+  return (
+    <div className="flex items-start gap-4 overflow-x-auto pb-2">
+      {kanbanStages.map((stage) => {
+        const cards = rows.filter((c) => c.stage === stage.key);
+        const isOver =
+          overKey === stage.key &&
+          dragId !== null &&
+          rows.find((c) => c.id === dragId)?.stage !== stage.key;
+        return (
+          <section
+            key={stage.key}
+            aria-label={stage.label}
+            {...dropProps(stage.key)}
+            style={{ width: COLUMN_WIDTH }}
+            className={`recessed flex shrink-0 flex-col gap-2.5 p-2.5 ${
+              isOver ? "outline-2 outline-dashed outline-melt/60 -outline-offset-2" : ""
+            }`}
+          >
+            <SectionHeader
+              count={cards.length}
+              className="px-1 pt-0.5"
+              tick={TONE_HEX[stage.tone]}
+            >
+              <StageLabel
+                stage={stage}
+                onRename={(label) => onRenameStage(stage.key, label)}
+              />
+            </SectionHeader>
+            {cards.map((c) => {
+              const segment = segmentById(c.segmentId, segments);
+              return (
+                <article
+                  key={c.id}
+                  role="button"
+                  {...rowOpenHandlers(onOpen, c.id)}
+                  {...dragProps(c.id)}
+                  className={`surfaced rise-on-hover relative cursor-pointer overflow-hidden py-3 pl-4.5 pr-3.5 ${
+                    dragId === c.id ? "opacity-45" : ""
+                  }`}
+                >
+                  <span
+                    aria-hidden
+                    className="absolute inset-y-0 left-0 w-[3px]"
+                    style={{ background: segment.color }}
+                  />
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-[15px] font-semibold text-ink">
+                        {c.name}
+                      </h3>
+                      <p className="truncate text-[13px] text-ink-3">
+                        {primaryContactFor(c.id)?.name ?? "no contact yet"}
+                      </p>
+                    </div>
+                    <Avatar owner={ownerById(c.ownerId)} size={22} />
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-between gap-2">
+                    <CompatibilityBadge compatibility={c.compatibility} />
+                    <FollowupPill followup={c.followup} />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onArchive(c.id);
+                    }}
+                    className="mt-2 flex h-7 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md text-[12.5px] font-bold text-ink-3 transition-colors duration-150 hover:bg-danger/10 hover:text-danger"
+                  >
+                    <Archive size={13} />
+                    Archive
+                  </button>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-1.5 rounded-[2px]"
+                      style={{ background: segment.color }}
+                    />
+                    <span className="truncate text-[12.5px] text-ink-3">
+                      {segment.name}
+                    </span>
+                    <span className="ml-auto whitespace-nowrap font-mono text-[12px] text-ink-3 tabular-nums">
+                      {c.idleDays === 0 ? "touched today" : `${c.idleDays} d idle`}
+                    </span>
+                  </div>
+                  {c.nextStep && (
+                    <p className="mt-2.5 truncate border-t border-line-2 pt-2 text-[13px] text-ink-2">
+                      <span className="text-ink-3">Next: </span>
+                      {c.nextStep}
+                    </p>
+                  )}
+                </article>
+              );
+            })}
+            {cards.length === 0 && (
+              <p className="px-1 pb-1 text-[13.5px] text-ink-3">
+                Nothing here yet. Drag a card over or change a Stage pill on the
+                board.
+              </p>
+            )}
+          </section>
+        );
+      })}
+
+      <div style={{ width: COLUMN_WIDTH }} className="flex shrink-0 flex-col gap-2.5 p-2.5">
+        {addingStage ? (
+          <div className="recessed flex flex-col gap-2 p-2.5">
+            <input
+              autoFocus
+              value={newStageLabel}
+              onChange={(e) => setNewStageLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitNewStage();
+                if (e.key === "Escape") {
+                  setNewStageLabel("");
+                  setAddingStage(false);
+                }
+              }}
+              placeholder="Stage name"
+              className="surfaced h-9 px-3 text-[14px] text-ink outline-none placeholder:text-ink-3"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={commitNewStage}
+                className="h-8 cursor-pointer rounded-md bg-melt px-3 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewStageLabel("");
+                  setAddingStage(false);
+                }}
+                className="h-8 cursor-pointer rounded-md px-3 text-[13px] font-bold text-ink-2 transition-colors duration-150 hover:bg-surface-2"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAddingStage(true)}
+            className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line text-[13px] font-bold text-ink-3 transition-colors duration-150 hover:border-melt/60 hover:text-melt"
+          >
+            <Plus size={15} weight="bold" />
+            Add stage
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
