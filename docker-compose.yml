@@ -1,0 +1,86 @@
+# Production stack: Next.js web + local MinIO (audio storage) + Cloudflare
+# Tunnel + Watchtower. Postgres is NOT here — it's Supabase-hosted (see
+# .env's DATABASE_URL), unlike the CRM app's stack which runs its own db
+# container.
+#
+#   1. Copy .env.example -> .env and fill it in
+#   2. docker login ghcr.io   (once, so the server can pull the private image)
+#   3. docker compose up -d
+#
+# On every push to main, GitHub Actions builds and publishes a new image to
+# GHCR; Watchtower notices it and redeploys `web` automatically.
+
+services:
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/nimaema/glacianav_webapp:latest}
+    restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    expose:
+      - "3000"
+    labels:
+      # Only Watchtower-managed container in this stack
+      com.centurylinklabs.watchtower.enable: "true"
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in .env}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in .env}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: create the audio bucket on first boot, then exit. Bucket stays
+  # PRIVATE (no anonymous access) — same posture as the Notes app's MinIO.
+  # Audio is served to the browser via an authenticated Next.js API route
+  # that proxies bytes from MinIO with Range support (for seeking), never
+  # by exposing MinIO's own endpoint publicly. See glacianav-notes'
+  # src/app/api/recordings/[id]/audio/route.ts for the pattern to mirror
+  # when real audio playback gets wired up.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY} &&
+      mc mb --ignore-existing local/${S3_BUCKET:-audio} &&
+      echo 'bucket ready'
+      "
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      - web
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?Set TUNNEL_TOKEN in .env}
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    restart: unless-stopped
+    environment:
+      DOCKER_API_VERSION: ${DOCKER_API_VERSION:-1.40}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # For a PRIVATE GHCR image, first run `sudo docker login ghcr.io` (creates
+      # the file), then uncomment the next line so Watchtower can pull updates:
+      # - /root/.docker/config.json:/config.json:ro
+    command: --label-enable --cleanup --rolling-restart --interval ${WATCHTOWER_INTERVAL:-60}
+
+volumes:
+  miniodata:
