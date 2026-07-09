@@ -1138,6 +1138,24 @@ export const customerTasks: Record<string, ManualTask[]> = {
       status: "open",
     },
   ],
+  kaukasus: [
+    {
+      id: "m1",
+      task: "Send updated pilot pricing sheet",
+      assigneeIds: ["nima"],
+      dueLabel: "Today",
+      status: "open",
+    },
+  ],
+  denali: [
+    {
+      id: "m1",
+      task: "Confirm rescheduled interview time",
+      assigneeIds: ["jon"],
+      dueLabel: "2d overdue",
+      status: "open",
+    },
+  ],
 };
 
 export type ActivityEvent = { when: string; text: string; ownerId: string };
