@@ -2,13 +2,21 @@
 // @supabase/ssr so a session doesn't silently expire mid-visit) and, once
 // AUTH_REQUIRED=true is set, redirects unauthenticated requests to /login.
 //
-// Named proxy.ts, not middleware.ts: Next.js 16 renamed the convention, and
-// critically changed the default runtime — middleware.ts defaults to Edge
-// Runtime (deprecated, and where AUTH_REQUIRED wasn't reliably visible via
-// process.env in the self-hosted Docker deployment — worked in `docker run`
-// smoke tests, silently no-opped under docker-compose in production),
-// proxy.ts defaults to Node.js runtime, the same process.env every other
-// server file in this app already uses without issue.
+// Named proxy.ts, not middleware.ts: Next.js 16 renamed the convention
+// (middleware.ts still works but is deprecated, and warns on every build).
+//
+// Production gating went through a confusing debugging saga worth a note:
+// requests kept returning 200 instead of redirecting even with
+// AUTH_REQUIRED=true confirmed present in the container's env. Two red
+// herrings got chased first (an empty middleware-manifest.json, and a
+// suspected Turbopack-vs-arch bundling bug) before temporary console.log
+// instrumentation in this file showed the real cause: the GitHub Actions
+// repo secret NEXT_PUBLIC_SUPABASE_URL (Settings → Secrets and variables →
+// Actions) was stale/empty, so it built into every image as undefined —
+// the early-return guard below was silently short-circuiting every
+// request. Re-saving that one secret and rebuilding fixed it outright.
+// Lesson: if this ever regresses, check the two NEXT_PUBLIC_* repo secrets
+// first, before anything more exotic.
 //
 // AUTH_REQUIRED defaults to unset/false when absent from .env on purpose:
 // Azure SSO must be configured in the Supabase dashboard first (needs a
@@ -22,19 +30,11 @@ import { type NextRequest, NextResponse } from "next/server";
 const PUBLIC_PATHS = ["/login", "/auth/callback"];
 
 export async function proxy(request: NextRequest) {
-  // TEMP DEBUG — remove once the production gating bug is isolated.
-  console.log("[proxy] hit", request.nextUrl.pathname, {
-    AUTH_REQUIRED: process.env.AUTH_REQUIRED,
-    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  });
-
   let response = NextResponse.next({ request });
 
   // No project connected yet (fixture-data phase) — skip rather than throw,
   // so the app keeps working exactly as before until env vars are set.
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    console.log("[proxy] early return: missing supabase env");
     return response;
   }
 
@@ -64,7 +64,6 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isPublicPath = PUBLIC_PATHS.some((p) => request.nextUrl.pathname.startsWith(p));
-  console.log("[proxy] gate check", { user: !!user, isPublicPath, willRedirect: process.env.AUTH_REQUIRED === "true" && !user && !isPublicPath });
 
   if (process.env.AUTH_REQUIRED === "true" && !user && !isPublicPath) {
     const loginUrl = new URL("/login", request.url);
