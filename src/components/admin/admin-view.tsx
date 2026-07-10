@@ -6,7 +6,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { PageHeader, HeaderStat } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Switch } from "@/components/ui/switch";
-import { appConfig as appConfigSeed, owners as ownersSeed, queueHealth, type Owner } from "@/lib/fixtures";
+import type { Owner } from "@/lib/fixtures";
+import type { AdminPageData } from "@/lib/data/settings";
+import { toggleUserActive, toggleUserRole, updateAppConfig } from "@/lib/data/settings-actions";
 
 function Stat({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string | number; tone?: string }) {
   return (
@@ -22,18 +24,20 @@ function Stat({ icon, label, value, tone }: { icon: React.ReactNode; label: stri
   );
 }
 
-export function AdminView() {
-  const [roster, setRoster] = useState<Owner[]>(ownersSeed);
-  const [config, setConfig] = useState(appConfigSeed);
+export function AdminView({ roster: initialRoster, config: initialConfig, queueHealth }: AdminPageData) {
+  const [roster, setRoster] = useState<Owner[]>(initialRoster);
+  const [config, setConfig] = useState(initialConfig);
 
   const toggleActive = (id: string) => {
-    setRoster((rs) => rs.map((o) => (o.id === id ? { ...o, active: !o.active } : o)));
+    const next = !roster.find((o) => o.id === id)?.active;
+    setRoster((rs) => rs.map((o) => (o.id === id ? { ...o, active: next } : o)));
+    void toggleUserActive(id, next);
   };
 
   const toggleRole = (id: string) => {
-    setRoster((rs) =>
-      rs.map((o) => (o.id === id ? { ...o, role: o.role === "admin" ? "member" : "admin" } : o)),
-    );
+    const nextRole = roster.find((o) => o.id === id)?.role === "admin" ? "member" : "admin";
+    setRoster((rs) => rs.map((o) => (o.id === id ? { ...o, role: nextRole } : o)));
+    void toggleUserRole(id, nextRole);
   };
 
   return (
@@ -91,7 +95,11 @@ export function AdminView() {
               <span className="text-[14px] font-semibold text-ink">Microsoft Entra SSO</span>
               <Switch
                 checked={config.ssoEnabled}
-                onChange={() => setConfig((c) => ({ ...c, ssoEnabled: !c.ssoEnabled }))}
+                onChange={() => {
+                  const next = !config.ssoEnabled;
+                  setConfig((c) => ({ ...c, ssoEnabled: next }));
+                  void updateAppConfig({ ssoEnabled: next });
+                }}
                 label="Toggle Microsoft SSO"
               />
             </div>
@@ -113,7 +121,11 @@ export function AdminView() {
               <span className="text-[14px] font-semibold text-ink">Auto-provision on first login</span>
               <Switch
                 checked={config.autoProvision}
-                onChange={() => setConfig((c) => ({ ...c, autoProvision: !c.autoProvision }))}
+                onChange={() => {
+                  const next = !config.autoProvision;
+                  setConfig((c) => ({ ...c, autoProvision: next }));
+                  void updateAppConfig({ autoProvision: next });
+                }}
                 label="Toggle auto-provisioning"
               />
             </div>
@@ -121,7 +133,11 @@ export function AdminView() {
               <span className="text-[14px] font-semibold text-ink">Public intake form</span>
               <Switch
                 checked={config.publicIntake}
-                onChange={() => setConfig((c) => ({ ...c, publicIntake: !c.publicIntake }))}
+                onChange={() => {
+                  const next = !config.publicIntake;
+                  setConfig((c) => ({ ...c, publicIntake: next }));
+                  void updateAppConfig({ publicIntake: next });
+                }}
                 label="Toggle public intake form"
               />
             </div>

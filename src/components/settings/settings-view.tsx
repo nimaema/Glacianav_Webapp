@@ -8,9 +8,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Switch } from "@/components/ui/switch";
 import { signOut } from "@/lib/auth/actions";
-import { notificationPrefs, owners, type NotificationPrefs } from "@/lib/fixtures";
-
-const CURRENT_USER = "nima";
+import type { Owner } from "@/lib/fixtures";
+import type { NotificationPrefs, SettingsPageData } from "@/lib/data/settings";
+import { updateMyProfile } from "@/lib/data/settings-actions";
 
 // Data-palette swatches, same set DESIGN.md reserves for owners/tags/calendar.
 const AVATAR_COLORS = ["#0295ac", "#14b8ce", "#27b577", "#6e5be8", "#f26d5f", "#2f6fd0"];
@@ -24,16 +24,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function SettingsView() {
-  const me = owners.find((o) => o.id === CURRENT_USER)!;
-  const [color, setColor] = useState(me.color);
-  const [prefs, setPrefs] = useState<NotificationPrefs>(
-    notificationPrefs[CURRENT_USER] ?? { staleDays: 7, followupLeadHours: 24, interviewLeadMinutes: 30, emailDigest: true },
-  );
+export function SettingsView({
+  me: initialMe,
+  prefs: initialPrefs,
+  team,
+  currentUserId,
+}: SettingsPageData & { currentUserId: string }) {
+  const [color, setColor] = useState(initialMe?.color ?? AVATAR_COLORS[0]);
+  const [prefs, setPrefs] = useState<NotificationPrefs>(initialPrefs);
+  const me: Owner | null = initialMe;
 
   const setColorApplied = (hex: string) => {
     setColor(hex);
-    Object.assign(me, { color: hex });
+    void updateMyProfile(currentUserId, { color: hex });
+  };
+
+  const setPref = (key: keyof NotificationPrefs, value: number | boolean) => {
+    setPrefs((p) => ({ ...p, [key]: value }));
+    void updateMyProfile(currentUserId, { [key]: value });
   };
 
   const num = (key: keyof NotificationPrefs) => (
@@ -41,7 +49,7 @@ export function SettingsView() {
       type="number"
       min={0}
       value={prefs[key] as number}
-      onChange={(e) => setPrefs((p) => ({ ...p, [key]: Number(e.target.value) }))}
+      onChange={(e) => setPref(key, Number(e.target.value))}
       className="recessed h-8 w-16 px-2 text-right font-mono text-[13.5px] text-ink outline-none"
     />
   );
@@ -54,44 +62,50 @@ export function SettingsView() {
         <section className="flex flex-col gap-2.5">
           <SectionHeader>Profile</SectionHeader>
           <div className="surfaced flex flex-col gap-4 px-5 py-4">
-            <div className="flex items-center gap-3.5">
-              <Avatar owner={{ ...me, color }} size={44} />
-              <div>
-                <p className="text-[15.5px] font-semibold text-ink">{me.name}</p>
-                <p className="text-[13px] text-ink-2">{me.email}</p>
-              </div>
-              <span className="ml-auto rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.06em] text-ink-2">
-                {me.role}
-              </span>
-              <button
-                type="button"
-                onClick={() => signOut()}
-                className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[13px] font-bold text-ink-2 transition-colors duration-150 hover:bg-danger/10 hover:text-danger"
-              >
-                <SignOut size={14} />
-                Sign out
-              </button>
-            </div>
-            <div>
-              <p className="mb-2 text-[12.5px] font-semibold text-ink-2">Avatar color</p>
-              <div className="flex gap-2">
-                {AVATAR_COLORS.map((hex) => (
+            {me ? (
+              <>
+                <div className="flex items-center gap-3.5">
+                  <Avatar owner={{ ...me, color }} size={44} />
+                  <div>
+                    <p className="text-[15.5px] font-semibold text-ink">{me.name}</p>
+                    <p className="text-[13px] text-ink-2">{me.email}</p>
+                  </div>
+                  <span className="ml-auto rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.06em] text-ink-2">
+                    {me.role}
+                  </span>
                   <button
-                    key={hex}
                     type="button"
-                    aria-label={`Use ${hex} as avatar color`}
-                    onClick={() => setColorApplied(hex)}
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full transition-shadow duration-150"
-                    style={{
-                      background: hex,
-                      boxShadow: color === hex ? `0 0 0 2px white, 0 0 0 4px ${hex}` : "none",
-                    }}
+                    onClick={() => signOut()}
+                    className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[13px] font-bold text-ink-2 transition-colors duration-150 hover:bg-danger/10 hover:text-danger"
                   >
-                    {color === hex && <Check size={13} weight="bold" className="text-white" />}
+                    <SignOut size={14} />
+                    Sign out
                   </button>
-                ))}
-              </div>
-            </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-[12.5px] font-semibold text-ink-2">Avatar color</p>
+                  <div className="flex gap-2">
+                    {AVATAR_COLORS.map((hex) => (
+                      <button
+                        key={hex}
+                        type="button"
+                        aria-label={`Use ${hex} as avatar color`}
+                        onClick={() => setColorApplied(hex)}
+                        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full transition-shadow duration-150"
+                        style={{
+                          background: hex,
+                          boxShadow: color === hex ? `0 0 0 2px white, 0 0 0 4px ${hex}` : "none",
+                        }}
+                      >
+                        {color === hex && <Check size={13} weight="bold" className="text-white" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-[14px] text-ink-2">Not signed in.</p>
+            )}
           </div>
         </section>
 
@@ -104,7 +118,7 @@ export function SettingsView() {
             <Field label="Daily email digest">
               <Switch
                 checked={prefs.emailDigest}
-                onChange={() => setPrefs((p) => ({ ...p, emailDigest: !p.emailDigest }))}
+                onChange={() => setPref("emailDigest", !prefs.emailDigest)}
                 label="Toggle daily email digest"
               />
             </Field>
@@ -113,7 +127,7 @@ export function SettingsView() {
 
         <section className="flex flex-col gap-2.5">
           <SectionHeader
-            count={owners.length}
+            count={team.length}
             action={
               <Link href="/admin" className="flex items-center gap-1 text-[12.5px] font-bold text-melt hover:text-melt-strong">
                 <ShieldCheck size={13} />
@@ -124,7 +138,7 @@ export function SettingsView() {
             Team
           </SectionHeader>
           <div className="surfaced flex flex-col px-5">
-            {owners.map((o) => (
+            {team.map((o) => (
               <div key={o.id} className="flex items-center gap-3 border-t border-line-2 py-3 first:border-t-0">
                 <Avatar owner={o} size={30} />
                 <div className="min-w-0 flex-1">
