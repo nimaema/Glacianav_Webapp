@@ -16,9 +16,7 @@ import {
   Microphone,
   NotePencil,
   PaperPlaneTilt,
-  Pause,
   PencilLine,
-  Play,
   Sparkle,
   Warning,
 } from "@phosphor-icons/react";
@@ -26,7 +24,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { AssigneePicker } from "@/components/ui/assignee-picker";
 import { Pill } from "@/components/ui/pill";
 import { SectionHeader } from "@/components/ui/section-header";
-import { RelationshipLinkPanel } from "./linked-section";
+import { FiledUnderPanel } from "@/components/ui/linked-records";
+import { PlaybackConsole } from "./playback-console";
 import {
   contactById,
   customerById,
@@ -42,6 +41,7 @@ import {
 } from "@/lib/fixtures";
 import {
   postConversationComment,
+  renameConversationSpeaker,
   toggleActionItemStatus,
   toggleConversationShare,
   updateConversationContacts,
@@ -63,130 +63,6 @@ function TraceChip({ ms, onSeek }: { ms: number; onSeek: (ms: number) => void })
     >
       {fmtMs(ms)}
     </button>
-  );
-}
-
-// Waveform bars stretched/repeated from the conversation's stored wave to
-// fill the track, with a accent-accent layer clip-revealed by progress —
-// the same reveal-on-play language the recording screen's live bars use.
-function waveBars(wave: number[], count: number) {
-  return Array.from({ length: count }, (_, i) => wave[i % wave.length]);
-}
-
-function AudioPlayer({
-  wave,
-  durationMs,
-  playheadMs,
-  playing,
-  markers,
-  chapterMarks,
-  onSeek,
-  onTogglePlay,
-}: {
-  wave: number[];
-  durationMs: number;
-  playheadMs: number;
-  playing: boolean;
-  markers: number[];
-  chapterMarks: number[];
-  onSeek: (ms: number) => void;
-  onTogglePlay: () => void;
-}) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const pct = (ms: number) => `${Math.min(100, (ms / durationMs) * 100)}%`;
-  const progress = durationMs > 0 ? Math.min(playheadMs / durationMs, 1) : 0;
-  const bars = useMemo(() => waveBars(wave, 64), [wave]);
-  const barHeights = useMemo(
-    () => bars.map((v) => Math.round(20 + (v / 20) * 80)),
-    [bars],
-  );
-
-  const seekFromEvent = (e: React.PointerEvent | React.MouseEvent) => {
-    const rect = trackRef.current!.getBoundingClientRect();
-    const frac = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
-    onSeek(Math.round(frac * durationMs));
-  };
-
-  return (
-    <div data-rise className="surfaced flex items-center gap-4 px-5 py-4">
-      <button
-        type="button"
-        onClick={onTogglePlay}
-        aria-label={playing ? "Pause" : "Play"}
-        className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_20px_-10px_rgba(61,111,166,0.6)] transition-transform duration-150 hover:-translate-y-px active:translate-y-0"
-      >
-        {playing ? <Pause size={20} weight="fill" /> : <Play size={20} weight="fill" />}
-      </button>
-
-      <div className="min-w-0 flex-1">
-        <div
-          ref={trackRef}
-          role="slider"
-          aria-label="Recording position"
-          aria-valuemin={0}
-          aria-valuemax={durationMs}
-          aria-valuenow={playheadMs}
-          aria-valuetext={fmtMs(playheadMs)}
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowRight") onSeek(Math.min(durationMs, playheadMs + 15_000));
-            if (e.key === "ArrowLeft") onSeek(Math.max(0, playheadMs - 15_000));
-            if (e.key === " ") {
-              e.preventDefault();
-              onTogglePlay();
-            }
-          }}
-          onPointerDown={seekFromEvent}
-          className="relative flex h-12 cursor-pointer items-center gap-[2.5px]"
-        >
-          {barHeights.map((h, i) => (
-            <span
-              key={i}
-              aria-hidden
-              className="flex-1 rounded-full bg-[rgba(23,32,43,0.16)]"
-              style={{ height: `${h}%` }}
-            />
-          ))}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 flex items-center gap-[2.5px]"
-            style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }}
-          >
-            {barHeights.map((h, i) => (
-              <span
-                key={i}
-                className={`flex-1 rounded-full bg-accent ${playing ? "wave-bar" : ""}`}
-                style={{
-                  height: `${h}%`,
-                  animationDuration: playing ? `${0.6 + (i % 5) / 10}s` : undefined,
-                }}
-              />
-            ))}
-          </div>
-          {chapterMarks.map((ms) => (
-            <span
-              key={`ch-${ms}`}
-              aria-hidden
-              className="pointer-events-none absolute -top-1 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[rgba(23,32,43,0.5)]"
-              style={{ left: pct(ms) }}
-            />
-          ))}
-          {markers.map((ms, i) => (
-            <span
-              key={`m-${i}`}
-              aria-hidden
-              className="pointer-events-none absolute -bottom-1 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-accent"
-              style={{ left: pct(ms) }}
-            />
-          ))}
-        </div>
-      </div>
-
-      <span className="shrink-0 font-mono text-[13px] font-bold text-ink tabular-nums">
-        {fmtMs(playheadMs)}
-        <span className="font-normal text-ink-2"> / {fmtMs(durationMs)}</span>
-      </span>
-    </div>
   );
 }
 
@@ -342,8 +218,19 @@ export function ConversationWorkspace({
 
   const [playheadMs, setPlayheadMs] = useState(0);
   const [playing, setPlaying] = useState(false);
+  // Real audio when the conversation has bytes in this workspace's storage;
+  // migrated notes-app recordings don't, so the transport falls back to a
+  // silent simulated playhead (transcript scrubbing still works) and the
+  // player shows an honest "audio not stored here" note.
+  const hasAudio = Boolean(c.hasAudio) && !isNote;
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [actions, setActions] = useState(d.actionItems ?? []);
   const [comments, setComments] = useState(d.comments ?? []);
+  const [speakers, setSpeakers] = useState(d.speakers ?? []);
+  const [editingSpeakerLabel, setEditingSpeakerLabel] = useState<string | null>(null);
+  const [speakerDraft, setSpeakerDraft] = useState("");
+  const [speakerSaving, setSpeakerSaving] = useState(false);
+  const [speakerError, setSpeakerError] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -358,10 +245,13 @@ export function ConversationWorkspace({
     .map((id) => contactById(id, contacts))
     .filter((x): x is NonNullable<typeof x> => x != null);
 
-  // No audio source until the capture pipeline lands; simulate the transport
-  // so play/pause and the waveform reveal are real, testable behavior now.
+  // When there's no real audio (migrated recordings), simulate the transport
+  // so play/pause and the waveform reveal still work for reading along with
+  // the transcript. When there IS audio, the <audio> element's own events
+  // drive playheadMs/playing instead (see handlers below), so this simulated
+  // ticker stays disabled.
   useEffect(() => {
-    if (!playing) return;
+    if (hasAudio || !playing) return;
     const t = setInterval(() => {
       setPlayheadMs((ms) => {
         if (ms + 250 >= d.durationMs) {
@@ -372,14 +262,26 @@ export function ConversationWorkspace({
       });
     }, 250);
     return () => clearInterval(t);
-  }, [playing, d.durationMs]);
+  }, [hasAudio, playing, d.durationMs]);
 
   const seek = (ms: number) => {
-    setPlayheadMs(Math.max(0, Math.min(d.durationMs, ms)));
+    const clamped = Math.max(0, Math.min(d.durationMs, ms));
+    setPlayheadMs(clamped);
+    if (hasAudio && audioRef.current) audioRef.current.currentTime = clamped / 1000;
+  };
+  const togglePlay = () => {
+    if (hasAudio && audioRef.current) {
+      const el = audioRef.current;
+      if (el.paused) void el.play().catch(() => setPlaying(false));
+      else el.pause();
+      return;
+    }
+    setPlaying((v) => !v);
   };
   const seekAndPlay = (ms: number) => {
     seek(ms);
-    setPlaying(true);
+    if (hasAudio && audioRef.current) void audioRef.current.play().catch(() => setPlaying(false));
+    else setPlaying(true);
   };
 
   const postComment = () => {
@@ -391,10 +293,44 @@ export function ConversationWorkspace({
     void postConversationComment({ conversationId: c.id, authorId: currentUserId, body, atMs });
   };
 
+  const canRenameSpeakers = !isNote && c.authorId === currentUserId;
   const speakerName = (label: string) =>
-    d.speakers?.find((s) => s.label === label)?.name ?? `Speaker ${label}`;
+    speakers.find((s) => s.label === label)?.name ?? `Speaker ${label}`;
   const speakerColor = (label: string) =>
-    d.speakers?.find((s) => s.label === label)?.color ?? "#4b5566";
+    speakers.find((s) => s.label === label)?.color ?? "#4b5566";
+
+  const beginSpeakerRename = (label: string) => {
+    setSpeakerError(null);
+    setEditingSpeakerLabel(label);
+    setSpeakerDraft(speakerName(label));
+  };
+
+  const saveSpeakerRename = async () => {
+    const label = editingSpeakerLabel;
+    const name = speakerDraft.trim();
+    if (!label || !name || speakerSaving) return;
+    setSpeakerSaving(true);
+    setSpeakerError(null);
+    try {
+      const result = await renameConversationSpeaker({
+        conversationId: c.id,
+        speakerLabel: label,
+        name,
+      });
+      setSpeakers((rows) =>
+        rows.map((speaker) =>
+          speaker.label === result.label ? { ...speaker, name: result.name } : speaker,
+        ),
+      );
+      setEditingSpeakerLabel(null);
+    } catch (cause) {
+      setSpeakerError(
+        cause instanceof Error ? cause.message : "Couldn’t rename this speaker.",
+      );
+    } finally {
+      setSpeakerSaving(false);
+    }
+  };
 
   const markers = useMemo(
     () =>
@@ -418,7 +354,7 @@ export function ConversationWorkspace({
         { label: "Actions open", value: `${openActions} / ${actions.length}` },
         { label: "Decisions", value: String(d.decisions?.length ?? 0) },
         { label: "Follow-ups", value: String(d.followUps?.length ?? 0) },
-        { label: "Speakers", value: String(d.speakers?.length ?? 1) },
+        { label: "Speakers", value: String(speakers.length || 1) },
       ];
 
   const copyShareLink = () => {
@@ -522,16 +458,32 @@ export function ConversationWorkspace({
         ) : (
           <div className="flex flex-col gap-5">
             {!isNote && (
-              <AudioPlayer
-                wave={c.wave}
-                durationMs={d.durationMs}
-                playheadMs={playheadMs}
-                playing={playing}
-                markers={markers}
-                chapterMarks={(d.chapters ?? []).map((ch) => ch.startMs)}
-                onSeek={seek}
-                onTogglePlay={() => setPlaying((v) => !v)}
-              />
+              <>
+                {hasAudio && (
+                  <audio
+                    ref={audioRef}
+                    src={`/api/recordings/${c.id}/audio`}
+                    preload="metadata"
+                    onPlay={() => setPlaying(true)}
+                    onPause={() => setPlaying(false)}
+                    onEnded={() => setPlaying(false)}
+                    onTimeUpdate={(e) => setPlayheadMs(Math.round(e.currentTarget.currentTime * 1000))}
+                    className="hidden"
+                  />
+                )}
+                <PlaybackConsole
+                  conversationId={c.id}
+                  durationMs={d.durationMs}
+                  playheadMs={playheadMs}
+                  playing={playing}
+                  chapters={d.chapters ?? []}
+                  markers={markers}
+                  wave={c.wave}
+                  audioAvailable={hasAudio}
+                  onSeek={seek}
+                  onTogglePlay={togglePlay}
+                />
+              </>
             )}
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -549,48 +501,52 @@ export function ConversationWorkspace({
                   ))}
                 </div>
 
-                <RelationshipLinkPanel
-                  customers={{
-                    linked: participants.map((p) => ({
-                      id: p.id,
-                      label: p.name,
-                      href: `/customers/${p.id}`,
-                    })),
-                    options: customers.map((cu) => ({ id: cu.id, label: cu.name })),
-                    onAdd: (id) =>
-                      setParticipantIds((ids) => {
-                        const next = ids.includes(id) ? ids : [...ids, id];
-                        void updateConversationParticipants(c.id, next);
-                        return next;
-                      }),
-                    onRemove: (id) =>
-                      setParticipantIds((ids) => {
-                        const next = ids.filter((x) => x !== id);
-                        void updateConversationParticipants(c.id, next);
-                        return next;
-                      }),
-                  }}
-                  contacts={{
-                    linked: linkedContacts.map((p) => ({
-                      id: p.id,
-                      label: p.name,
-                      sub: p.role,
-                      href: p.customerId ? `/customers/${p.customerId}` : undefined,
-                    })),
-                    options: contacts.map((p) => ({ id: p.id, label: p.name, sub: p.role })),
-                    onAdd: (id) =>
-                      setContactIds((ids) => {
-                        const next = ids.includes(id) ? ids : [...ids, id];
-                        void updateConversationContacts(c.id, next);
-                        return next;
-                      }),
-                    onRemove: (id) =>
-                      setContactIds((ids) => {
-                        const next = ids.filter((x) => x !== id);
-                        void updateConversationContacts(c.id, next);
-                        return next;
-                      }),
-                  }}
+                <FiledUnderPanel
+                  lanes={[
+                    {
+                      kind: "customers",
+                      linked: participants.map((p) => ({
+                        id: p.id,
+                        label: p.name,
+                        href: `/customers/${p.id}`,
+                      })),
+                      options: customers.map((cu) => ({ id: cu.id, label: cu.name })),
+                      onAdd: (id) =>
+                        setParticipantIds((ids) => {
+                          const next = ids.includes(id) ? ids : [...ids, id];
+                          void updateConversationParticipants(c.id, next);
+                          return next;
+                        }),
+                      onRemove: (id) =>
+                        setParticipantIds((ids) => {
+                          const next = ids.filter((x) => x !== id);
+                          void updateConversationParticipants(c.id, next);
+                          return next;
+                        }),
+                    },
+                    {
+                      kind: "people",
+                      linked: linkedContacts.map((p) => ({
+                        id: p.id,
+                        label: p.name,
+                        sub: p.role,
+                        href: p.customerId ? `/customers/${p.customerId}` : undefined,
+                      })),
+                      options: contacts.map((p) => ({ id: p.id, label: p.name, sub: p.role })),
+                      onAdd: (id) =>
+                        setContactIds((ids) => {
+                          const next = ids.includes(id) ? ids : [...ids, id];
+                          void updateConversationContacts(c.id, next);
+                          return next;
+                        }),
+                      onRemove: (id) =>
+                        setContactIds((ids) => {
+                          const next = ids.filter((x) => x !== id);
+                          void updateConversationContacts(c.id, next);
+                          return next;
+                        }),
+                    },
+                  ]}
                 />
 
                 {d.chapters && d.chapters.length > 0 && (
@@ -726,6 +682,7 @@ export function ConversationWorkspace({
                                 ),
                               )
                             }
+                            owners={owners}
                           />
                           {a.sourceMs != null && (
                             <TraceChip ms={a.sourceMs} onSeek={seekAndPlay} />
@@ -805,19 +762,81 @@ export function ConversationWorkspace({
                       icon={<FileText size={16} />}
                       className="mb-3"
                       action={
-                        <span className="flex items-center gap-3">
-                          {d.speakers?.map((s) => (
-                            <span key={s.label} className="flex items-center gap-1.5 text-[12.5px] font-semibold text-ink-2">
-                              <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-                              {s.name ?? `Speaker ${s.label}`}
-                              <PencilLine size={12} className="text-ink-3" />
-                            </span>
-                          ))}
+                        <span className="flex flex-wrap items-center justify-end gap-2">
+                          {speakers.map((speaker) =>
+                            editingSpeakerLabel === speaker.label ? (
+                              <form
+                                key={speaker.label}
+                                className="flex items-center gap-1"
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  void saveSpeakerRename();
+                                }}
+                              >
+                                <label className="sr-only" htmlFor={`speaker-${speaker.label}`}>
+                                  Rename Speaker {speaker.label}
+                                </label>
+                                <input
+                                  id={`speaker-${speaker.label}`}
+                                  autoFocus
+                                  value={speakerDraft}
+                                  maxLength={80}
+                                  onChange={(event) => setSpeakerDraft(event.target.value)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Escape") {
+                                      event.preventDefault();
+                                      setEditingSpeakerLabel(null);
+                                      setSpeakerError(null);
+                                    }
+                                  }}
+                                  className="recessed h-7 w-32 px-2 text-[12.5px] font-semibold text-ink outline-none"
+                                />
+                                <button
+                                  type="submit"
+                                  disabled={speakerSaving || !speakerDraft.trim()}
+                                  className="h-7 cursor-pointer rounded-md bg-accent px-2 text-[11.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong disabled:cursor-wait disabled:opacity-50"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={speakerSaving}
+                                  onClick={() => {
+                                    setEditingSpeakerLabel(null);
+                                    setSpeakerError(null);
+                                  }}
+                                  className="h-7 cursor-pointer rounded-md px-1.5 text-[11.5px] font-bold text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                              </form>
+                            ) : (
+                              <span key={speaker.label} className="flex items-center gap-1.5 text-[12.5px] font-semibold text-ink-2">
+                                <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: speaker.color }} />
+                                {speaker.name ?? `Speaker ${speaker.label}`}
+                                {canRenameSpeakers && (
+                                  <button
+                                    type="button"
+                                    onClick={() => beginSpeakerRename(speaker.label)}
+                                    aria-label={`Rename ${speaker.name ?? `Speaker ${speaker.label}`}`}
+                                    className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-accent"
+                                  >
+                                    <PencilLine size={12} />
+                                  </button>
+                                )}
+                              </span>
+                            ),
+                          )}
                         </span>
                       }
                     >
                       Transcript
                     </SectionHeader>
+                    {speakerError && (
+                      <p role="alert" className="mb-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[12.5px] font-medium leading-snug text-danger">
+                        {speakerError}
+                      </p>
+                    )}
                     <div className="flex flex-col gap-3">
                       {d.utterances.map((u) => (
                         <div key={u.startMs} className="flex items-start gap-3">

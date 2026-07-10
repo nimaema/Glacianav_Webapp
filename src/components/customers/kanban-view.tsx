@@ -77,8 +77,10 @@ function CardMenu({ onArchive }: { onArchive: () => void }) {
 
 // Every stage column is this width and never shrinks — however many stages
 // exist, they sit in one horizontal row and the board scrolls sideways
-// instead of ever wrapping columns onto a second line.
-const COLUMN_WIDTH = 300;
+// instead of ever wrapping columns onto a second line. Kept narrow since a
+// real board runs 6-8+ stages at once and each card is only ever a few
+// short lines — a wide column just stretches empty space around thin content.
+const COLUMN_WIDTH = 252;
 
 function StageLabel({
   stage,
@@ -255,10 +257,7 @@ export function KanbanView({
               );
             })}
             {cards.length === 0 && (
-              <p className="px-1 pb-1 text-[13.5px] text-ink-3">
-                Nothing here yet. Drag a card over or change a Stage pill on the
-                board.
-              </p>
+              <p className="px-1 pb-1 text-[12.5px] text-ink-3">Nothing here yet.</p>
             )}
           </section>
         );

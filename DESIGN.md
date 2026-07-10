@@ -126,7 +126,22 @@ instead.
   hard-offset "brutalist" shadow snapping.
 - The audio waveform's `.wave-bar` pulse and the recording REC dot are the
   only looping decorative motion in the app; nothing else loops.
+- Nova's loops are state-conveying, not decorative: the orb's gradient
+  drift, the mark's breathe, and the thinking dots run ONLY while a
+  request is actually in flight. Idle, Nova is perfectly still.
 - Reduced-motion preferences collapse every transition and animation.
+
+### 7b. Nova's identity
+
+Nova's mark is a four-ray stellar nova with a tilted orbital ring
+(`nova-mark.tsx`) — hand-rolled SVG, permitted as part of the brand-mark
+exception alongside the rail's pressure-ring glyph. It wears the aurora
+gradient (§5). In chat, Nova's replies are structured content, not plain
+bubbles: markdown renders fully (headings, tables, task lists, one
+callout max), tool runs show as green/red receipt chips, generated files
+show as format-colored artifact cards with a download affordance, and
+destructive confirmations are danger-tinted cards with an explicit
+Confirm / Keep it choice.
 
 ## 8. Typography and copy
 
@@ -139,7 +154,30 @@ instead.
 - Copy is direct, specific, and active. No decorative slogans or fabricated
   data.
 
-## 9. Accessibility
+## 9. Chart language
+
+Data on this instrument is drawn the way a meteogram is: quiet paper,
+precise plotting.
+
+- Grid: thin `--line-2` horizontal rules with mono y-labels; no boxes
+  around plot areas beyond the section's own `.surfaced` panel.
+- Series: flat `--accent` stroke (2-2.5px) over a very faint accent area
+  fill (≤8% opacity). Plotted points are station-plot circles — white fill
+  with an accent stroke — and the current period is the one filled point,
+  with a soft halo ring.
+- Reference lines (targets, thresholds): dashed ink, labeled in small
+  mono caps at the *left* end of the line, away from the newest data.
+- Axis and data labels: JetBrains Mono, tabular numerals.
+- Proportional bars (funnel, topics, workload): flat tinted fills with a
+  rounded-full right end, always scaled against the section's max value
+  and always paired with the mono count — the bar is a visual aid, the
+  number is the datum. Bars never exceed roughly half the row so labels
+  and counts stay dominant.
+- Empty measurement is stated, not decorated: a `recessed` panel with a
+  plain sentence and one CTA, never a fabricated flat-zero chart standing
+  in for missing data.
+
+## 10. Accessibility
 
 - All interactive controls have visible focus and a 44px target where
   practical.

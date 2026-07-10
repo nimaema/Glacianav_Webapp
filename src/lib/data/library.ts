@@ -53,6 +53,7 @@ function toTopic(row: typeof topics.$inferSelect, memberIds: string[]): Topic {
     color: row.color,
     visibility: row.visibility ?? "all",
     memberIds,
+    createdById: row.createdBy ?? undefined,
   };
 }
 
@@ -88,6 +89,7 @@ export function toConversation(
     decisionsCount: counts.decisionsCount,
     chapterCount: counts.chapterCount,
     source: row.source ?? undefined,
+    hasAudio: Boolean(row.audioUrl),
   };
 }
 
@@ -331,17 +333,29 @@ export type RecordPageData = {
   customers: Customer[];
   topics: Topic[];
   owners: Owner[];
+  contacts: Contact[];
 };
 
 export async function getRecordPageData(): Promise<RecordPageData> {
-  const [customerRows, topicRows, ownerRows] = await Promise.all([
+  const [customerRows, topicRows, topicMemberRows, ownerRows, contactRows] = await Promise.all([
     db.select().from(customers),
     db.select().from(topics),
+    db.select().from(topicMembers),
     db.select().from(profiles),
+    db.select().from(contacts),
   ]);
+  // Real memberIds/createdById so the record screen can offer only the
+  // topics the current user is actually allowed to file into.
+  const memberIdsByTopic = new Map<string, string[]>();
+  for (const r of topicMemberRows) {
+    const list = memberIdsByTopic.get(r.topicId) ?? [];
+    list.push(r.profileId);
+    memberIdsByTopic.set(r.topicId, list);
+  }
   return {
     customers: customerRows.map(toCustomerRow),
-    topics: topicRows.map((t) => ({ id: t.id, name: t.name, color: t.color, visibility: t.visibility ?? "all", memberIds: [] })),
+    topics: topicRows.map((row) => toTopic(row, memberIdsByTopic.get(row.id) ?? [])),
     owners: ownerRows.map(toOwnerRow),
+    contacts: contactRows.map(toContactRow),
   };
 }

@@ -16,6 +16,8 @@
 # next.js
 /.next/
 /out/
+/.nova-runtime/
+/.nova-jobs/
 
 # production
 /build

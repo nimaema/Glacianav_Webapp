@@ -70,13 +70,13 @@ const CONTACT_ITEMS: Item[] = contacts.map((p) => {
 
 // Create actions mirror the + New menu; they gain real behavior with capture.
 const ACTIONS: Item[] = [
-  { id: "act-record", group: "Create", label: "Record a conversation", icon: Microphone, hint: "⌘R", href: "/record" },
+  { id: "act-record", group: "Create", label: "Record a conversation", icon: Microphone, href: "/record" },
   { id: "act-upload", group: "Create", label: "Upload audio", icon: UploadSimple },
   { id: "act-customer", group: "Create", label: "New customer", icon: UserPlus, href: "/customers/new" },
   { id: "act-note", group: "Create", label: "New note", icon: NotePencil, href: "/library?new=note" },
 ];
 
-const ALL_ITEMS = [...DESTINATIONS, ...CUSTOMER_ITEMS, ...CONTACT_ITEMS, ...ACTIONS];
+const ALL_ITEMS = [...DESTINATIONS, ...ACTIONS, ...CUSTOMER_ITEMS, ...CONTACT_ITEMS];
 
 export function CommandPalette() {
   const router = useRouter();

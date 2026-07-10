@@ -125,11 +125,57 @@
   .anim-overlay-in { animation: overlay-in 150ms ease both; }
   .anim-drawer-in { animation: drawer-in 180ms ease both; }
   .anim-palette-in { animation: palette-in 150ms ease both; }
+
+  /* ─── Nova motion ───────────────────────────────────────────────
+     The orb wears the aurora gradient (one of the two allowed spots).
+     Loops here convey state only: the gradient drifts and the mark's
+     rays breathe while Nova is actually working — idle, everything
+     is still (DESIGN.md §7). */
+  .nova-orb {
+    background-image: linear-gradient(135deg, var(--aurora-1), var(--aurora-2) 55%, var(--aurora-3));
+    background-size: 100% 100%;
+  }
+  .nova-orb-busy {
+    background-size: 220% 220%;
+    animation: nova-drift 2.4s ease-in-out infinite;
+  }
+  .anim-nova-panel {
+    transform-origin: bottom right;
+    animation: nova-panel-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .anim-msg-in { animation: msg-in 200ms ease-out both; }
+  .nova-think-dot { animation: nova-dot 1.05s ease-in-out infinite; }
+  .nova-think-dot:nth-child(2) { animation-delay: 0.14s; }
+  .nova-think-dot:nth-child(3) { animation-delay: 0.28s; }
+  .nova-think-mark { animation: nova-breathe 1.6s ease-in-out infinite; }
+
+  /* ─── Login choreography ────────────────────────────────────────
+     The sign-in screen is the one full-bleed brand moment the app has:
+     elements rise in once on load (stagger set inline via
+     animation-delay), and the chart panel's aurora sheet drifts on a
+     very slow ambient loop — sanctioned only here, pre-auth, where no
+     work is being done. */
+  .anim-login-rise { animation: login-rise 550ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .login-aurora {
+    background:
+      radial-gradient(58% 42% at 18% 12%, color-mix(in srgb, var(--aurora-1) 22%, transparent), transparent 70%),
+      radial-gradient(52% 46% at 82% 30%, color-mix(in srgb, var(--aurora-2) 16%, transparent), transparent 70%),
+      radial-gradient(64% 50% at 45% 88%, color-mix(in srgb, var(--aurora-3) 18%, transparent), transparent 72%);
+    background-size: 130% 130%;
+    animation: login-aurora-drift 16s ease-in-out infinite alternate;
+  }
 }
 
 @keyframes overlay-in { from { opacity: 0; } }
 @keyframes drawer-in { from { transform: translateX(18px); opacity: 0; } }
 @keyframes palette-in { from { transform: translateY(8px); opacity: 0; } }
+@keyframes nova-panel-in { from { transform: translateY(10px) scale(0.97); opacity: 0; } }
+@keyframes msg-in { from { transform: translateY(6px); opacity: 0; } }
+@keyframes nova-drift { 0%, 100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
+@keyframes nova-dot { 0%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-3px); opacity: 1; } }
+@keyframes nova-breathe { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.12); opacity: 1; } }
+@keyframes login-rise { from { transform: translateY(14px); opacity: 0; } }
+@keyframes login-aurora-drift { from { background-position: 0% 0%; } to { background-position: 100% 100%; } }
 .wave-bar { transform-origin: center; animation: wave-level 1s ease-in-out infinite alternate; }
 @keyframes wave-level { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
 

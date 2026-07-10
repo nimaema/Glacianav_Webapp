@@ -3,12 +3,18 @@
 import { useState } from "react";
 import { CheckCircle, CircleNotch, ShieldCheck, WarningCircle } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
+import { ConfirmDialog } from "@/components/ui/dialog";
 import { PageHeader, HeaderStat } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Switch } from "@/components/ui/switch";
 import type { Owner } from "@/lib/fixtures";
 import type { AdminPageData } from "@/lib/data/settings";
-import { toggleUserActive, toggleUserRole, updateAppConfig } from "@/lib/data/settings-actions";
+import {
+  deleteWorkspaceUser,
+  toggleUserActive,
+  toggleUserRole,
+  updateAppConfig,
+} from "@/lib/data/settings-actions";
 
 function Stat({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string | number; tone?: string }) {
   return (
@@ -24,20 +30,64 @@ function Stat({ icon, label, value, tone }: { icon: React.ReactNode; label: stri
   );
 }
 
-export function AdminView({ roster: initialRoster, config: initialConfig, queueHealth }: AdminPageData) {
+export function AdminView({
+  roster: initialRoster,
+  config: initialConfig,
+  queueHealth,
+  currentUserId,
+}: AdminPageData & { currentUserId: string }) {
   const [roster, setRoster] = useState<Owner[]>(initialRoster);
   const [config, setConfig] = useState(initialConfig);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Owner | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const toggleActive = (id: string) => {
+  const toggleActive = async (id: string) => {
+    const previous = roster;
     const next = !roster.find((o) => o.id === id)?.active;
     setRoster((rs) => rs.map((o) => (o.id === id ? { ...o, active: next } : o)));
-    void toggleUserActive(id, next);
+    setPendingUserId(id);
+    setError(null);
+    try {
+      await toggleUserActive(id, next);
+    } catch (cause) {
+      setRoster(previous);
+      setError(cause instanceof Error ? cause.message : "Couldn’t update this user.");
+    } finally {
+      setPendingUserId(null);
+    }
   };
 
-  const toggleRole = (id: string) => {
+  const toggleRole = async (id: string) => {
+    const previous = roster;
     const nextRole = roster.find((o) => o.id === id)?.role === "admin" ? "member" : "admin";
     setRoster((rs) => rs.map((o) => (o.id === id ? { ...o, role: nextRole } : o)));
-    void toggleUserRole(id, nextRole);
+    setPendingUserId(id);
+    setError(null);
+    try {
+      await toggleUserRole(id, nextRole);
+    } catch (cause) {
+      setRoster(previous);
+      setError(cause instanceof Error ? cause.message : "Couldn’t update this user.");
+    } finally {
+      setPendingUserId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    const target = deleteTarget;
+    if (!target || pendingUserId) return;
+    setPendingUserId(target.id);
+    setError(null);
+    try {
+      await deleteWorkspaceUser(target.id);
+      setRoster((rows) => rows.filter((row) => row.id !== target.id));
+      setDeleteTarget(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Couldn’t delete this user.");
+    } finally {
+      setPendingUserId(null);
+    }
   };
 
   return (
@@ -63,27 +113,54 @@ export function AdminView({ roster: initialRoster, config: initialConfig, queueH
         <section className="flex flex-col gap-2.5">
           <SectionHeader count={roster.length}>Users</SectionHeader>
           <div className="surfaced flex flex-col px-5">
+            {error && (
+              <p role="alert" className="mt-4 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[13px] font-medium leading-snug text-danger">
+                {error}
+              </p>
+            )}
             {roster.map((o) => (
-              <div key={o.id} className="flex items-center gap-3 border-t border-line-2 py-3 first:border-t-0">
+              <div key={o.id} className="flex flex-wrap items-center gap-3 border-t border-line-2 py-3 first:border-t-0 sm:flex-nowrap">
                 <Avatar owner={o} size={30} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14.5px] font-semibold text-ink">{o.name}</p>
+                  <p className="truncate text-[14.5px] font-semibold text-ink">
+                    {o.name}
+                    {o.id === currentUserId && <span className="ml-1.5 text-[12px] font-medium text-ink-3">(you)</span>}
+                  </p>
                   <p className="truncate text-[12.5px] text-ink-2">{o.email}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => toggleRole(o.id)}
-                  className="shrink-0 cursor-pointer rounded-full bg-[rgba(23,32,43,0.07)] px-2.5 py-1 text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-2 transition-colors duration-150 hover:bg-[rgba(23,32,43,0.13)] hover:text-ink"
-                  title="Click to change role"
-                >
+                <span className="shrink-0 rounded-full bg-[rgba(23,32,43,0.07)] px-2.5 py-1 text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-2">
                   {o.role}
-                </button>
-                <Switch checked={o.active ?? false} onChange={() => toggleActive(o.id)} label={`Toggle ${o.name} active`} />
+                </span>
+                <div className="ml-auto flex items-center gap-1.5 sm:ml-0">
+                  <button
+                    type="button"
+                    disabled={pendingUserId === o.id}
+                    onClick={() => void toggleRole(o.id)}
+                    className="h-8 shrink-0 cursor-pointer rounded-md px-2.5 text-[12px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10 hover:text-accent-strong disabled:cursor-wait disabled:opacity-50"
+                  >
+                    {o.role === "admin" ? "Demote" : "Promote"}
+                  </button>
+                  <Switch
+                    checked={o.active ?? false}
+                    onChange={() => void toggleActive(o.id)}
+                    label={`Toggle ${o.name} active`}
+                    disabled={pendingUserId === o.id}
+                  />
+                  <button
+                    type="button"
+                    disabled={o.id === currentUserId || pendingUserId === o.id}
+                    onClick={() => setDeleteTarget(o)}
+                    title={o.id === currentUserId ? "You can’t delete your own signed-in user" : `Delete ${o.name}`}
+                    className="h-8 shrink-0 cursor-pointer rounded-md px-2.5 text-[12px] font-bold text-danger transition-colors duration-150 hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
             <p className="border-t border-line-2 py-3 text-[12.5px] text-ink-2">
-              No public sign-up — accounts are provisioned here or auto-created on first SSO
-              login from an allowed domain.
+              Promotion and deletion are admin-only. Deleting a user removes their sign-in identity and
+              personal calendar data; authored workspace history remains, marked unassigned.
             </p>
           </div>
         </section>
@@ -144,6 +221,19 @@ export function AdminView({ roster: initialRoster, config: initialConfig, queueH
           </div>
         </section>
       </div>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete workspace user?"
+        body={deleteTarget
+          ? `Delete ${deleteTarget.name}’s sign-in identity and personal calendar data. Their workspace history will remain, but no longer be assigned to them.`
+          : ""}
+        confirmLabel={pendingUserId === deleteTarget?.id ? "Deleting…" : "Delete user"}
+        destructive
+        onCancel={() => {
+          if (!pendingUserId) setDeleteTarget(null);
+        }}
+        onConfirm={() => void confirmDelete()}
+      />
     </>
   );
 }

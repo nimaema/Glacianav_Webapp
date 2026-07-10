@@ -3,20 +3,25 @@
 import { useRef, useState } from "react";
 import { Check, UserPlus } from "@phosphor-icons/react";
 import { useOutsideClick } from "@/lib/use-outside-click";
-import { owners } from "@/lib/fixtures";
+import { ownerById, type Owner } from "@/lib/fixtures";
 import { Avatar } from "./avatar";
 
-/** Multi-select assignee stack: click to open, toggle members, click away to close. */
+/** Multi-select assignee stack: click to open, toggle members, click away to
+ * close. `owners` is the real team (passed from the page's DB query) — never
+ * the fixtures placeholder set, so you assign to actual users. */
 export function AssigneePicker({
   assigneeIds,
   onToggle,
+  owners,
 }: {
   assigneeIds: string[];
   onToggle: (ownerId: string) => void;
+  owners: Owner[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOutsideClick(ref, () => setOpen(false), open);
+  const active = owners.filter((o) => o.active !== false);
 
   return (
     <div className="relative" ref={ref}>
@@ -32,7 +37,7 @@ export function AssigneePicker({
           <span className="flex -space-x-1.5">
             {assigneeIds.map((id) => (
               <span key={id} className="rounded-full ring-2 ring-white">
-                <Avatar owner={owners.find((o) => o.id === id) ?? owners[0]} size={26} />
+                <Avatar owner={ownerById(id, owners)} size={26} />
               </span>
             ))}
           </span>
@@ -47,7 +52,7 @@ export function AssigneePicker({
       </button>
       {open && (
         <div role="menu" className="surfaced-lg absolute right-0 top-8 z-30 w-52 p-1.5">
-          {owners.map((o) => {
+          {active.map((o) => {
             const checked = assigneeIds.includes(o.id);
             return (
               <button

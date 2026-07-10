@@ -22,7 +22,7 @@ import { markAllNotificationsRead, markNotificationRead } from "@/lib/data/notif
 import { signOut } from "@/lib/auth/actions";
 
 const NEW_ITEMS: { icon: Icon; label: string; hint?: string; href?: string }[] = [
-  { icon: Microphone, label: "Record a conversation", hint: "⌘R", href: "/record" },
+  { icon: Microphone, label: "Record a conversation", href: "/record" },
   { icon: UploadSimple, label: "Upload audio" },
   { icon: UserPlus, label: "New customer", href: "/customers/new" },
   { icon: NotePencil, label: "New note", href: "/library?new=note" },
@@ -67,11 +67,11 @@ export function TopBar({
   useOutsideClick(avatarRef, () => setAvatarOpen(false), avatarOpen);
 
   return (
-    <header className="flex h-20 shrink-0 items-center gap-4 border-b border-line bg-shell px-5 text-ink lg:px-8">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-shell px-5 text-ink lg:px-8">
       <button
         type="button"
         onClick={() => window.dispatchEvent(new CustomEvent(OPEN_PALETTE_EVENT))}
-        className="rounded-control flex h-11 w-80 max-w-[45vw] cursor-pointer items-center justify-between border border-line bg-surface-2 px-4 text-[14px] text-ink-3 transition-colors hover:border-ink-3 hover:text-ink"
+        className="rounded-control flex h-9 max-w-md flex-1 cursor-pointer items-center justify-between border border-line bg-surface-2 px-3.5 text-[13.5px] text-ink-3 transition-colors hover:border-ink-3 hover:text-ink"
       >
         <span className="flex items-center gap-2">
           <MagnifyingGlass size={15} />
@@ -89,7 +89,7 @@ export function TopBar({
             onClick={() => setNewOpen((v) => !v)}
             aria-expanded={newOpen}
             aria-haspopup="menu"
-            className="rounded-control flex h-11 cursor-pointer items-center gap-2 bg-accent px-4 text-[14px] font-bold text-white transition-colors hover:bg-accent-strong"
+            className="rounded-control flex h-9 cursor-pointer items-center gap-2 bg-accent px-4 text-[14px] font-bold text-white transition-colors hover:bg-accent-strong"
           >
             <Plus size={16} weight="bold" />
             New
@@ -97,7 +97,7 @@ export function TopBar({
           {newOpen && (
             <div
               role="menu"
-              className="surfaced-lg absolute right-0 top-12 z-30 w-64 p-1.5"
+              className="surfaced-lg absolute right-0 top-11 z-30 w-64 p-1.5"
             >
               {NEW_ITEMS.map(({ icon: IconEl, label, hint, href }) => {
                 const className =
@@ -146,7 +146,7 @@ export function TopBar({
             aria-expanded={notifOpen}
             aria-haspopup="menu"
             aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-            className="rounded-control relative flex h-11 w-11 cursor-pointer items-center justify-center border border-line text-ink-3 transition-colors hover:border-ink-3 hover:text-ink"
+            className="rounded-control relative flex h-9 w-9 cursor-pointer items-center justify-center border border-line text-ink-3 transition-colors hover:border-ink-3 hover:text-ink"
           >
             <Bell size={17} />
             {unreadCount > 0 && (
@@ -157,7 +157,7 @@ export function TopBar({
             )}
           </button>
           {notifOpen && (
-            <div role="menu" className="surfaced-lg absolute right-0 top-12 z-30 w-80 p-1.5">
+            <div role="menu" className="surfaced-lg absolute right-0 top-11 z-30 w-80 p-1.5">
               <div className="flex items-center justify-between gap-3 px-2.5 py-2">
                 <span className="text-[12.5px] font-bold uppercase tracking-[0.1em] text-ink-2">
                   Notifications
@@ -231,12 +231,12 @@ export function TopBar({
             aria-expanded={avatarOpen}
             aria-haspopup="menu"
             aria-label="Account menu"
-            className="rounded-control flex h-11 w-11 cursor-pointer items-center justify-center border border-line bg-accent-soft text-[13px] font-bold text-accent transition-colors hover:border-ink-3"
+            className="rounded-control flex h-9 w-9 cursor-pointer items-center justify-center border border-line bg-accent-soft text-[13px] font-bold text-accent transition-colors hover:border-ink-3"
           >
             {profile?.initials ?? "?"}
           </button>
           {avatarOpen && (
-            <div role="menu" className="surfaced-lg absolute right-0 top-12 z-30 w-56 p-1.5">
+            <div role="menu" className="surfaced-lg absolute right-0 top-11 z-30 w-56 p-1.5">
               <div className="border-b border-line-2 px-2.5 pb-2 pt-1">
                 <p className="truncate text-[14px] font-semibold text-ink">{profile?.name ?? "Not signed in"}</p>
                 <p className="truncate text-[12.5px] text-ink-2">{profile?.email}</p>

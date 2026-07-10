@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { AssigneePicker } from "@/components/ui/assignee-picker";
 import { HeaderStat, PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
+import { Tabs } from "@/components/ui/tabs";
 import { ownerById, type Customer, type Owner } from "@/lib/fixtures";
 import type { ReviewQueueItem, WorkTask } from "@/lib/data/work";
 import { createManualTask, setWorkTaskAssignees, toggleWorkTaskStatus } from "@/lib/data/work-actions";
@@ -379,36 +380,25 @@ export function WorkView({
             ) : (
               <>
                 <div className="surfaced mb-3 flex flex-wrap items-center gap-3 px-3 py-2.5">
-                  <div role="tablist" aria-label="Scope" className="recessed flex shrink-0 gap-0.5 p-1">
-                    {(["Everyone", "Mine"] as const).map((s) => (
-                      <button
-                        key={s}
-                        role="tab"
-                        aria-selected={scope === s}
-                        onClick={() => setScope(s)}
-                        className={`h-7 cursor-pointer rounded-md px-3 text-[12.5px] font-semibold transition-colors duration-150 ${
-                          scope === s ? "surfaced text-ink" : "text-ink-2 hover:text-ink"
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                  <div role="tablist" aria-label="Source" className="recessed flex shrink-0 gap-0.5 p-1">
-                    {(["All", "Conversations", "Manual"] as const).map((s) => (
-                      <button
-                        key={s}
-                        role="tab"
-                        aria-selected={sourceFilter === s}
-                        onClick={() => setSourceFilter(s)}
-                        className={`h-7 cursor-pointer rounded-md px-3 text-[12.5px] font-semibold transition-colors duration-150 ${
-                          sourceFilter === s ? "surfaced text-ink" : "text-ink-2 hover:text-ink"
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
+                  <Tabs
+                    value={scope}
+                    onChange={setScope}
+                    options={[
+                      { value: "Everyone", label: "Everyone" },
+                      { value: "Mine", label: "Mine" },
+                    ]}
+                    className="shrink-0"
+                  />
+                  <Tabs
+                    value={sourceFilter}
+                    onChange={setSourceFilter}
+                    options={[
+                      { value: "All", label: "All" },
+                      { value: "Conversations", label: "Conversations" },
+                      { value: "Manual", label: "Manual" },
+                    ]}
+                    className="shrink-0"
+                  />
                   <div className="h-6 w-px shrink-0 bg-line-2" />
                   <div className="recessed flex h-8 min-w-[180px] flex-1 items-center gap-1.5 px-2.5">
                     <MagnifyingGlass size={13} className="shrink-0 text-ink-3" />
@@ -485,7 +475,7 @@ export function WorkView({
                           <SourceChip source={t.source} />
                           <div className="flex justify-end">
                             {t.editable ? (
-                              <AssigneePicker assigneeIds={t.assigneeIds} onToggle={(id) => toggleAssignee(t, id)} />
+                              <AssigneePicker assigneeIds={t.assigneeIds} onToggle={(id) => toggleAssignee(t, id)} owners={owners} />
                             ) : t.assigneeIds.length > 0 ? (
                               <span className="flex -space-x-1.5">
                                 {t.assigneeIds.map((id) => (

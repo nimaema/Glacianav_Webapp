@@ -32,7 +32,10 @@ function anchorQuote(quote: string, utts: { text: string; startMs: number }[]): 
   return hit?.startMs ?? null;
 }
 
-export async function processConversationAudio(conversationId: string): Promise<void> {
+export async function processConversationAudio(
+  conversationId: string,
+  opts: { languageHint?: string } = {},
+): Promise<void> {
   const [convo] = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
   if (!convo || !convo.audioUrl) {
     console.error(`processConversationAudio: no audio for ${conversationId}`);
@@ -41,7 +44,7 @@ export async function processConversationAudio(conversationId: string): Promise<
 
   try {
     const audio = await getObjectBuffer(convo.audioUrl);
-    const transcript = await transcribeAudioBuffer(audio);
+    const transcript = await transcribeAudioBuffer(audio, { languageCode: opts.languageHint });
     const analysis = await analyzeTranscript(transcript.text);
 
     // Speakers: one row per unique diarization label, colored in rotation.

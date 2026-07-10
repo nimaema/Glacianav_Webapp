@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   // node_modules — so the production Docker image doesn't need a full
   // `npm install`. Same technique the CRM app's Dockerfile relies on.
   output: "standalone",
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "56mb",
+    },
+  },
 };
 
 export default nextConfig;

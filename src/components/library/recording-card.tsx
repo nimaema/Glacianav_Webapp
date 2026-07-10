@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, ListBullets, ListChecks } from "@phosphor-icons/react";
+import { CheckCircle, ListBullets, ListChecks, Trash } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/pill";
 import { DetailField } from "@/components/ui/detail-field";
@@ -37,6 +37,22 @@ type DragHandleProps = {
   onDragEnd?: () => void;
 };
 
+type RecordingCardProps = {
+  conversation: Conversation;
+  onOpen: (id: string) => void;
+  showAuthor?: boolean;
+  showVisibility?: boolean;
+  dragProps?: DragHandleProps;
+  dimmed?: boolean;
+  topic?: Topic;
+  owners?: Owner[];
+  customers?: Customer[];
+  onDelete?: (id: string) => void;
+  /** "row" = full-width list row (Customer Room's own conversation list).
+   * "tile" = compact grid card (Library) - same data, denser composition. */
+  variant?: "row" | "tile";
+};
+
 /** An audio recording - waveform-led, with the notes-pipeline detail row
  * (open actions / decisions / chapters). Distinct from NoteCard so the two
  * content types never blur into each other in a list. */
@@ -50,17 +66,9 @@ export function RecordingCard({
   topic: topicOverride,
   owners,
   customers,
-}: {
-  conversation: Conversation;
-  onOpen: (id: string) => void;
-  showAuthor?: boolean;
-  showVisibility?: boolean;
-  dragProps?: DragHandleProps;
-  dimmed?: boolean;
-  topic?: Topic;
-  owners?: Owner[];
-  customers?: Customer[];
-}) {
+  onDelete,
+  variant = "row",
+}: RecordingCardProps) {
   const topic = topicOverride ?? topicById(c.topicId);
   const participants = participantsFor(c, customers);
   const author = ownerById(c.authorId, owners);
@@ -71,6 +79,91 @@ export function RecordingCard({
   const openActions = c.openActionsCount ?? d?.actionItems?.filter((a) => a.status === "open").length ?? 0;
   const decisionCount = c.decisionsCount ?? d?.decisions?.length ?? 0;
   const chapterCount = c.chapterCount ?? d?.chapters?.length ?? 0;
+  const pipeline = (openActions > 0 || decisionCount > 0 || chapterCount > 0) && (
+    <>
+      {openActions > 0 && (
+        <DetailField icon={<ListChecks size={13} />}>
+          {openActions} open action{openActions === 1 ? "" : "s"}
+        </DetailField>
+      )}
+      {decisionCount > 0 && (
+        <DetailField icon={<CheckCircle size={13} />}>
+          {decisionCount} decision{decisionCount === 1 ? "" : "s"}
+        </DetailField>
+      )}
+      {chapterCount > 0 && (
+        <DetailField icon={<ListBullets size={13} />}>
+          {chapterCount} chapter{chapterCount === 1 ? "" : "s"}
+        </DetailField>
+      )}
+    </>
+  );
+
+  if (variant === "tile") {
+    return (
+      <article
+        role="button"
+        {...rowOpenHandlers(onOpen, c.id)}
+        {...dragProps}
+        className={`group surfaced rise-on-hover flex min-w-0 cursor-pointer flex-col gap-2.5 p-4 ${
+          dimmed ? "opacity-45" : ""
+        }`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Wave points={c.wave} dim={c.status === "processing"} />
+            <span className="font-mono text-[11px] font-semibold text-ink-2 tabular-nums">{c.duration}</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-1">
+            {showVisibility && <Pill tone="gray">{c.shared ? "Shared" : "Private"}</Pill>}
+            {statusChips(c).map((chip) => (
+              <Pill key={chip.label} tone={chip.tone}>
+                {chip.label}
+              </Pill>
+            ))}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(c.id);
+                }}
+                aria-label={`Delete ${c.title}`}
+                className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 hover:text-danger"
+              >
+                <Trash size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <h3 className="truncate text-[14.5px] font-semibold text-ink" title={c.title}>
+          {c.title}
+        </h3>
+        {participants.length > 0 && (
+          <p className="-mt-1.5 truncate text-[12.5px] text-ink-2">
+            {participants[0].name}
+            {participants.length > 1 && ` +${participants.length - 1}`}
+          </p>
+        )}
+
+        <p className="flex flex-wrap items-center gap-1.5 text-[12px] text-ink-3">
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-[2px]" style={{ background: topic.color }} />
+          {topic.name}
+          {showAuthor && <span>· {author.name}</span>}
+          <span className="font-mono font-semibold tabular-nums">· {c.when}</span>
+        </p>
+
+        {pipeline && <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line-2 pt-2">{pipeline}</div>}
+
+        {showAuthor && (
+          <div className="flex justify-end">
+            <Avatar owner={author} size={22} />
+          </div>
+        )}
+      </article>
+    );
+  }
 
   return (
     <article
@@ -113,25 +206,7 @@ export function RecordingCard({
           <span className="font-mono text-[13px] font-semibold tabular-nums">· {c.when}</span>
         </p>
 
-        {(openActions > 0 || decisionCount > 0 || chapterCount > 0) && (
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-            {openActions > 0 && (
-              <DetailField icon={<ListChecks size={13} />}>
-                {openActions} open action{openActions === 1 ? "" : "s"}
-              </DetailField>
-            )}
-            {decisionCount > 0 && (
-              <DetailField icon={<CheckCircle size={13} />}>
-                {decisionCount} decision{decisionCount === 1 ? "" : "s"}
-              </DetailField>
-            )}
-            {chapterCount > 0 && (
-              <DetailField icon={<ListBullets size={13} />}>
-                {chapterCount} chapter{chapterCount === 1 ? "" : "s"}
-              </DetailField>
-            )}
-          </div>
-        )}
+        {pipeline && <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">{pipeline}</div>}
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-2">

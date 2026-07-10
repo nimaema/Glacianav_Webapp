@@ -64,13 +64,22 @@ async function convertToFlac(input: Buffer): Promise<Buffer> {
   }
 }
 
-export async function transcribeAudioBuffer(audio: Buffer): Promise<TranscribeResult> {
+export async function transcribeAudioBuffer(
+  audio: Buffer,
+  opts: { languageCode?: string } = {},
+): Promise<TranscribeResult> {
   if (isMockTranscription()) return mockTranscript();
   if (audio.length === 0) throw new Error("Audio is empty");
 
   const flac = await convertToFlac(audio);
   const client = new AssemblyAI({ apiKey: process.env.ASSEMBLYAI_API_KEY! });
-  const t = await client.transcripts.transcribe({ audio: flac, speaker_labels: true });
+  // A user-picked language pins language_code; otherwise let AssemblyAI
+  // detect it (mixed-language teams record in English, Finnish, Farsi…).
+  const t = await client.transcripts.transcribe({
+    audio: flac,
+    speaker_labels: true,
+    ...(opts.languageCode ? { language_code: opts.languageCode } : { language_detection: true }),
+  });
   if (t.status === "error") throw new Error(t.error ?? "AssemblyAI transcription failed");
 
   const text = (t.text ?? "").trim();

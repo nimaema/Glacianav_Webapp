@@ -17,15 +17,63 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+      nova-jobs-init:
+        condition: service_completed_successfully
+      nova-worker:
+        condition: service_started
     env_file:
       - .env
     environment:
       NODE_ENV: production
+      NOVA_JOBS_DIR: /var/lib/nova-jobs
+    volumes:
+      - novajobs:/var/lib/nova-jobs
     expose:
       - "3000"
     labels:
       # Only Watchtower-managed container in this stack
       com.centurylinklabs.watchtower.enable: "true"
+
+  # Nova's file lab is deliberately a separate, networkless container. It
+  # receives jobs only through the shared queue volume and has no app secrets,
+  # database connection, or access to the web container's filesystem.
+  nova-worker:
+    image: ${NOVA_WORKER_IMAGE:-ghcr.io/nimaema/glacianav_nova-worker:latest}
+    restart: unless-stopped
+    depends_on:
+      nova-jobs-init:
+        condition: service_completed_successfully
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /workspace:rw,nosuid,nodev,noexec,size=768m
+      - /tmp:rw,nosuid,nodev,noexec,size=128m
+    volumes:
+      - novajobs:/jobs
+    environment:
+      NOVA_JOBS_DIR: /jobs
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    cpus: 2.0
+    pids_limit: 128
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+  nova-jobs-init:
+    image: alpine:3.22
+    restart: "no"
+    network_mode: none
+    volumes:
+      - novajobs:/jobs
+    command: ["sh", "-c", "mkdir -p /jobs/inbox /jobs/processing /jobs/results && chown -R 0:1001 /jobs && chmod -R 770 /jobs"]
 
   minio:
     image: minio/minio:latest
@@ -84,3 +132,4 @@ services:
 
 volumes:
   miniodata:
+  novajobs:

@@ -13,7 +13,7 @@
 // non-internal feed is honestly empty until that lands — matching Home's
 // precedent for gaps the source apps never modeled.
 
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "@/db/client";
 import { calendarEvents, calendarFeeds, customers, profiles } from "@/db/schema";
 import type { CalendarEventKind, CalendarFeedVisibility, Customer, Owner } from "@/lib/fixtures";
@@ -85,6 +85,51 @@ async function ensureInternalFeed(profileId: string): Promise<typeof calendarFee
 
 const WINDOW_DAYS = 90;
 
+function calendarWindow() {
+  const now = new Date();
+  return {
+    start: new Date(now.getTime() - WINDOW_DAYS * 86_400_000),
+    end: new Date(now.getTime() + WINDOW_DAYS * 86_400_000),
+  };
+}
+
+export async function getAvailabilityEvents(ownerId: string): Promise<RealCalendarEvent[]> {
+  const feedRows = await db
+    .select()
+    .from(calendarFeeds)
+    .where(eq(calendarFeeds.ownerId, ownerId));
+  const shareableFeedIds = feedRows
+    .filter((feed) => feed.internal || feed.syncStatus === "synced")
+    .map((feed) => feed.id);
+
+  if (shareableFeedIds.length === 0) return [];
+
+  const window = calendarWindow();
+  const rows = await db
+    .select()
+    .from(calendarEvents)
+    .where(and(
+      eq(calendarEvents.ownerId, ownerId),
+      inArray(calendarEvents.feedId, shareableFeedIds),
+      gte(calendarEvents.startAt, window.start),
+      lte(calendarEvents.startAt, window.end),
+    ));
+
+  // Availability checks never expose another person's event details.
+  return rows
+    .filter((row) => row.startAt && row.endAt)
+    .map((row) => ({
+      id: row.id,
+      feedId: row.feedId,
+      ownerId: row.ownerId,
+      title: "Busy",
+      kind: "busy",
+      allDay: row.allDay ?? false,
+      startAt: row.startAt as Date,
+      endAt: row.endAt as Date,
+    }));
+}
+
 export async function getCalendarPageData(profileId: string): Promise<CalendarPageData> {
   if (!profileId) {
     // No session (local dev only — AUTH_REQUIRED off) — nothing to scope
@@ -94,16 +139,18 @@ export async function getCalendarPageData(profileId: string): Promise<CalendarPa
 
   await ensureInternalFeed(profileId);
 
-  const now = new Date();
-  const windowStart = new Date(now.getTime() - WINDOW_DAYS * 86_400_000);
-  const windowEnd = new Date(now.getTime() + WINDOW_DAYS * 86_400_000);
+  const window = calendarWindow();
 
   const [feedRows, eventRows, ownerRows, customerRows] = await Promise.all([
     db.select().from(calendarFeeds).where(eq(calendarFeeds.ownerId, profileId)),
     db
       .select()
       .from(calendarEvents)
-      .where(and(gte(calendarEvents.startAt, windowStart), lte(calendarEvents.startAt, windowEnd))),
+      .where(and(
+        eq(calendarEvents.ownerId, profileId),
+        gte(calendarEvents.startAt, window.start),
+        lte(calendarEvents.startAt, window.end),
+      )),
     db.select().from(profiles),
     db.select().from(customers),
   ]);

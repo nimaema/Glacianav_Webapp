@@ -24,7 +24,7 @@ export function AppShell({
 }) {
   return (
     <RecordingProvider currentUserId={currentUserId}>
-      <div className="flex min-h-dvh overflow-hidden bg-page">
+      <div className="flex h-dvh overflow-hidden bg-page">
         <Rail profile={profile} />
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar profile={profile} notifications={notifications} unreadCount={unreadCount} />

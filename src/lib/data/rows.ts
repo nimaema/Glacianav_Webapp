@@ -53,6 +53,7 @@ export function toCustomerRow(row: typeof customers.$inferSelect): Customer {
     compatibility: row.compatibility ?? null,
     priority: row.priority ?? undefined,
     website: row.website ?? undefined,
+    country: row.country ?? undefined,
     currentSolution: row.currentSolution ?? undefined,
     interviewDate: row.interviewDate ?? undefined,
     tags: row.tags ?? undefined,

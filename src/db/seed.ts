@@ -99,6 +99,7 @@ async function main() {
       compatibility: c.compatibility,
       priority: c.priority,
       website: c.website,
+      country: c.country,
       currentSolution: c.currentSolution,
       interviewDate: c.interviewDate,
       tags: c.tags ?? [],

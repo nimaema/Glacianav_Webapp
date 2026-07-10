@@ -11,6 +11,7 @@ push to main  →  GitHub Actions builds image  →  pushes to GHCR  →  Watcht
 | Service | Image | Role |
 | --- | --- | --- |
 | `web` | `ghcr.io/nimaema/glacianav_webapp:latest` | Next.js app |
+| `nova-worker` | `ghcr.io/nimaema/glacianav_nova-worker:latest` | Networkless Python file lab |
 | `minio` | `minio/minio` | Local S3-compatible storage for recording audio, private bucket |
 | `tunnel` | `cloudflare/cloudflared` | Cloudflare Tunnel → app.glacianav.com, no open ports |
 | `watchtower` | `containrrr/watchtower` | Watches `web`, redeploys when a new image is published |
@@ -62,7 +63,24 @@ at **build** time, not read at container runtime:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 Watchtower polls every 60s (`WATCHTOWER_INTERVAL`) and rolling-restarts `web` when the
-image changes. So: **commit → push → it's live in a minute or two.**
+image changes. It also updates the isolated Nova worker image. So: **commit → push →
+it's live in a minute or two.**
+
+## Nova sandbox
+
+Nova's Python jobs never run inside the web process. The `nova-worker` container has
+no network, no application `.env`, no database connection, a read-only root
+filesystem, an ephemeral `/workspace`, and explicit CPU, memory, file-size, and PID
+limits. The web app and worker exchange bounded JSON jobs through the private
+`novajobs` Docker volume. The worker image includes pandas, Polars, NumPy, SciPy,
+openpyxl, XlsxWriter, python-docx, python-pptx, ReportLab, pypdf, pdfplumber,
+PyMuPDF, Matplotlib, Seaborn, Plotly/Kaleido, Pillow, LibreOffice, and Poppler.
+
+For local development, start the same networkless worker with:
+
+```bash
+./scripts/setup_nova_sandbox.sh
+```
 
 ## Secrets
 

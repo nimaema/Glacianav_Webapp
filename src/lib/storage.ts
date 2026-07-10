@@ -9,6 +9,14 @@ import { S3Client, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client
 import { Upload } from "@aws-sdk/lib-storage";
 import type { Readable } from "node:stream";
 
+export type ObjectStream = {
+  body: Readable;
+  contentType?: string;
+  contentLength?: number;
+  // Present only for a ranged (206) response.
+  contentRange?: string;
+};
+
 const endpoint = process.env.S3_ENDPOINT ?? "http://localhost:9000";
 
 export const BUCKET = process.env.S3_BUCKET ?? "audio";
@@ -41,6 +49,25 @@ export async function getObjectBuffer(key: string): Promise<Buffer> {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   return Buffer.concat(chunks);
+}
+
+// Streams an object straight through (no buffering) with optional HTTP Range
+// support, so an <audio> element can seek without downloading the whole file.
+// Returns null when the key doesn't exist in the bucket.
+export async function getObjectStream(key: string, range?: string): Promise<ObjectStream | null> {
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key, Range: range }));
+    return {
+      body: res.Body as Readable,
+      contentType: res.ContentType,
+      contentLength: res.ContentLength,
+      contentRange: res.ContentRange,
+    };
+  } catch (e) {
+    const code = (e as { name?: string; Code?: string })?.name ?? (e as { Code?: string })?.Code;
+    if (code === "NoSuchKey" || code === "NotFound" || code === "NoSuchBucket") return null;
+    throw e;
+  }
 }
 
 export async function removeObject(key: string) {

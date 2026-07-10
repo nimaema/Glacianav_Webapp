@@ -11,6 +11,19 @@ import type { Profile } from "@/lib/auth/ensure-profile";
 import { createClient } from "@/lib/supabase/server";
 
 export async function getCurrentProfile(): Promise<Profile | null> {
+  // Dev-only escape hatch: set DEV_PROFILE_EMAIL to a profiles.email to
+  // work on the app locally without a Microsoft SSO round-trip (headless
+  // dev/testing can't complete one). Hard-gated to `next dev` — the var
+  // is ignored entirely in production builds.
+  if (process.env.NODE_ENV === "development" && process.env.DEV_PROFILE_EMAIL) {
+    const [profile] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.email, process.env.DEV_PROFILE_EMAIL))
+      .limit(1);
+    return profile ?? null;
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

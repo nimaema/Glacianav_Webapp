@@ -125,6 +125,7 @@ export const customers = pgTable("customers", {
   compatibility: compatibilityEnum("compatibility"),
   priority: priorityEnum("priority"),
   website: text("website"),
+  country: text("country"),
   currentSolution: text("current_solution"),
   interviewDate: text("interview_date"), // display string today; real date once intake captures it
   tags: text("tags").array().default([]),
@@ -156,6 +157,10 @@ export const topics = pgTable("topics", {
   name: text("name").notNull(),
   color: text("color").notNull(),
   visibility: topicVisibilityEnum("visibility").default("all"),
+  // Who created the topic. Only the creator (or an admin) may delete it;
+  // other members can only remove themselves via topic_members. Nullable so
+  // pre-existing/seeded topics with unknown authorship stay admin-managed.
+  createdBy: uuid("created_by").references(() => profiles.id),
 });
 
 export const topicMembers = pgTable(

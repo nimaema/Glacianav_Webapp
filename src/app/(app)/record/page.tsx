@@ -12,7 +12,13 @@ export default async function RecordPage() {
   const [data, profile] = await Promise.all([getRecordPageData(), getCurrentProfile()]);
   return (
     <Suspense>
-      <RecordView customers={data.customers} topics={data.topics} owners={data.owners} currentUserId={profile?.id ?? ""} />
+      <RecordView
+        customers={data.customers}
+        topics={data.topics}
+        owners={data.owners}
+        contacts={data.contacts}
+        currentUserId={profile?.id ?? ""}
+      />
     </Suspense>
   );
 }

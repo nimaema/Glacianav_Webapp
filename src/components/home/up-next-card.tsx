@@ -2,59 +2,66 @@ import Link from "next/link";
 import { Record, Sparkle } from "@phosphor-icons/react/dist/ssr";
 import type { AttentionItem } from "@/lib/data/home";
 
-// No real "next scheduled interview" concept yet — no calendar data exists
-// (see src/lib/data/home.ts's header comment). Features the top attention
-// item instead of a fabricated appointment, or a calm prompt if the queue
-// is empty too.
+const KIND_META: Record<AttentionItem["kind"], { label: string; color: string }> = {
+  review: { label: "Ready to review", color: "var(--c-violet)" },
+  task: { label: "Your next task", color: "var(--c-green)" },
+};
+
+/**
+ * The one deep element on Home: whatever the queue says matters most right
+ * now, promoted to a full card with a single primary action. No real
+ * "next scheduled interview" concept yet (calendar sync pending), so the
+ * top attention item leads — or a calm prompt when the queue is empty.
+ */
 export function UpNextCard({ topItem }: { topItem: AttentionItem | undefined }) {
   if (!topItem) {
     return (
-      <section data-rise aria-label="Up next" className="surfaced risen flex items-center gap-4 p-6 lg:p-8">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+      <section data-rise aria-label="Up next" className="surfaced-lg flex flex-wrap items-center gap-4 p-6 lg:p-7">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-accent">
           <Sparkle size={18} weight="bold" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-ink">You&apos;re caught up</h2>
-          <p className="truncate text-[14px] text-ink-3">Nothing needs attention right now.</p>
+          <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-ink">You&rsquo;re caught up</h2>
+          <p className="text-[14px] text-ink-2">Nothing needs attention right now.</p>
         </div>
         <Link
           href="/record"
-          className="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-4 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
+          className="rounded-control flex h-10 shrink-0 cursor-pointer items-center gap-2 bg-accent px-4 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
         >
-          <Record size={18} />
-          Record
+          <Record size={17} />
+          Record a conversation
         </Link>
       </section>
     );
   }
 
+  const meta = KIND_META[topItem.kind];
+
   return (
-    <section data-rise aria-label="Up next" className="surfaced risen relative overflow-hidden p-6 lg:p-8">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-accent">
-            {topItem.kind === "review" ? "Ready to review" : "Open task"}
-          </p>
-          <h2 className="mt-3 text-[clamp(1.75rem,3vw,3rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-ink">
-            {topItem.title}
-          </h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-ink-2">{topItem.reason}</p>
-        </div>
-        <span className="shrink-0 font-mono text-[13px] font-semibold text-ink-3 tabular-nums">
+    <section data-rise aria-label="Up next" className="surfaced-lg p-6 lg:p-7">
+      <div className="flex items-center gap-2.5">
+        <span aria-hidden className="h-3 w-3 shrink-0" style={{ background: meta.color }} />
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-ink-2">{meta.label}</p>
+        <span className="ml-auto shrink-0 font-mono text-[12px] font-semibold text-ink-3 tabular-nums">
           {topItem.when}
         </span>
       </div>
 
-      <div className="mt-7 flex items-center gap-3">
+      <h2 className="mt-3.5 max-w-[34ch] text-[23px] font-semibold leading-[1.12] tracking-[-0.02em] text-ink lg:text-[27px]">
+        {topItem.title}
+      </h2>
+      <p className="mt-1.5 text-[14.5px] leading-relaxed text-ink-2">{topItem.reason}</p>
+
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         <Link
           href={topItem.href}
-          className="flex h-11 cursor-pointer items-center gap-1.5 rounded-control bg-accent px-5 text-[14px] font-bold text-white transition-colors hover:bg-accent-strong"
+          className="rounded-control flex h-10 cursor-pointer items-center bg-accent px-5 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
         >
-          Open
+          {topItem.kind === "review" ? "Open review" : "Open task"}
         </Link>
         <Link
           href="/record"
-          className="flex h-11 cursor-pointer items-center gap-1.5 border border-ink/25 px-4 text-[14px] font-bold text-ink transition-colors hover:border-ink"
+          className="rounded-control flex h-10 cursor-pointer items-center gap-2 border border-line px-4 text-[14px] font-bold text-ink transition-colors duration-150 hover:border-ink-3"
         >
           <Record size={16} />
           Record

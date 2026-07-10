@@ -3,17 +3,26 @@
 // exports for this one page — see PROJECT_STATUS or the memory notes for
 // which other screens are still fixture-backed.
 //
-// Two real gaps as of this cutover, both because the source apps never had
-// this data (not a migration bug — verified 0 rows in both `customers` and
-// `calendar_events` after the real-data migration): there are no real
-// customer accounts yet (CRM was never used for real prospects) and no real
-// calendar events (Notes/CRM don't model scheduled interviews as calendar
-// data). Anything here that would depend on those returns an honest empty
-// shape instead of a fabricated number — see upNext/pipeline below.
+// Data honesty rules from the original cutover still apply: anything that
+// depends on tables the source apps never populated (customers, synced
+// calendar feeds) returns an honest empty shape instead of a fabricated
+// number. Today's schedule reads the real calendar_events table — empty
+// until events are created on the Calendar page or a feed sync lands,
+// and the component says so instead of inventing a schedule.
 
-import { and, desc, eq, gte, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { conversations, customers, profiles, taskAssignees, tasks, topics } from "@/db/schema";
+import {
+  calendarEvents,
+  calendarFeeds,
+  conversations,
+  customers,
+  profiles,
+  taskAssignees,
+  tasks,
+  topics,
+} from "@/db/schema";
+import type { CalendarEventKind } from "@/lib/fixtures";
 import { relativeTime } from "./relative-time";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -37,14 +46,26 @@ export type RecentConversation = {
   reviewed: boolean;
 };
 
+export type TodayEvent = {
+  id: string;
+  title: string;
+  kind: CalendarEventKind;
+  timeLabel: string; // "09:30" or "All day"
+  allDay: boolean;
+  color: string; // feed color — user content, data palette
+};
+
 export type HomeData = {
   greetingName: string;
   stats: {
     openTasks: number;
+    myOpenTasks: number;
+    readyForReview: number;
     recordingsThisWeek: number;
-    processed: number;
+    recordingsLastWeek: number;
   };
   attention: AttentionItem[];
+  todayEvents: TodayEvent[];
   recentConversations: RecentConversation[];
   recentActivity: { text: string; when: string }[];
   cadence: { label: string; count: number }[];
@@ -60,19 +81,34 @@ function durationLabel(ms: number | null): string {
 export async function getHomeData(profileId: string | null, profileName: string): Promise<HomeData> {
   const now = new Date();
   const weekAgo = new Date(now.getTime() - WEEK_MS);
+  const twoWeeksAgo = new Date(now.getTime() - 2 * WEEK_MS);
+  const dayStart = new Date(now);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
-  const [openTasksCount, recordingsThisWeekCount, processedCount, customerCount] = await Promise.all([
-    db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.status, "open")),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(conversations)
-      .where(and(gte(conversations.createdAt, weekAgo), isNull(conversations.noteBody))),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(conversations)
-      .where(sql`${conversations.status} in ('ready', 'reviewed')`),
-    db.select({ count: sql<number>`count(*)::int` }).from(customers),
-  ]);
+  const [openTasksCount, recordingsThisWeekCount, recordingsLastWeekCount, readyCount, customerCount] =
+    await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.status, "open")),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(conversations)
+        .where(and(gte(conversations.createdAt, weekAgo), isNull(conversations.noteBody))),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(conversations)
+        .where(
+          and(
+            gte(conversations.createdAt, twoWeeksAgo),
+            lt(conversations.createdAt, weekAgo),
+            isNull(conversations.noteBody),
+          ),
+        ),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(conversations)
+        .where(eq(conversations.status, "ready")),
+      db.select({ count: sql<number>`count(*)::int` }).from(customers),
+    ]);
 
   // "Ready for review": recently processed conversations not yet marked
   // reviewed — the real equivalent of fixtures.ts's queue "review" items.
@@ -81,7 +117,7 @@ export async function getHomeData(profileId: string | null, profileName: string)
     .from(conversations)
     .where(eq(conversations.status, "ready"))
     .orderBy(desc(conversations.createdAt))
-    .limit(3);
+    .limit(4);
 
   // Open tasks assigned to the current user float first — same "mine first"
   // convention Work's own view uses. profileId is null when there's no
@@ -95,7 +131,7 @@ export async function getHomeData(profileId: string | null, profileName: string)
         .innerJoin(taskAssignees, eq(taskAssignees.taskId, tasks.id))
         .where(and(eq(tasks.status, "open"), eq(taskAssignees.profileId, profileId)))
         .orderBy(desc(tasks.createdAt))
-        .limit(3)
+        .limit(4)
     : [];
 
   const attention: AttentionItem[] = [
@@ -117,6 +153,44 @@ export async function getHomeData(profileId: string | null, profileName: string)
     })),
   ];
 
+  // Today's schedule — real calendar_events rows for the signed-in profile,
+  // bucketed to the server's local day. Empty is the honest common case
+  // until events are created on Calendar or an ICS sync populates feeds.
+  const todayRows = profileId
+    ? await db
+        .select({
+          id: calendarEvents.id,
+          title: calendarEvents.title,
+          kind: calendarEvents.kind,
+          allDay: calendarEvents.allDay,
+          startAt: calendarEvents.startAt,
+          feedColor: calendarFeeds.color,
+        })
+        .from(calendarEvents)
+        .innerJoin(calendarFeeds, eq(calendarFeeds.id, calendarEvents.feedId))
+        .where(
+          and(
+            eq(calendarEvents.ownerId, profileId),
+            gte(calendarEvents.startAt, dayStart),
+            lt(calendarEvents.startAt, dayEnd),
+          ),
+        )
+        .orderBy(calendarEvents.startAt)
+        .limit(6)
+    : [];
+
+  const todayEvents: TodayEvent[] = todayRows.map((e) => ({
+    id: e.id,
+    title: e.title,
+    kind: e.kind ?? "busy",
+    allDay: e.allDay ?? false,
+    timeLabel:
+      e.allDay || !e.startAt
+        ? "All day"
+        : e.startAt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false }),
+    color: e.feedColor,
+  }));
+
   const recentRows = await db
     .select({
       id: conversations.id,
@@ -132,7 +206,7 @@ export async function getHomeData(profileId: string | null, profileName: string)
     .leftJoin(topics, eq(topics.id, conversations.topicId))
     .where(and(eq(conversations.shared, true), ne(conversations.status, "processing"), isNull(conversations.noteBody)))
     .orderBy(desc(conversations.createdAt))
-    .limit(2);
+    .limit(4);
 
   const recentConversations: RecentConversation[] = recentRows.map((c) => ({
     id: c.id,
@@ -181,10 +255,13 @@ export async function getHomeData(profileId: string | null, profileName: string)
     greetingName: profileName,
     stats: {
       openTasks: openTasksCount[0]?.count ?? 0,
+      myOpenTasks: myOpenTasks.length,
+      readyForReview: readyCount[0]?.count ?? 0,
       recordingsThisWeek: recordingsThisWeekCount[0]?.count ?? 0,
-      processed: processedCount[0]?.count ?? 0,
+      recordingsLastWeek: recordingsLastWeekCount[0]?.count ?? 0,
     },
     attention,
+    todayEvents,
     recentConversations,
     recentActivity,
     cadence,

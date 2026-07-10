@@ -38,6 +38,15 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
 
+      - name: Nova worker Docker metadata
+        id: nova-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/nimaema/glacianav_nova-worker
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -56,3 +65,14 @@ jobs:
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Build and push Nova worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: nova-worker/Dockerfile
+          push: true
+          tags: ${{ steps.nova-meta.outputs.tags }}
+          labels: ${{ steps.nova-meta.outputs.labels }}
+          cache-from: type=gha,scope=nova-worker
+          cache-to: type=gha,mode=max,scope=nova-worker

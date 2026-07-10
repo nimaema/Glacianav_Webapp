@@ -63,13 +63,14 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
-      className={`rounded-pill mx-3 flex min-h-11 items-center gap-3 px-3.5 text-[14px] transition-colors duration-150 ${
+      className={`relative flex min-h-9 items-center gap-2.5 px-5 text-[13.5px] transition-colors duration-150 ${
         active
-          ? "bg-accent font-semibold text-white"
+          ? "bg-accent-soft font-semibold text-accent-strong"
           : "text-ink-2 hover:bg-surface-2 hover:text-ink"
       }`}
     >
-      <IconEl size={18} className={active ? "text-white" : "text-ink-3"} />
+      {active && <span aria-hidden className="absolute inset-y-1 left-0 w-[3px] rounded-r bg-accent" />}
+      <IconEl size={17} className={active ? "text-accent" : "text-ink-3"} />
       <span className="min-w-0 flex-1 truncate" title={item.label}>
         {item.label}
       </span>
@@ -90,8 +91,8 @@ export function Rail({ profile }: { profile: Profile | null }) {
       aria-label="Primary"
       className="hidden h-full w-[248px] shrink-0 flex-col border-r border-line bg-shell text-shell-ink md:flex"
     >
-      <div className="flex h-20 shrink-0 items-center gap-3 border-b border-line px-6">
-        <svg className="h-8 w-8 shrink-0" viewBox="0 0 32 32" fill="none" aria-hidden>
+      <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-line px-5">
+        <svg className="h-7 w-7 shrink-0" viewBox="0 0 32 32" fill="none" aria-hidden>
           <circle cx="16" cy="16" r="13.5" stroke="var(--accent)" strokeWidth="1.4" opacity="0.35" />
           <circle cx="16" cy="16" r="9.5" stroke="var(--accent)" strokeWidth="1.4" opacity="0.6" />
           <circle cx="16" cy="16" r="5.5" stroke="var(--accent)" strokeWidth="1.6" opacity="0.85" />

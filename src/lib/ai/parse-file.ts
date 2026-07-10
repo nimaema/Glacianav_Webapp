@@ -2,6 +2,7 @@
 // chat context. Real parsing for every format Nima asked for:
 //  - .xlsx/.xls/.csv/.ods  → SheetJS (xlsx) reads all of these, including ODS
 //  - .docx                 → mammoth (raw text extraction)
+//  - .pptx                 → slide XML text extraction
 //  - .pdf                  → pdf-parse
 //  - .odt                  → unzip via jszip + strip tags from content.xml
 //    (no dedicated ODF-text lib in npm worth adding for this one format;
@@ -71,14 +72,45 @@ async function parseOdt(buf: Buffer): Promise<string> {
   return stripXmlTags(contentXml);
 }
 
+async function parsePptx(buf: Buffer): Promise<string> {
+  const JSZip = (await import("jszip")).default;
+  const zip = await JSZip.loadAsync(buf);
+  const slideNames = Object.keys(zip.files)
+    .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+    .sort((a, b) => {
+      const aNumber = Number(a.match(/slide(\d+)/)?.[1] ?? 0);
+      const bNumber = Number(b.match(/slide(\d+)/)?.[1] ?? 0);
+      return aNumber - bNumber;
+    });
+  const slides = await Promise.all(
+    slideNames.map(async (name, index) => {
+      const xml = await zip.file(name)?.async("string");
+      return `--- Slide ${index + 1} ---\n${stripXmlTags(xml ?? "")}`;
+    }),
+  );
+  return slides.join("\n\n");
+}
+
+async function listZip(buf: Buffer): Promise<string> {
+  const JSZip = (await import("jszip")).default;
+  const zip = await JSZip.loadAsync(buf);
+  const names = Object.keys(zip.files).filter((name) => !zip.files[name].dir).slice(0, 500);
+  return `Archive with ${names.length} listed file(s):\n${names.join("\n")}`;
+}
+
 export async function parseFile(file: { name: string; type: string; arrayBuffer: () => Promise<ArrayBuffer> }): Promise<ParsedFile> {
   const buf = Buffer.from(await file.arrayBuffer());
   const ext = file.name.toLowerCase().split(".").pop() ?? "";
 
   if (["xlsx", "xls", "csv", "ods"].includes(ext)) return cap(await parseSpreadsheet(buf));
   if (ext === "docx") return cap(await parseDocx(buf));
+  if (ext === "pptx") return cap(await parsePptx(buf));
   if (ext === "pdf") return cap(await parsePdf(buf));
   if (ext === "odt") return cap(await parseOdt(buf));
+  if (["png", "jpg", "jpeg", "svg"].includes(ext)) {
+    return cap(`Attached ${ext.toUpperCase()} image (${buf.length.toLocaleString()} bytes). Use the isolated Python workspace with Pillow or an SVG parser to inspect or transform it.`);
+  }
+  if (ext === "zip") return cap(await listZip(buf));
   if (["txt", "md", "json", "csv"].includes(ext) || file.type.startsWith("text/")) return cap(buf.toString("utf8"));
 
   // Unknown extension — best-effort as plain text rather than failing outright.

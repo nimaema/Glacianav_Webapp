@@ -10,15 +10,18 @@ function Wave({ points }: { points: number[] }) {
   // a plain mic glyph reads better than an empty/flat bar chart.
   if (points.length === 0) {
     return (
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent" aria-hidden>
-        <Microphone size={13} weight="bold" />
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-accent" aria-hidden>
+        <Microphone size={14} weight="bold" />
       </span>
     );
   }
+  // Wave samples are stored either normalized 0..1 (new capture pipeline)
+  // or as raw pixel-ish values (fixture-era rows) — scale both into 4-24px.
+  const bar = (v: number) => (v <= 1 ? 4 + v * 20 : Math.min(24, Math.max(4, v)));
   return (
-    <span className="flex h-6 shrink-0 items-end gap-[2.5px]" aria-hidden>
-      {points.map((v, i) => (
-        <span key={i} className="w-[3px] rounded-full bg-accent/70" style={{ height: `${v}px` }} />
+    <span className="flex h-7 shrink-0 items-end gap-[2.5px]" aria-hidden>
+      {points.slice(0, 24).map((v, i) => (
+        <span key={i} className="w-[3px] rounded-pill bg-accent/70" style={{ height: `${bar(v)}px` }} />
       ))}
     </span>
   );
@@ -26,26 +29,23 @@ function Wave({ points }: { points: number[] }) {
 
 export function RecentConversations({ items }: { items: RecentConversation[] }) {
   return (
-    <section aria-label="Recent conversations" className="mt-12 border-t border-ink/20 pt-6">
+    <section aria-label="Recent conversations" className="flex flex-col gap-3">
       <SectionHeader
         count={items.length}
-        className="mb-3"
         action={
           <Link
             href="/library"
-            className="flex items-center gap-1 text-[13.5px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
+            className="flex items-center gap-1 text-[12.5px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
           >
-            Open library
-            <ArrowRight size={14} />
+            Library
+            <ArrowRight size={12} />
           </Link>
         }
       >
         Recent conversations
       </SectionHeader>
       {items.length === 0 ? (
-        <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">
-          Nothing shared with the team yet.
-        </p>
+        <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">Nothing shared with the team yet.</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {items.map((c) => (
@@ -53,21 +53,23 @@ export function RecentConversations({ items }: { items: RecentConversation[] }) 
               key={c.id}
               href={`/library?r=${c.id}`}
               data-rise
-              className="surfaced rise-on-hover flex min-h-24 items-center gap-4 p-5"
+              className="surfaced rise-on-hover flex flex-col gap-3 p-5"
             >
-              <Wave points={c.wave} />
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate text-[15px] font-semibold text-ink">{c.title}</h3>
-                <p className="truncate text-[13.5px] text-ink-3">
+              <span className="flex items-center justify-between gap-3">
+                <Wave points={c.wave} />
+                <Pill tone={c.reviewed ? "gray" : "green"}>{c.reviewed ? "Reviewed" : "Summary ready"}</Pill>
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[15px] font-semibold text-ink" title={c.title}>
+                  {c.title}
+                </span>
+                <span className="mt-0.5 block truncate text-[13px] text-ink-3">
                   {c.context} ·{" "}
-                  <span className="font-mono text-[12.5px] tabular-nums">
+                  <span className="font-mono text-[12px] tabular-nums">
                     {c.when} · {c.durationLabel}
                   </span>
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-1.5">
-                <Pill tone={c.reviewed ? "gray" : "green"}>{c.reviewed ? "Reviewed" : "Summary ready"}</Pill>
-              </div>
+                </span>
+              </span>
             </Link>
           ))}
         </div>

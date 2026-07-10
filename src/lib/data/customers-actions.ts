@@ -72,6 +72,7 @@ export async function createCustomer(input: {
   ownerId: string;
   priority?: Priority;
   website?: string;
+  country?: string;
   contactId?: string;
 }) {
   const existing = await db.select({ key: stages.key }).from(stages).orderBy(stages.sortOrder).limit(1);
@@ -86,6 +87,7 @@ export async function createCustomer(input: {
     stage: defaultStage,
     priority: input.priority,
     website: input.website,
+    country: input.country,
     ownerId: input.ownerId,
   });
 
@@ -110,6 +112,7 @@ export async function bulkImportCustomers(
     segmentName?: string;
     ownerName?: string;
     website?: string;
+    country?: string;
     priority?: Priority;
     contactName?: string;
     contactEmail?: string;
@@ -152,6 +155,7 @@ export async function bulkImportCustomers(
       stage: defaultStage,
       priority: row.priority,
       website: row.website,
+      country: row.country,
       ownerId,
     });
 
@@ -272,6 +276,7 @@ export async function updateCustomerFields(
     priority: Priority | undefined;
     compatibility: CompatibilityLevel | null;
     website: string | undefined;
+    country: string | undefined;
     currentSolution: string | undefined;
     nextStep: string | undefined;
     stage: string;

@@ -19,6 +19,7 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { AssigneePicker } from "@/components/ui/assignee-picker";
 import { SectionHeader } from "@/components/ui/section-header";
+import { Tabs } from "@/components/ui/tabs";
 import { ConversationRow } from "@/components/library/conversation-row";
 import { useOutsideClick } from "@/lib/use-outside-click";
 import {
@@ -248,6 +249,7 @@ function CustomerRoomInner({
     c.compatibility ?? "",
   );
   const [website, setWebsite] = useState(c.website ?? "");
+  const [country, setCountry] = useState(c.country ?? "");
   const [currentSolution, setCurrentSolution] = useState(c.currentSolution ?? "");
   const [nextStep, setNextStep] = useState(c.nextStep ?? "");
   const [stage, setStage] = useState<StageKey>(c.stage);
@@ -467,30 +469,12 @@ function CustomerRoomInner({
           </div>
         </div>
         <div className="mx-auto max-w-[1600px] px-7 pb-4">
-          <div
-            role="tablist"
-            aria-label="Customer page"
-            className="recessed flex w-fit max-w-full gap-1 overflow-x-auto p-1"
-          >
-            {TABS.map((t) => (
-              <button
-                key={t}
-                role="tab"
-                aria-selected={tab === t}
-                onClick={() => setTab(t)}
-                className={`flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-[13.5px] font-semibold transition-colors duration-150 ${
-                  tab === t ? "surfaced text-ink" : "text-ink-2 hover:text-ink"
-                }`}
-              >
-                {t}
-                {counts[t] !== undefined && counts[t]! > 0 && (
-                  <span className="rounded-full bg-[rgba(23,32,43,0.08)] px-1.5 font-mono text-[11.5px] text-ink-3 tabular-nums">
-                    {counts[t]}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            value={tab}
+            onChange={setTab}
+            options={TABS.map((t) => ({ value: t, label: t, count: counts[t] }))}
+            className="w-fit max-w-full overflow-x-auto"
+          />
         </div>
       </header>
 
@@ -609,6 +593,18 @@ function CustomerRoomInner({
                         className={inputClass}
                       />
                     </EditableField>
+                    <EditableField label="Country">
+                      <input
+                        autoComplete="country-name"
+                        value={country}
+                        onChange={(e) => {
+                          setCountry(e.target.value);
+                          updateCustomer({ country: e.target.value || undefined });
+                        }}
+                        placeholder="e.g. Finland"
+                        className={inputClass}
+                      />
+                    </EditableField>
                     <EditableField label="Current solution">
                       <input
                         value={currentSolution}
@@ -663,6 +659,7 @@ function CustomerRoomInner({
                         "-"
                       )}
                     </ReadField>
+                    <ReadField label="Country">{country || "-"}</ReadField>
                     <ReadField label="Current solution">{currentSolution || "-"}</ReadField>
                     <ReadField label="Next step">{nextStep || "-"}</ReadField>
                   </div>
@@ -1067,6 +1064,7 @@ function CustomerRoomInner({
                         );
                         void setWorkTaskAssignees(t.id, nextAssignees);
                       }}
+                      owners={owners}
                     />
                   )}
                   {t.conversationId ? (

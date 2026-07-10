@@ -32,17 +32,18 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# ffmpeg: real transcription pipeline normalizes recorded audio to FLAC
-# before handing it to AssemblyAI (see src/lib/ai/transcribe.ts).
+# ffmpeg normalizes recorded audio for transcription. Nova's Python work runs
+# in the separate networkless worker container, never in this web container.
 RUN apk add --no-cache ffmpeg
 
-RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001 -G nodejs
 
 # Next.js standalone server + assets (self-contained — includes its own
 # trimmed node_modules, no `npm install` needed in this stage).
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/scripts/nova_document_worker.py ./scripts/nova_document_worker.py
 
 RUN chown -R nextjs:nodejs /app
 

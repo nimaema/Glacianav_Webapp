@@ -133,6 +133,7 @@ export function CustomerDrawer({
               {customer.idleDays === 0 ? "today" : `${customer.idleDays} d ago`}
             </span>
           </Fact>
+          {customer.country && <Fact label="Country">{customer.country}</Fact>}
         </dl>
 
         {contact && (contact.email || contact.phone) && (

@@ -187,6 +187,7 @@ export function NewCustomerView({
   const [ownerId, setOwnerId] = useState(owners[0]?.id ?? "");
   const [priority, setPriority] = useState<Priority | "">("");
   const [website, setWebsite] = useState("");
+  const [country, setCountry] = useState("");
 
   const [contactMode, setContactMode] = useState<"existing" | "new">(
     openContacts.length > 0 ? "existing" : "new",
@@ -243,6 +244,7 @@ export function NewCustomerView({
         ownerId,
         priority: priority || undefined,
         website: website.trim() || undefined,
+        country: country.trim() || undefined,
         contactId,
       });
       router.push(`/customers/${customer.id}`);
@@ -340,15 +342,26 @@ export function NewCustomerView({
             </select>
           </Field>
 
-          <Field label="Website (optional)">
-            <input
-              type="url"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              placeholder="https://company.com"
-              className={inputClass}
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Country (optional)">
+              <input
+                autoComplete="country-name"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="e.g. Finland"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Website (optional)">
+              <input
+                type="url"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                placeholder="https://company.com"
+                className={inputClass}
+              />
+            </Field>
+          </div>
 
           <div className="border-t border-line-2 pt-5">
             {kind === "company" ? (

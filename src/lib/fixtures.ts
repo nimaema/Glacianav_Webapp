@@ -69,6 +69,7 @@ export type Customer = {
   compatibility: CompatibilityLevel | null;
   priority?: Priority;
   website?: string;
+  country?: string;
   currentSolution?: string; // what they use/do instead, today
   interviewDate?: string; // display string, e.g. "Jul 6" — set once interviewed
   tags?: string[]; // needs / problem themes, board-filterable
@@ -193,6 +194,7 @@ export const customers: Customer[] = [
     compatibility: "good",
     priority: "high",
     website: "https://jokullexpeditions.is",
+    country: "Iceland",
     currentSolution: "Paper route plans and radio check-ins",
     interviewDate: "Jul 6",
     tags: ["rope teams", "icefall", "route planning"],
@@ -211,6 +213,7 @@ export const customers: Customer[] = [
     compatibility: "possible",
     priority: "medium",
     website: "https://meridianheliski.no",
+    country: "Norway",
     tags: ["season timing"],
     idleDays: 4,
     ownerId: "sara",
@@ -227,6 +230,7 @@ export const customers: Customer[] = [
     compatibility: "weak",
     priority: "low",
     website: "https://torresalpine.cl",
+    country: "Chile",
     idleDays: 9,
     ownerId: "jon",
   },
@@ -241,6 +245,7 @@ export const customers: Customer[] = [
     compatibility: "full",
     priority: "high",
     website: "https://arcticops.no",
+    country: "Norway",
     currentSolution: "Spreadsheet plus the ops whiteboard",
     interviewDate: "Jul 9",
     tags: ["route replanning", "pilot"],
@@ -259,6 +264,7 @@ export const customers: Customer[] = [
     compatibility: "none",
     priority: "low",
     website: "https://svalbardtraverse.no",
+    country: "Norway",
     currentSolution: "Manual route checks; workaround is acceptable",
     interviewDate: "Jul 8",
     tags: ["staffing", "workaround"],
@@ -290,6 +296,7 @@ export const customers: Customer[] = [
     compatibility: "full",
     priority: "high",
     website: "https://waptaicefield.ca",
+    country: "Canada",
     currentSolution: "Visual scouting only, no shared tooling",
     tags: ["visibility", "crevasse risk"],
     idleDays: 3,
@@ -422,6 +429,7 @@ export function createCustomer(input: {
   ownerId: string;
   priority?: Priority;
   website?: string;
+  country?: string;
   contactId?: string; // link an existing contact as the primary contact
 }): Customer {
   const customer: Customer = {
@@ -435,6 +443,7 @@ export function createCustomer(input: {
     compatibility: null,
     priority: input.priority,
     website: input.website,
+    country: input.country,
     idleDays: 0,
     ownerId: input.ownerId,
   };
@@ -633,6 +642,9 @@ export type Topic = {
   color: string; // data-palette hex
   visibility: TopicVisibility;
   memberIds: string[];
+  // The profile that created the topic. Undefined for legacy/seeded topics
+  // with unknown authorship — those are treated as admin-managed only.
+  createdById?: string;
 };
 
 export type ConversationStatus = "processing" | "ready" | "reviewed";
@@ -671,12 +683,17 @@ export type Conversation = {
   decisionsCount?: number;
   chapterCount?: number;
   source?: "record" | "upload";
+  // True when the conversation has real, playable audio stored in this
+  // workspace's own object storage. Migrated notes-app recordings left their
+  // audio on the source system, so this is false for them and the workspace
+  // shows an honest "audio not stored here" state instead of a dead player.
+  hasAudio?: boolean;
 };
 
 export const topics: Topic[] = [
-  { id: "interviews", name: "Customer interviews", color: "#1f95a8", visibility: "all", memberIds: ["nima", "sara", "jon"] },
-  { id: "weekly", name: "Weekly sync", color: "#6f5fb0", visibility: "all", memberIds: ["nima", "sara", "jon"] },
-  { id: "learning", name: "Learning", color: "#2f9e63", visibility: "selected", memberIds: ["nima", "sara"] },
+  { id: "interviews", name: "Customer interviews", color: "#1f95a8", visibility: "all", memberIds: ["nima", "sara", "jon"], createdById: "nima" },
+  { id: "weekly", name: "Weekly sync", color: "#6f5fb0", visibility: "all", memberIds: ["nima", "sara", "jon"], createdById: "sara" },
+  { id: "learning", name: "Learning", color: "#2f9e63", visibility: "selected", memberIds: ["nima", "sara"], createdById: "nima" },
 ];
 
 // Ordered by recency, newest first.
