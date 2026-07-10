@@ -237,6 +237,12 @@ export function RecordView({
         </div>
       ) : (
         <>
+          {rec.micError && (
+            <div className="recessed px-4 py-3 text-[13.5px] text-ink-2">
+              No microphone access ({rec.micError}) — the timer is running, but nothing will be
+              transcribed. Allow microphone access and start again for a real recording.
+            </div>
+          )}
           <div className="surfaced flex flex-col items-center gap-5 px-6 py-8">
             <div className="flex items-center gap-3">
               <span

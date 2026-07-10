@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import Link from "next/link";
@@ -21,6 +22,11 @@ export type RecordingState = {
   // Customers in the room. Not every recording has one — a weekly sync or a
   // learning note can record with zero participants attached.
   participantIds: string[];
+  // Set once if getUserMedia is denied/unavailable — the timer still runs
+  // (so the rest of the UI keeps working) but stopAndProcess falls back to
+  // creating a note-only conversation with no real audio, instead of
+  // silently pretending a real recording happened.
+  micError: string | null;
 };
 
 type RecordingApi = RecordingState & {
@@ -29,7 +35,8 @@ type RecordingApi = RecordingState & {
   removeParticipant: (customerId: string) => void;
   togglePause: () => void;
   flagMoment: () => void;
-  /** Stop and process: hands off to the pipeline and lands in Library. */
+  /** Stop and process: uploads the real audio (if captured) and hands off
+   * to the real transcription pipeline, then lands in Library. */
   stopAndProcess: (title?: string) => void;
   discard: () => void;
 };
@@ -61,9 +68,14 @@ export function RecordingProvider({
     elapsed: 0,
     flags: [],
     participantIds: [],
+    micError: null,
   });
   const router = useRouter();
   const pathname = usePathname();
+
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     if (!state.active || state.paused) return;
@@ -86,8 +98,31 @@ export function RecordingProvider({
     return () => window.removeEventListener("keydown", onKey);
   }, [router]);
 
-  const start = useCallback((participantIds: string[] = []) => {
-    setState({ active: true, paused: false, elapsed: 0, flags: [], participantIds });
+  const stopTracks = useCallback(() => {
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+    mediaRecorderRef.current = null;
+  }, []);
+
+  const start = useCallback(async (participantIds: string[] = []) => {
+    chunksRef.current = [];
+    setState({ active: true, paused: false, elapsed: 0, flags: [], participantIds, micError: null });
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start(1000); // collect a chunk every second so early stops still have data
+    } catch (e) {
+      // No mic access (permission denied, no device, non-HTTPS context,
+      // etc.) — keep the timer/UI usable, but be honest that there's no
+      // real audio behind it.
+      setState((s) => ({ ...s, micError: e instanceof Error ? e.message : "Microphone unavailable" }));
+    }
   }, []);
 
   const addParticipant = useCallback((customerId: string) => {
@@ -105,37 +140,83 @@ export function RecordingProvider({
     }));
   }, []);
 
-  const togglePause = useCallback(
-    () => setState((s) => ({ ...s, paused: !s.paused })),
-    [],
-  );
+  const togglePause = useCallback(() => {
+    setState((s) => {
+      const next = !s.paused;
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state === "recording" && next) recorder.pause();
+      else if (recorder && recorder.state === "paused" && !next) recorder.resume();
+      return { ...s, paused: next };
+    });
+  }, []);
 
   const flagMoment = useCallback(
     () => setState((s) => ({ ...s, flags: [...s.flags, s.elapsed] })),
     [],
   );
 
+  // Stops the MediaRecorder and resolves with the assembled audio Blob
+  // once its final chunk has landed.
+  const finalizeRecording = useCallback((): Promise<Blob | null> => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      recorder.onstop = () => {
+        const blob = chunksRef.current.length > 0 ? new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" }) : null;
+        resolve(blob);
+      };
+      if (recorder.state !== "inactive") recorder.stop();
+      else resolve(chunksRef.current.length > 0 ? new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" }) : null);
+    });
+  }, []);
+
   const stopAndProcess = useCallback(
     (title?: string) => {
       const { elapsed, participantIds } = state;
-      if (currentUserId) {
-        void createConversationFromRecording({
-          title: title?.trim() || "New recording",
-          authorId: currentUserId,
-          topicId: null,
-          participantIds,
-          durationMs: elapsed * 1000,
-        });
-      }
-      setState({ active: false, paused: false, elapsed: 0, flags: [], participantIds: [] });
+      const finalTitle = title?.trim() || "New recording";
+      const durationMs = elapsed * 1000;
+
+      void (async () => {
+        const audioBlob = currentUserId ? await finalizeRecording() : null;
+        stopTracks();
+
+        if (currentUserId && audioBlob && audioBlob.size > 0) {
+          const form = new FormData();
+          form.append("audio", audioBlob, "recording.webm");
+          form.append("title", finalTitle);
+          form.append("authorId", currentUserId);
+          form.append("durationMs", String(durationMs));
+          form.append("participantIds", JSON.stringify(participantIds));
+          try {
+            await fetch("/api/recordings/upload", { method: "POST", body: form });
+          } catch (e) {
+            console.error("recording upload failed", e);
+          }
+        } else if (currentUserId) {
+          // No real audio captured (mic denied/unavailable) — fall back to
+          // a text-only conversation row rather than losing the session.
+          void createConversationFromRecording({
+            title: finalTitle,
+            authorId: currentUserId,
+            topicId: null,
+            participantIds,
+            durationMs,
+          });
+        }
+      })();
+
+      setState({ active: false, paused: false, elapsed: 0, flags: [], participantIds: [], micError: null });
       router.push("/library");
     },
-    [router, state, currentUserId],
+    [router, state, currentUserId, finalizeRecording, stopTracks],
   );
 
   const discard = useCallback(() => {
-    setState({ active: false, paused: false, elapsed: 0, flags: [], participantIds: [] });
-  }, []);
+    mediaRecorderRef.current?.stop();
+    stopTracks();
+    chunksRef.current = [];
+    setState({ active: false, paused: false, elapsed: 0, flags: [], participantIds: [], micError: null });
+  }, [stopTracks]);
 
   const value = useMemo<RecordingApi>(
     () => ({

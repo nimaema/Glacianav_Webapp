@@ -32,6 +32,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# ffmpeg: real transcription pipeline normalizes recorded audio to FLAC
+# before handing it to AssemblyAI (see src/lib/ai/transcribe.ts).
+RUN apk add --no-cache ffmpeg
+
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 
 # Next.js standalone server + assets (self-contained — includes its own

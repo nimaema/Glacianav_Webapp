@@ -1,399 +1,259 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import {
-  CalendarCheck,
-  DownloadSimple,
-  FileArrowUp,
-  FilePdf,
-  FileText,
-  ListChecks,
-  Microphone,
-  NotePencil,
-  PaperPlaneTilt,
-  Sparkle,
-  UserPlus,
-  UsersThree,
-  X,
-} from "@phosphor-icons/react";
+import { DownloadSimple, Paperclip, PaperPlaneTilt, Sparkle, X } from "@phosphor-icons/react";
 import { useOutsideClick } from "@/lib/use-outside-click";
-import type { Customer } from "@/lib/fixtures";
 import type { NovaContextData } from "@/lib/data/nova";
-import { postQaMessage } from "@/lib/data/library-actions";
-import { bulkImportCustomers } from "@/lib/data/customers-actions";
+import { sendNovaMessage } from "@/lib/data/nova-actions";
+import type { NovaActionLog, NovaFile } from "@/lib/ai/nova-agent";
 
-type Exchange = { prompt: string; answer: string };
-type NovaTab = "Ask" | "Actions" | "Data";
-const TABS: NovaTab[] = ["Ask", "Actions", "Data"];
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  actions?: NovaActionLog[];
+  files?: NovaFile[];
+  pendingFileName?: string;
+};
 
-const QUICK_ACTIONS: { icon: typeof UserPlus; label: string; href: string }[] = [
-  { icon: UserPlus, label: "New customer", href: "/customers/new" },
-  { icon: UsersThree, label: "New contact", href: "/contacts/new" },
-  { icon: NotePencil, label: "New note", href: "/library?new=note" },
-  { icon: Microphone, label: "Record a conversation", href: "/record" },
-  { icon: ListChecks, label: "Open Work", href: "/work" },
-  { icon: CalendarCheck, label: "Find a slot", href: "/calendar" },
-];
-
-function mdEscape(s: string) {
-  return s.replace(/\|/g, "\\|");
-}
-
-function downloadBlob(content: BlobPart, filename: string, type: string) {
-  const blob = new Blob([content], { type });
+function downloadFile(f: NovaFile) {
+  if (f.format === "pdf") {
+    void (async () => {
+      const { default: jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+      const margin = 14;
+      const maxWidth = 180;
+      doc.setFontSize(14);
+      doc.text(f.filename, margin, 16);
+      doc.setFontSize(10);
+      const lines = doc.splitTextToSize(f.content, maxWidth);
+      let y = 26;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      for (const line of lines) {
+        if (y > pageHeight - 14) {
+          doc.addPage();
+          y = 16;
+        }
+        doc.text(line, margin, y);
+        y += 5.5;
+      }
+      doc.save(`${f.filename}.pdf`);
+    })();
+    return;
+  }
+  const ext = f.format === "markdown" ? "md" : f.format;
+  const mime = f.format === "csv" ? "text/csv" : f.format === "markdown" ? "text/markdown" : "text/plain";
+  const blob = new Blob([f.content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename;
+  a.download = `${f.filename}.${ext}`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-function exportCustomersMarkdown(customers: Customer[]) {
-  const header = "| Name | Segment | Stage | Priority | Website |\n| --- | --- | --- | --- | --- |";
-  const rows = customers.map(
-    (c) => `| ${mdEscape(c.name)} | ${mdEscape(c.segmentId)} | ${mdEscape(c.stage)} | ${c.priority ?? "—"} | ${c.website ?? "—"} |`,
-  );
-  const md = `# Customers export\n\n${header}\n${rows.join("\n")}\n`;
-  downloadBlob(md, `customers-${new Date().toISOString().slice(0, 10)}.md`, "text/markdown");
-}
-
-async function exportCustomersPdf(customers: Customer[]) {
-  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
-  const doc = new jsPDF();
-  doc.setFontSize(16);
-  doc.text("Customers export", 14, 16);
-  doc.setFontSize(9);
-  doc.text(new Date().toLocaleDateString(), 14, 22);
-  autoTable(doc, {
-    startY: 28,
-    head: [["Name", "Segment", "Stage", "Priority", "Website"]],
-    body: customers.map((c) => [c.name, c.segmentId, c.stage, c.priority ?? "—", c.website ?? "—"]),
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [17, 24, 19] },
-  });
-  doc.save(`customers-${new Date().toISOString().slice(0, 10)}.pdf`);
-}
-
-type ImportRow = {
-  name: string;
-  segmentName?: string;
-  ownerName?: string;
-  website?: string;
-  priority?: "low" | "medium" | "high";
-  contactName?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-};
-
-// Column headers are matched case-insensitively against a small set of
-// accepted synonyms, so a real prospect list exported from a CRM/sheet
-// doesn't need to be reformatted by hand first.
-const COLUMN_ALIASES: Record<keyof ImportRow, string[]> = {
-  name: ["name", "company", "company name", "customer"],
-  segmentName: ["segment", "category", "industry"],
-  ownerName: ["owner", "lead", "rep"],
-  website: ["website", "url", "site"],
-  priority: ["priority"],
-  contactName: ["contact", "contact name", "person"],
-  contactEmail: ["email", "contact email"],
-  contactPhone: ["phone", "contact phone"],
-};
-
-function normalizeRow(raw: Record<string, unknown>): ImportRow {
-  const lower = new Map(Object.entries(raw).map(([k, v]) => [k.trim().toLowerCase(), v]));
-  const pick = (aliases: string[]) => {
-    for (const a of aliases) {
-      const v = lower.get(a);
-      if (v != null && String(v).trim() !== "") return String(v).trim();
-    }
-    return undefined;
-  };
-  const priorityRaw = pick(COLUMN_ALIASES.priority)?.toLowerCase();
-  return {
-    name: pick(COLUMN_ALIASES.name) ?? "",
-    segmentName: pick(COLUMN_ALIASES.segmentName),
-    ownerName: pick(COLUMN_ALIASES.ownerName),
-    website: pick(COLUMN_ALIASES.website),
-    priority: priorityRaw === "low" || priorityRaw === "medium" || priorityRaw === "high" ? priorityRaw : undefined,
-    contactName: pick(COLUMN_ALIASES.contactName),
-    contactEmail: pick(COLUMN_ALIASES.contactEmail),
-    contactPhone: pick(COLUMN_ALIASES.contactPhone),
-  };
-}
-
-function ImportPanel() {
-  const [status, setStatus] = useState<"idle" | "parsing" | "importing" | "done" | "error">("idle");
-  const [result, setResult] = useState<{ created: number; skipped: string[] } | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const handleFile = async (file: File) => {
-    setStatus("parsing");
-    setErrorMsg(null);
-    setResult(null);
-    try {
-      const XLSX = await import("xlsx");
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array" });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
-      const rows = raw.map(normalizeRow).filter((r) => r.name);
-      if (rows.length === 0) {
-        setStatus("error");
-        setErrorMsg("No rows with a recognizable Name/Company column were found.");
-        return;
-      }
-      setStatus("importing");
-      const outcome = await bulkImportCustomers(rows);
-      setResult(outcome);
-      setStatus("done");
-    } catch (e) {
-      setStatus("error");
-      setErrorMsg(e instanceof Error ? e.message : "Could not read that file.");
-    } finally {
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".xlsx,.xls,.csv"
-        className="sr-only"
-        id="nova-import-file"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handleFile(file);
-        }}
-      />
-      <label
-        htmlFor="nova-import-file"
-        className="flex cursor-pointer items-center gap-2.5 rounded-lg bg-white/8 px-3 py-2.5 text-[13.5px] font-semibold text-deep-ink transition-colors duration-150 hover:bg-white/12"
-      >
-        <FileArrowUp size={16} className="shrink-0 text-signal" />
-        {status === "parsing" || status === "importing" ? "Working…" : "Import customers from Excel/CSV"}
-      </label>
-      <p className="px-0.5 text-[11.5px] leading-relaxed text-deep-ink-2">
-        Columns: Name (required), Segment, Owner, Website, Priority, Contact name/email/phone.
-      </p>
-      {status === "done" && result && (
-        <div className="rounded-lg bg-white/8 px-3 py-2.5 text-[13px]">
-          <p className="font-semibold text-deep-ink">{result.created} customer{result.created === 1 ? "" : "s"} created</p>
-          {result.skipped.length > 0 && (
-            <p className="mt-1 text-[12px] text-deep-ink-2">
-              Skipped {result.skipped.length}: {result.skipped.slice(0, 3).join(", ")}
-              {result.skipped.length > 3 ? "…" : ""}
-            </p>
-          )}
-        </div>
-      )}
-      {status === "error" && errorMsg && (
-        <p className="rounded-lg bg-[#ff8a75]/10 px-3 py-2.5 text-[12.5px] text-[#ff8a75]">{errorMsg}</p>
-      )}
-    </div>
-  );
-}
-
 /**
- * Nova — the workspace assistant dock. Real-data scoped Ask panel, a real
- * quick-action launcher, and real file tools (Excel import → real
- * customers/contacts, Markdown/PDF export of the real customer list).
+ * Nova — a real chat backed by DeepSeek (see src/lib/ai/nova-agent.ts).
+ * Attach a spreadsheet/doc/pdf and ask it to do something with the content;
+ * ask it to generate a file and download it straight from the reply.
  */
 export function NovaDock({ context, currentUserId }: { context: NovaContextData; currentUserId: string }) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<NovaTab>("Ask");
   const pathname = usePathname();
   const panelRef = useRef<HTMLDivElement>(null);
   useOutsideClick(panelRef, () => setOpen(false), open);
 
-  const [messages, setMessages] = useState<Exchange[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const customer = useMemo(() => {
+  const scopeCustomer = (() => {
     const m = pathname.match(/^\/customers\/([^/]+)$/);
     return m ? context.customers.find((c) => c.id === m[1]) : undefined;
-  }, [pathname, context.customers]);
+  })();
 
-  const openTaskCount = customer ? (context.openTaskCountByCustomer[customer.id] ?? 0) : 0;
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+  }, [messages, sending]);
 
-  const send = () => {
-    const q = draft.trim();
-    if (!q) return;
-    const answer = customer
-      ? `${openTaskCount} open task${openTaskCount === 1 ? "" : "s"} on ${customer.name}${customer.nextStep ? `. Next step: "${customer.nextStep}".` : "."}`
-      : "Live answers over the whole workspace arrive with the capture pipeline and embeddings — this question is saved for when that lands.";
-    setMessages((m) => [...m, { prompt: q, answer }]);
+  const send = async () => {
+    const text = draft.trim();
+    if (!text && !pendingFile) return;
+    const file = pendingFile;
+    const userMsg: ChatMessage = { role: "user", content: text || `(attached ${file?.name})`, pendingFileName: file?.name };
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+
+    setMessages((m) => [...m, userMsg]);
     setDraft("");
-    void postQaMessage({
-      customerId: customer?.id,
-      authorId: currentUserId,
-      role: "user",
-      content: q,
-    });
+    setPendingFile(null);
+    setSending(true);
+
+    try {
+      const response = await sendNovaMessage({
+        message: text || `Read the attached file and do what makes sense with it.`,
+        history,
+        authorId: currentUserId,
+        scopeCustomerId: scopeCustomer?.id,
+        file,
+      });
+      const reply: ChatMessage = {
+        role: "assistant",
+        content: response.fileParseNote ? `${response.answer}\n\n${response.fileParseNote}` : response.answer,
+        actions: response.actions,
+        files: response.files,
+      };
+      setMessages((m) => [...m, reply]);
+    } catch (e) {
+      setMessages((m) => [...m, { role: "assistant", content: `Something went wrong: ${e instanceof Error ? e.message : "unknown error"}` }]);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3" ref={panelRef}>
+    <div className="fixed bottom-24 right-3 z-40 flex flex-col items-end gap-3 md:bottom-6 md:right-6" ref={panelRef}>
       {open && (
         <section
           aria-label="Nova assistant"
-          className="flex h-[560px] w-[min(420px,calc(100vw-2rem))] flex-col border border-white/15 bg-deep text-deep-ink shadow-[10px_10px_0_rgba(17,24,19,.22)]"
+          className="flex h-[min(600px,calc(100dvh-7rem))] w-[min(420px,calc(100vw-1.5rem))] flex-col border border-ink bg-surface text-ink"
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 pb-3 pt-4">
+          <div className="flex shrink-0 items-center justify-between border-b border-line-2 px-5 pb-3 pt-4">
             <span className="flex items-center gap-2 text-[15px] font-semibold">
-              <Sparkle size={17} className="text-signal" />
+              <Sparkle size={17} className="text-melt" />
               Nova
-              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[12px] font-medium text-deep-ink-2">
-                scope: {customer ? customer.name : "workspace"}
-              </span>
+              {scopeCustomer && (
+                <span className="rounded-full bg-melt/10 px-2 py-0.5 text-[12px] font-medium text-melt">{scopeCustomer.name}</span>
+              )}
             </span>
             <button
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close Nova"
-              className="cursor-pointer rounded p-1 text-deep-ink-2 transition-colors duration-150 hover:text-deep-ink"
+              className="cursor-pointer rounded p-1 text-ink-3 transition-colors duration-150 hover:text-ink"
             >
               <X size={16} />
             </button>
           </div>
 
-          <div role="tablist" aria-label="Nova panel" className="flex shrink-0 gap-1 border-b border-white/10 px-4 pt-2">
-            {TABS.map((t) => (
-              <button
-                key={t}
-                type="button"
-                role="tab"
-                aria-selected={tab === t}
-                onClick={() => setTab(t)}
-                className={`h-9 cursor-pointer rounded-t-md px-3.5 text-[13px] font-semibold transition-colors duration-150 ${
-                  tab === t ? "bg-white/10 text-deep-ink" : "text-deep-ink-2 hover:text-deep-ink"
-                }`}
-              >
-                {t}
-              </button>
+          <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+            {messages.length === 0 && (
+              <p className="text-[13.5px] leading-relaxed text-ink-2">
+                {scopeCustomer
+                  ? `Ask me anything about ${scopeCustomer.name}, or hand me a chore — "create a task", "draft a follow-up email".`
+                  : "Ask me anything, attach a spreadsheet/doc/PDF for me to read and act on, or ask me to generate a file."}
+              </p>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[88%] border px-3.5 py-2.5 text-[14px] leading-relaxed ${
+                    m.role === "user" ? "border-melt bg-melt text-white" : "border-line bg-surface-2 text-ink"
+                  }`}
+                >
+                  {m.pendingFileName && (
+                    <p className={`mb-1 flex items-center gap-1.5 text-[12px] font-semibold ${m.role === "user" ? "text-white/80" : "text-ink-2"}`}>
+                      <Paperclip size={12} />
+                      {m.pendingFileName}
+                    </p>
+                  )}
+                  <p className="whitespace-pre-wrap">{m.content}</p>
+                  {m.actions && m.actions.length > 0 && (
+                    <div className="mt-2 flex flex-col gap-1 border-t border-black/10 pt-2">
+                      {m.actions.map((a, ai) => (
+                        <p key={ai} className={`text-[12.5px] ${a.ok ? "text-ink-2" : "text-danger"}`}>
+                          {a.ok ? "✓" : "✕"} {a.label}
+                          {a.detail ? ` — ${a.detail}` : ""}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {m.files && m.files.length > 0 && (
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      {m.files.map((f, fi) => (
+                        <button
+                          key={fi}
+                          type="button"
+                          onClick={() => downloadFile(f)}
+                          className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-[13px] font-semibold text-ink shadow-sm transition-colors duration-150 hover:bg-ice-0"
+                        >
+                          <DownloadSimple size={15} className="shrink-0 text-melt" />
+                          <span className="min-w-0 flex-1 truncate">
+                            {f.filename}.{f.format === "markdown" ? "md" : f.format}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             ))}
+            {sending && (
+              <div className="flex justify-start">
+                <div className="border border-line bg-surface-2 px-3.5 py-2.5 text-[14px] text-ink-2">Thinking…</div>
+              </div>
+            )}
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
-            {tab === "Ask" && (
-              <div className="flex min-h-full flex-col">
-                <p className="mb-3 text-[13.5px] text-deep-ink-2">
-                  {customer
-                    ? `Scoped to ${customer.name} — every real conversation and task tied to this account.`
-                    : "Ask across every conversation and customer you can access."}
-                </p>
-                <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
-                  {messages.map((m, i) => (
-                    <div key={i} className="rounded-lg bg-white/8 p-3 text-[14px] leading-relaxed">
-                      <p className="mb-1 text-deep-ink-2">{m.prompt}</p>
-                      <p>{m.answer}</p>
-                    </div>
-                  ))}
-                  {messages.length === 0 && (
-                    <p className="text-[13px] text-deep-ink-2">
-                      Nothing asked yet this session — try &ldquo;What&rsquo;s still open?&rdquo;
-                    </p>
-                  )}
-                </div>
-                <div className="mt-3 flex shrink-0 items-center gap-2">
-                  <label className="sr-only" htmlFor="nova-input">
-                    Ask Nova
-                  </label>
-                  <input
-                    id="nova-input"
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && send()}
-                    placeholder={customer ? `Ask Nova about ${customer.name}` : "Ask Nova"}
-                    className="h-9 w-full rounded-lg bg-white/10 px-3 text-[14.5px] text-deep-ink placeholder:text-deep-ink-2 focus:bg-white/15 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={send}
-                    aria-label="Send"
-                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-signal text-deep transition-colors duration-150 hover:bg-white"
-                  >
-                    <PaperPlaneTilt size={15} weight="bold" />
-                  </button>
-                </div>
+          <div className="shrink-0 border-t border-line-2 p-3">
+            {pendingFile && (
+              <div className="mb-2 flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-1.5 text-[12.5px] font-semibold text-ink-2">
+                <Paperclip size={13} className="shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{pendingFile.name}</span>
+                <button type="button" onClick={() => setPendingFile(null)} aria-label="Remove attached file" className="shrink-0 cursor-pointer text-ink-3 hover:text-ink">
+                  <X size={13} />
+                </button>
               </div>
             )}
-
-            {tab === "Actions" && (
-              <div className="flex flex-col gap-1.5">
-                <p className="mb-1.5 text-[12px] font-bold uppercase tracking-[0.1em] text-deep-ink-2">Quick actions</p>
-                {QUICK_ACTIONS.map(({ icon: IconEl, label, href }) => (
-                  <Link
-                    key={label}
-                    href={href}
-                    onClick={() => setOpen(false)}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-lg bg-white/8 px-3 py-2.5 text-[13.5px] font-semibold text-deep-ink transition-colors duration-150 hover:bg-white/12"
-                  >
-                    <IconEl size={16} className="shrink-0 text-signal" />
-                    {label}
-                  </Link>
-                ))}
-                {customer && (
-                  <>
-                    <p className="mb-1.5 mt-3 text-[12px] font-bold uppercase tracking-[0.1em] text-deep-ink-2">
-                      On {customer.name}
-                    </p>
-                    <Link
-                      href={`/customers/${customer.id}`}
-                      onClick={() => setOpen(false)}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-lg bg-white/8 px-3 py-2.5 text-[13.5px] font-semibold text-deep-ink transition-colors duration-150 hover:bg-white/12"
-                    >
-                      <UsersThree size={16} className="shrink-0 text-signal" />
-                      Open {customer.name}&rsquo;s room
-                    </Link>
-                  </>
-                )}
-              </div>
-            )}
-
-            {tab === "Data" && (
-              <div className="flex flex-col gap-4">
-                <div>
-                  <p className="mb-1.5 text-[12px] font-bold uppercase tracking-[0.1em] text-deep-ink-2">Import</p>
-                  <ImportPanel />
-                </div>
-                <div>
-                  <p className="mb-1.5 text-[12px] font-bold uppercase tracking-[0.1em] text-deep-ink-2">
-                    Export ({context.customers.length} customer{context.customers.length === 1 ? "" : "s"})
-                  </p>
-                  <div className="flex flex-col gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => exportCustomersMarkdown(context.customers)}
-                      disabled={context.customers.length === 0}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-lg bg-white/8 px-3 py-2.5 text-[13.5px] font-semibold text-deep-ink transition-colors duration-150 hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <FileText size={16} className="shrink-0 text-signal" />
-                      Export as Markdown
-                      <DownloadSimple size={14} className="ml-auto text-deep-ink-2" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void exportCustomersPdf(context.customers)}
-                      disabled={context.customers.length === 0}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-lg bg-white/8 px-3 py-2.5 text-[13.5px] font-semibold text-deep-ink transition-colors duration-150 hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <FilePdf size={16} className="shrink-0 text-signal" />
-                      Export as PDF
-                      <DownloadSimple size={14} className="ml-auto text-deep-ink-2" />
-                    </button>
-                  </div>
-                  {context.customers.length === 0 && (
-                    <p className="mt-1.5 text-[11.5px] text-deep-ink-2">No customers yet — nothing to export.</p>
-                  )}
-                </div>
-              </div>
-            )}
+            <div className="flex items-end gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv,.ods,.docx,.odt,.pdf,.txt,.md,.json"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setPendingFile(file);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Attach a file"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-2 transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
+              >
+                <Paperclip size={16} />
+              </button>
+              <label className="sr-only" htmlFor="nova-input">
+                Ask Nova
+              </label>
+              <textarea
+                id="nova-input"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void send();
+                  }
+                }}
+                placeholder="Ask Nova, or attach a file…"
+                rows={1}
+                className="h-9 max-h-24 w-full resize-none rounded-lg bg-surface-2 px-3 py-2 text-[14px] text-ink outline-none placeholder:text-ink-3 focus:bg-ice-0"
+              />
+              <button
+                type="button"
+                onClick={() => void send()}
+                disabled={sending || (!draft.trim() && !pendingFile)}
+                aria-label="Send"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-melt text-white transition-colors duration-150 hover:bg-melt-strong disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <PaperPlaneTilt size={15} weight="bold" />
+              </button>
+            </div>
           </div>
         </section>
       )}
@@ -402,10 +262,11 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex h-12 cursor-pointer items-center gap-2 bg-signal px-5 text-[14px] font-bold text-deep shadow-[5px_5px_0_rgba(17,24,19,.2)] transition-transform hover:-translate-y-px"
+        aria-label="Open Nova"
+        className="flex h-12 w-12 cursor-pointer items-center justify-center gap-2 border border-ink bg-signal px-0 text-[14px] font-semibold text-ink shadow-[5px_5px_0_var(--ink)] hover:bg-[#cddd37] sm:w-auto sm:px-5"
       >
         <Sparkle size={17} />
-        Nova
+        <span className="hidden sm:inline">Nova</span>
       </button>
     </div>
   );
