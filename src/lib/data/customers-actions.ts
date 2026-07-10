@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
 import { contacts, customers, segments, stages, validationNotes } from "@/db/schema";
 import type { CompatibilityLevel, ContactChannel, Customer, CustomerKind, Priority } from "@/lib/fixtures";
+import { notifyProfile } from "@/lib/data/notifications";
 
 const PATHS = ["/customers", "/validation-progress"] as const;
 function revalidateBoth() {
@@ -168,6 +169,18 @@ export async function addValidationNote(input: {
     })
     .returning({ id: validationNotes.id });
   revalidatePath(`/customers/${input.customerId}`);
+
+  const [customer] = await db.select({ name: customers.name, ownerId: customers.ownerId }).from(customers).where(eq(customers.id, input.customerId)).limit(1);
+  if (customer?.ownerId && customer.ownerId !== input.authorId) {
+    await notifyProfile({
+      profileId: customer.ownerId,
+      kind: "validation_note_added",
+      title: `New validation note on ${customer.name}`,
+      body: input.body,
+      href: `/customers/${input.customerId}`,
+    });
+  }
+
   return { id: row.id };
 }
 

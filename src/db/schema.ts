@@ -56,6 +56,10 @@ export const calendarEventKindEnum = pgEnum("calendar_event_kind", ["interview",
 // new commentable/loggable entities are added, no schema migration needed
 // for the rows themselves.
 export const entityTypeEnum = pgEnum("entity_type", ["conversation", "customer", "contact"]);
+// Extend as more real trigger points get wired up — kept to what actually
+// fires today (task assignment, a validation note landing on an account
+// you own) rather than every conceivable notification type.
+export const notificationKindEnum = pgEnum("notification_kind", ["task_assigned", "validation_note_added"]);
 
 // ─── People & workspace config ──────────────────────────────────────
 
@@ -303,6 +307,21 @@ export const activities = pgTable("activities", {
   entityId: text("entity_id").notNull(),
   ownerId: uuid("owner_id").references(() => profiles.id),
   text: text("text").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Real notifications, fired from the specific mutations that actually
+// have a clear recipient and a real trigger point today (task assignment,
+// a validation note landing on an account you own) — kind is an open
+// enum so more trigger points can be added later without a new table.
+export const notifications = pgTable("notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  kind: notificationKindEnum("kind").notNull(),
+  title: text("title").notNull(),
+  body: text("body"),
+  href: text("href"),
+  read: boolean("read").default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

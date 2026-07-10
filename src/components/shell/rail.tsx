@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -14,8 +15,12 @@ import {
   Sparkle,
   Gear,
   ShieldCheck,
+  SignOut,
   type Icon,
 } from "@phosphor-icons/react";
+import { useOutsideClick } from "@/lib/use-outside-click";
+import type { Profile } from "@/lib/auth/ensure-profile";
+import { signOut } from "@/lib/auth/actions";
 
 type NavItem = { href: string; label: string; icon: Icon };
 type Section = { label: string | null; items: NavItem[] };
@@ -78,10 +83,13 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-export function Rail() {
+export function Rail({ profile }: { profile: Profile | null }) {
   const pathname = usePathname();
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useOutsideClick(menuRef, () => setMenuOpen(false), menuOpen);
 
   return (
     <nav
@@ -112,14 +120,49 @@ export function Rail() {
         {FOOT.map((item) => (
           <RailLink key={item.href} item={item} active={isActive(item.href)} />
         ))}
-        <div className="mx-3 mt-3 flex items-center gap-3 border-t border-white/10 px-3 pt-4">
-          <span className="flex h-8 w-8 items-center justify-center bg-white/10 text-[12px] font-bold text-signal">
-            N
-          </span>
-          <span className="text-[14px] font-semibold leading-tight text-white">
-            Nima
-            <span className="block font-mono text-[10px] font-normal uppercase tracking-[0.12em] text-deep-ink-2">Admin</span>
-          </span>
+        <div ref={menuRef} className="relative mx-3 mt-3 border-t border-white/10 pt-4">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-1.5 text-left transition-colors duration-150 hover:bg-white/[0.05]"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-[12px] font-bold text-signal">
+              {profile?.initials ?? "?"}
+            </span>
+            <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight text-white">
+              <span className="block truncate">{profile?.name ?? "Not signed in"}</span>
+              <span className="block font-mono text-[10px] font-normal uppercase tracking-[0.12em] text-deep-ink-2">
+                {profile?.role ?? "—"}
+              </span>
+            </span>
+          </button>
+          {menuOpen && (
+            <div
+              role="menu"
+              className="surfaced-lg absolute bottom-full left-3 right-3 z-30 mb-2 p-1.5"
+            >
+              <Link
+                href="/settings"
+                role="menuitem"
+                onClick={() => setMenuOpen(false)}
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] text-ink transition-colors duration-150 hover:bg-surface-2"
+              >
+                <Gear size={16} className="text-ink-3" />
+                Settings
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => signOut()}
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] font-semibold text-danger transition-colors duration-150 hover:bg-danger/10"
+              >
+                <SignOut size={16} />
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </nav>
