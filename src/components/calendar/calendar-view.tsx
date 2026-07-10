@@ -25,18 +25,15 @@ import { SectionHeader } from "@/components/ui/section-header";
 import {
   CALENDAR_DAYS,
   CALENDAR_HOURS,
-  calendarEvents as calendarEventsSeed,
-  calendarFeeds,
-  customerById,
-  customers,
-  owners,
   type CalendarDay,
   type CalendarEvent,
   type CalendarEventKind,
   type CalendarFeed,
+  type Customer,
 } from "@/lib/fixtures";
+import type { CalendarPageData, RealCalendarEvent, RealCalendarFeed } from "@/lib/data/calendar";
+import { addCalendarEvent, addCalendarFeed, deleteCalendarEvent, removeCalendarFeed } from "@/lib/data/calendar-actions";
 
-const CURRENT_USER = "nima";
 const ROW_H = 56; // px per hour row, shared by grid rows, event blocks, and the now-line
 const GAP = 2; // px gutter between side-by-side overlapping events
 
@@ -174,16 +171,18 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 function EventDetail({
   event,
   feed,
+  customers,
   onClose,
   onDelete,
 }: {
   event: CalendarEvent;
   feed?: CalendarFeed;
+  customers: Customer[];
   onClose: () => void;
   onDelete: () => void;
 }) {
   const meta = KIND_META[event.kind];
-  const customer = event.customerId ? customerById(event.customerId) : undefined;
+  const customer = event.customerId ? customers.find((c) => c.id === event.customerId) : undefined;
   return (
     <Modal title={event.title} onClose={onClose}>
       <div className="flex flex-col gap-3">
@@ -235,11 +234,15 @@ function EventDetail({
 function AddEventForm({
   draft,
   feeds,
+  customers,
+  currentUserId,
   onSave,
   onClose,
 }: {
   draft: { day: CalendarDay; hour: number };
   feeds: CalendarFeed[];
+  customers: Customer[];
+  currentUserId: string;
   onSave: (event: Omit<CalendarEvent, "id">) => void;
   onClose: () => void;
 }) {
@@ -258,7 +261,7 @@ function AddEventForm({
     const feed = feeds.find((f) => f.id === feedId);
     onSave({
       feedId,
-      ownerId: feed?.ownerId ?? CURRENT_USER,
+      ownerId: feed?.ownerId ?? currentUserId,
       day,
       startHour: allDay ? CALENDAR_HOURS[0] : start,
       endHour: allDay ? CALENDAR_HOURS[CALENDAR_HOURS.length - 1] + 1 : end,
@@ -420,12 +423,14 @@ function AgendaView({
   todayIndex,
   events,
   feeds,
+  customers,
   onSelect,
 }: {
   weekDates: { day: CalendarDay; date: Date }[];
   todayIndex: number;
   events: CalendarEvent[];
   feeds: CalendarFeed[];
+  customers: Customer[];
   onSelect: (e: CalendarEvent) => void;
 }) {
   return (
@@ -460,7 +465,7 @@ function AgendaView({
                   const feed = feeds.find((f) => f.id === e.feedId);
                   const meta = KIND_META[e.kind];
                   const IconEl = meta.icon;
-                  const customer = e.customerId ? customerById(e.customerId) : undefined;
+                  const customer = e.customerId ? customers.find((c) => c.id === e.customerId) : undefined;
                   return (
                     <button
                       key={e.id}
@@ -498,14 +503,55 @@ function AgendaView({
   );
 }
 
-export function CalendarView() {
+function toFeedShape(f: RealCalendarFeed): CalendarFeed {
+  return {
+    id: f.id,
+    ownerId: f.ownerId,
+    label: f.label,
+    color: f.color,
+    visibility: f.visibility,
+    internal: f.internal,
+    syncStatus: f.syncStatus,
+    lastSyncedMinutes: f.lastSyncedMinutes,
+  };
+}
+
+// Real events carry absolute timestamps; this buckets one into whichever
+// day of the currently-displayed week it actually falls on (or drops it if
+// it isn't in this week at all — real navigation, not a repeated template).
+function toWeekEvent(e: RealCalendarEvent, weekDates: { day: CalendarDay; date: Date }[]): CalendarEvent | null {
+  const match = weekDates.find((w) => w.date.toDateString() === e.startAt.toDateString());
+  if (!match) return null;
+  const startHour = e.allDay ? CALENDAR_HOURS[0] : e.startAt.getHours() + e.startAt.getMinutes() / 60;
+  const endHour = e.allDay ? CALENDAR_HOURS[CALENDAR_HOURS.length - 1] + 1 : e.endAt.getHours() + e.endAt.getMinutes() / 60;
+  return {
+    id: e.id,
+    feedId: e.feedId,
+    ownerId: e.ownerId,
+    day: match.day,
+    startHour,
+    endHour,
+    title: e.title,
+    kind: e.kind,
+    customerId: e.customerId,
+    allDay: e.allDay || undefined,
+  };
+}
+
+export function CalendarView({
+  feeds: initialFeeds,
+  events: initialEvents,
+  owners,
+  customers,
+  currentUserId,
+}: CalendarPageData & { currentUserId: string }) {
   const [visibleFeedIds, setVisibleFeedIds] = useState<Set<string>>(
-    new Set(calendarFeeds.filter((f) => f.ownerId === CURRENT_USER).map((f) => f.id)),
+    new Set(initialFeeds.filter((f) => f.ownerId === currentUserId).map((f) => f.id)),
   );
   const [availabilityWith, setAvailabilityWith] = useState<Set<string>>(new Set());
   const [newFeedUrl, setNewFeedUrl] = useState("");
-  const [feeds, setFeeds] = useState<CalendarFeed[]>(calendarFeeds);
-  const [events, setEvents] = useState<CalendarEvent[]>(calendarEventsSeed);
+  const [feeds, setFeeds] = useState<CalendarFeed[]>(() => initialFeeds.map(toFeedShape));
+  const [rawEvents, setRawEvents] = useState<RealCalendarEvent[]>(initialEvents);
   const [weekOffset, setWeekOffset] = useState(0);
   const [view, setView] = useState<"week" | "agenda">("week");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -541,12 +587,12 @@ export function CalendarView() {
     return weekDates.findIndex((w) => w.date.toDateString() === now.toDateString());
   }, [now, weekOffset, weekDates]);
 
-  const myFeeds = feeds.filter((f) => f.ownerId === CURRENT_USER);
-  const visibleEvents = events.filter((e) => visibleFeedIds.has(e.feedId));
-  // The seed data models one recurring template week; other weeks are
-  // honestly empty until real ICS sync lands.
-  const showEvents = weekOffset === 0;
-  const shownEvents = showEvents ? visibleEvents : [];
+  const myFeeds = feeds.filter((f) => f.ownerId === currentUserId);
+  // Bucket each real event (absolute timestamp) into whichever day of the
+  // currently-displayed week it actually falls on — genuine week
+  // navigation, not the fixture's single repeated template week.
+  const weekEvents = useMemo(() => rawEvents.map((e) => toWeekEvent(e, weekDates)).filter((e): e is CalendarEvent => e != null), [rawEvents, weekDates]);
+  const shownEvents = weekEvents.filter((e) => visibleFeedIds.has(e.feedId));
 
   const jumpToDate = (d: Date) => {
     const base = startOfWeek(now ?? new Date());
@@ -567,11 +613,12 @@ export function CalendarView() {
   const addFeed = () => {
     const url = newFeedUrl.trim();
     if (!url) return;
-    const id = `f-new-${feeds.length}-${url.length}`;
-    const feed: CalendarFeed = { id, ownerId: CURRENT_USER, label: "New calendar", color: "#f26d5f", visibility: "busy_only", syncStatus: "syncing", lastSyncedMinutes: 0 };
-    setFeeds((fs) => [...fs, feed]);
-    setVisibleFeedIds((prev) => new Set(prev).add(id));
     setNewFeedUrl("");
+    void addCalendarFeed({ ownerId: currentUserId, label: "New calendar", url }).then(({ id }) => {
+      const feed: CalendarFeed = { id, ownerId: currentUserId, label: "New calendar", color: "#f26d5f", visibility: "busy_only", syncStatus: "syncing", lastSyncedMinutes: 0 };
+      setFeeds((fs) => [...fs, feed]);
+      setVisibleFeedIds((prev) => new Set(prev).add(id));
+    });
   };
 
   const removeFeed = (id: string) => {
@@ -581,6 +628,7 @@ export function CalendarView() {
       next.delete(id);
       return next;
     });
+    void removeCalendarFeed(id);
   };
 
   const toggleAvailability = (ownerId: string) => {
@@ -595,9 +643,9 @@ export function CalendarView() {
   // A slot counts as "free for the group" when none of the selected
   // teammates (or me) has a busy/interview/recording event covering it.
   const freeSlots = useMemo(() => {
-    if (availabilityWith.size === 0 || !showEvents) return null;
-    const people = [CURRENT_USER, ...availabilityWith];
-    const busyByPerson = people.map((id) => events.filter((e) => e.ownerId === id && !e.allDay));
+    if (availabilityWith.size === 0) return null;
+    const people = [currentUserId, ...availabilityWith];
+    const busyByPerson = people.map((id) => weekEvents.filter((e) => e.ownerId === id && !e.allDay));
     const result: Record<CalendarDay, boolean[]> = {} as Record<CalendarDay, boolean[]>;
     for (const day of CALENDAR_DAYS) {
       result[day] = CALENDAR_HOURS.map((hour) =>
@@ -605,18 +653,39 @@ export function CalendarView() {
       );
     }
     return result;
-  }, [availabilityWith, events, showEvents]);
+  }, [availabilityWith, weekEvents, currentUserId]);
 
   const suggestedSlots = useMemo(() => bestWindows(freeSlots), [freeSlots]);
 
   const addEvent = (draft: Omit<CalendarEvent, "id">) => {
-    setEvents((evs) => [...evs, { ...draft, id: `e-new-${evs.length}` }]);
     setAddDraft(null);
+    const match = weekDates.find((w) => w.day === draft.day);
+    if (!match) return;
+    const startAt = new Date(match.date);
+    startAt.setHours(Math.floor(draft.startHour), Math.round((draft.startHour % 1) * 60), 0, 0);
+    const endAt = new Date(match.date);
+    endAt.setHours(Math.floor(draft.endHour), Math.round((draft.endHour % 1) * 60), 0, 0);
+    void addCalendarEvent({
+      feedId: draft.feedId,
+      ownerId: draft.ownerId,
+      title: draft.title,
+      kind: draft.kind,
+      customerId: draft.customerId,
+      allDay: Boolean(draft.allDay),
+      startAt,
+      endAt,
+    }).then(({ id }) => {
+      setRawEvents((evs) => [
+        ...evs,
+        { id, feedId: draft.feedId, ownerId: draft.ownerId, title: draft.title, kind: draft.kind, customerId: draft.customerId, allDay: Boolean(draft.allDay), startAt, endAt },
+      ]);
+    });
   };
 
   const deleteEvent = (id: string) => {
-    setEvents((evs) => evs.filter((e) => e.id !== id));
+    setRawEvents((evs) => evs.filter((e) => e.id !== id));
     setSelectedEvent(null);
+    void deleteCalendarEvent(id);
   };
 
   const nowTop = now && (now.getHours() + now.getMinutes() / 60 - CALENDAR_HOURS[0]) * ROW_H;
@@ -718,7 +787,7 @@ export function CalendarView() {
             <SectionHeader icon={<UsersThree size={14} />}>Find a slot</SectionHeader>
             <div className="surfaced flex flex-col gap-1.5 px-3 py-2.5">
               {owners
-                .filter((o) => o.id !== CURRENT_USER)
+                .filter((o) => o.id !== currentUserId)
                 .map((o) => (
                   <label
                     key={o.id}
@@ -825,7 +894,7 @@ export function CalendarView() {
           </div>
 
           {view === "agenda" ? (
-            <AgendaView weekDates={weekDates} todayIndex={todayIndex} events={shownEvents} feeds={feeds} onSelect={setSelectedEvent} />
+            <AgendaView weekDates={weekDates} todayIndex={todayIndex} events={shownEvents} feeds={feeds} customers={customers} onSelect={setSelectedEvent} />
           ) : (
             <div className="overflow-x-auto">
               <div className="surfaced min-w-[820px] p-5">
@@ -949,9 +1018,9 @@ export function CalendarView() {
                   })}
                 </div>
 
-                {!showEvents && (
+                {shownEvents.length === 0 && (
                   <p className="mt-3 text-center text-[13px] text-ink-2">
-                    No synced events for this week yet — feed sync will backfill this once connected.
+                    Nothing on the calendar this week yet — add an event, or connect a feed for it to sync in.
                   </p>
                 )}
               </div>
@@ -964,11 +1033,12 @@ export function CalendarView() {
         <EventDetail
           event={selectedEvent}
           feed={feeds.find((f) => f.id === selectedEvent.feedId)}
+          customers={customers}
           onClose={() => setSelectedEvent(null)}
           onDelete={() => deleteEvent(selectedEvent.id)}
         />
       )}
-      {addDraft && <AddEventForm draft={addDraft} feeds={myFeeds} onSave={addEvent} onClose={() => setAddDraft(null)} />}
+      {addDraft && <AddEventForm draft={addDraft} feeds={myFeeds} customers={customers} currentUserId={currentUserId} onSave={addEvent} onClose={() => setAddDraft(null)} />}
     </>
   );
 }
