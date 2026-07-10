@@ -7,6 +7,7 @@ import { useOutsideClick } from "@/lib/use-outside-click";
 import type { NovaContextData } from "@/lib/data/nova";
 import { sendNovaMessage } from "@/lib/data/nova-actions";
 import type { NovaActionLog, NovaFile } from "@/lib/ai/nova-agent";
+import { NovaMarkdown } from "@/components/shell/nova-markdown";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -159,13 +160,25 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                       {m.pendingFileName}
                     </p>
                   )}
-                  <p className="whitespace-pre-wrap">{m.content}</p>
+                  <NovaMarkdown content={m.content} tone={m.role} />
                   {m.actions && m.actions.length > 0 && (
                     <div className="mt-2 flex flex-col gap-1 border-t border-black/10 pt-2">
                       {m.actions.map((a, ai) => (
-                        <p key={ai} className={`text-[12.5px] ${a.ok ? "text-ink-2" : "text-danger"}`}>
-                          {a.ok ? "✓" : "✕"} {a.label}
-                          {a.detail ? ` — ${a.detail}` : ""}
+                        <p
+                          key={ai}
+                          className={`flex items-center gap-1.5 text-[12.5px] font-medium ${
+                            a.ok ? (m.role === "user" ? "text-white/85" : "text-melt") : "text-danger"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                              a.ok ? "bg-melt/15 text-melt" : "bg-danger/15 text-danger"
+                            }`}
+                          >
+                            {a.ok ? "✓" : "✕"}
+                          </span>
+                          {a.label}
+                          {a.detail ? <span className="text-ink-3">— {a.detail}</span> : null}
                         </p>
                       ))}
                     </div>

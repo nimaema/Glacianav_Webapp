@@ -7,7 +7,19 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, conversations, customers, profiles, segments, stages, tasks } from "@/db/schema";
+import {
+  contacts,
+  conversationContacts,
+  conversationParticipants,
+  conversations,
+  customers,
+  profiles,
+  segments,
+  stages,
+  taskAssignees,
+  traceItems,
+  tasks,
+} from "@/db/schema";
 import {
   deepseekChatWithTools,
   fn,
@@ -17,6 +29,23 @@ import {
   type ChatMsg,
   type ToolSchema,
 } from "@/lib/ai/deepseek";
+// Reuse the app's real server actions for writes instead of duplicating DB
+// logic — this keeps Nova's mutations identical to what a human clicking
+// around the UI would trigger (same revalidation, same notifications).
+import {
+  addSegment as addSegmentAction,
+  addStage as addStageAction,
+  addValidationNote as addValidationNoteAction,
+  setCustomerArchived,
+  updateContact as updateContactAction,
+  updateCustomerFields,
+} from "@/lib/data/customers-actions";
+import {
+  toggleConversationShare,
+  updateConversationContacts,
+  updateConversationParticipants,
+} from "@/lib/data/library-actions";
+import { setWorkTaskAssignees, toggleWorkTaskStatus } from "@/lib/data/work-actions";
 
 export type NovaFile = { filename: string; format: "markdown" | "csv" | "txt" | "pdf"; content: string };
 export type NovaActionLog = { label: string; detail?: string; ok: boolean };
@@ -64,6 +93,14 @@ async function loadContext(authorId: string, scopeCustomerId?: string): Promise<
 function findByName<T extends { name: string }>(rows: T[], name: string): T | undefined {
   const lower = name.trim().toLowerCase();
   return rows.find((r) => r.name.toLowerCase() === lower) ?? rows.find((r) => r.name.toLowerCase().includes(lower));
+}
+
+function findByField<T>(rows: T[], field: keyof T, needle: string): T | undefined {
+  const lower = needle.trim().toLowerCase();
+  return (
+    rows.find((r) => String(r[field]).toLowerCase() === lower) ??
+    rows.find((r) => String(r[field]).toLowerCase().includes(lower))
+  );
 }
 
 // ─── Executors ────────────────────────────────────────────────────────
@@ -170,6 +207,180 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
     await db.insert(tasks).values({ task, sourceType: "customer", customerId, dueLabel: str(a.due) || undefined, status: "open" });
     return { label: "Created task", detail: task, ok: true };
   },
+
+  async update_customer(ctx, a) {
+    const name = str(a.name);
+    if (!name) throw new Error("no customer name given");
+    const rows = await db.select().from(customers);
+    const match = findByName(rows, name);
+    if (!match) throw new Error(`no customer found matching "${name}"`);
+    const patch: Parameters<typeof updateCustomerFields>[1] = {};
+    if (a.segment) {
+      const segment = findByName(ctx.segments, str(a.segment));
+      if (!segment) throw new Error(`no segment matching "${str(a.segment)}"`);
+      patch.segmentId = segment.id;
+    }
+    if (a.owner) {
+      const owner = findByName(ctx.owners, str(a.owner));
+      if (!owner) throw new Error(`no teammate matching "${str(a.owner)}"`);
+      patch.ownerId = owner.id;
+    }
+    if (a.stage) {
+      const stage = findByField(ctx.stages, "label", str(a.stage));
+      if (!stage) throw new Error(`no stage matching "${str(a.stage)}"`);
+      patch.stage = stage.key;
+    }
+    if (a.priority) patch.priority = str(a.priority) as "low" | "medium" | "high";
+    if (a.website) patch.website = str(a.website);
+    if (a.current_solution) patch.currentSolution = str(a.current_solution);
+    if (a.next_step) patch.nextStep = str(a.next_step);
+    if (Object.keys(patch).length === 0) throw new Error("nothing to update — say what should change");
+    await updateCustomerFields(match.id, patch);
+    return { label: "Updated customer", detail: `${match.name}: ${Object.keys(patch).join(", ")}`, ok: true };
+  },
+
+  async archive_customer(ctx, a) {
+    const name = str(a.name);
+    if (!name) throw new Error("no customer name given");
+    const rows = await db.select().from(customers);
+    const match = findByName(rows, name);
+    if (!match) throw new Error(`no customer found matching "${name}"`);
+    const archived = a.archived !== false;
+    await setCustomerArchived(match.id, archived);
+    return { label: archived ? "Archived customer" : "Unarchived customer", detail: match.name, ok: true };
+  },
+
+  async update_contact(ctx, a) {
+    const name = str(a.name);
+    if (!name) throw new Error("no contact name given");
+    const rows = await db.select().from(contacts);
+    const match = findByName(rows, name);
+    if (!match) throw new Error(`no contact found matching "${name}"`);
+    let customerId = match.customerId ?? undefined;
+    if (a.customer) {
+      const custRows = await db.select({ id: customers.id, name: customers.name }).from(customers);
+      const customer = findByName(custRows, str(a.customer));
+      if (!customer) throw new Error(`no customer found matching "${str(a.customer)}"`);
+      customerId = customer.id;
+    }
+    await updateContactAction(match.id, {
+      name: match.name,
+      role: a.role ? str(a.role) : (match.role ?? undefined),
+      customerId,
+      email: a.email ? str(a.email) : (match.email ?? undefined),
+      phone: a.phone ? str(a.phone) : (match.phone ?? undefined),
+      linkedin: a.linkedin ? str(a.linkedin) : (match.linkedin ?? undefined),
+    });
+    return { label: "Updated contact", detail: match.name, ok: true };
+  },
+
+  async add_validation_note(ctx, a) {
+    const name = str(a.customer);
+    const body = str(a.body);
+    if (!name) throw new Error("no customer name given");
+    if (!body) throw new Error("no note body given");
+    const rows = await db.select({ id: customers.id, name: customers.name }).from(customers);
+    const match = findByName(rows, name);
+    if (!match) throw new Error(`no customer found matching "${name}"`);
+    await addValidationNoteAction({ customerId: match.id, authorId: ctx.authorId, body, quote: str(a.quote) || undefined });
+    return { label: "Added validation note", detail: match.name, ok: true };
+  },
+
+  async link_conversation_customer(ctx, a) {
+    const conv = str(a.conversation);
+    const customer = str(a.customer);
+    if (!conv || !customer) throw new Error("need both a conversation and a customer");
+    const convRows = await db.select({ id: conversations.id, title: conversations.title }).from(conversations);
+    const convMatch = findByField(convRows, "title", conv);
+    if (!convMatch) throw new Error(`no conversation found matching "${conv}"`);
+    const custRows = await db.select({ id: customers.id, name: customers.name }).from(customers);
+    const custMatch = findByName(custRows, customer);
+    if (!custMatch) throw new Error(`no customer found matching "${customer}"`);
+    const current = await db
+      .select({ customerId: conversationParticipants.customerId })
+      .from(conversationParticipants)
+      .where(eq(conversationParticipants.conversationId, convMatch.id));
+    const ids = new Set(current.map((r) => r.customerId));
+    const remove = a.action === "remove";
+    if (remove) ids.delete(custMatch.id);
+    else ids.add(custMatch.id);
+    await updateConversationParticipants(convMatch.id, [...ids]);
+    return { label: remove ? "Unlinked customer from recording" : "Linked customer to recording", detail: `${custMatch.name} — "${convMatch.title}"`, ok: true };
+  },
+
+  async link_conversation_contact(ctx, a) {
+    const conv = str(a.conversation);
+    const contact = str(a.contact);
+    if (!conv || !contact) throw new Error("need both a conversation and a contact");
+    const convRows = await db.select({ id: conversations.id, title: conversations.title }).from(conversations);
+    const convMatch = findByField(convRows, "title", conv);
+    if (!convMatch) throw new Error(`no conversation found matching "${conv}"`);
+    const contactRows = await db.select({ id: contacts.id, name: contacts.name }).from(contacts);
+    const contactMatch = findByName(contactRows, contact);
+    if (!contactMatch) throw new Error(`no contact found matching "${contact}"`);
+    const current = await db
+      .select({ contactId: conversationContacts.contactId })
+      .from(conversationContacts)
+      .where(eq(conversationContacts.conversationId, convMatch.id));
+    const ids = new Set(current.map((r) => r.contactId));
+    const remove = a.action === "remove";
+    if (remove) ids.delete(contactMatch.id);
+    else ids.add(contactMatch.id);
+    await updateConversationContacts(convMatch.id, [...ids]);
+    return { label: remove ? "Unlinked contact from recording" : "Linked contact to recording", detail: `${contactMatch.name} — "${convMatch.title}"`, ok: true };
+  },
+
+  async set_conversation_shared(ctx, a) {
+    const conv = str(a.conversation);
+    if (!conv) throw new Error("no conversation given");
+    const convRows = await db.select({ id: conversations.id, title: conversations.title }).from(conversations);
+    const convMatch = findByField(convRows, "title", conv);
+    if (!convMatch) throw new Error(`no conversation found matching "${conv}"`);
+    const shared = a.shared !== false;
+    await toggleConversationShare(convMatch.id, shared);
+    return { label: shared ? "Made recording public" : "Made recording private", detail: convMatch.title, ok: true };
+  },
+
+  async set_task_status(ctx, a) {
+    const query = str(a.task);
+    if (!query) throw new Error("no task text given to match");
+    const rows = await db.select({ id: tasks.id, task: tasks.task, customerId: tasks.customerId }).from(tasks);
+    const match = findByField(rows, "task", query);
+    if (!match) throw new Error(`no task found matching "${query}"`);
+    const status = a.status === "open" ? "open" : "done";
+    await toggleWorkTaskStatus(match.id, status);
+    return { label: status === "done" ? "Marked task done" : "Reopened task", detail: match.task, ok: true };
+  },
+
+  async assign_task(ctx, a) {
+    const query = str(a.task);
+    const names = Array.isArray(a.assignees) ? (a.assignees as unknown[]).map((v) => str(v)).filter(Boolean) : [];
+    if (!query) throw new Error("no task text given to match");
+    if (names.length === 0) throw new Error("no assignee names given");
+    const rows = await db.select({ id: tasks.id, task: tasks.task }).from(tasks);
+    const match = findByField(rows, "task", query);
+    if (!match) throw new Error(`no task found matching "${query}"`);
+    const resolved = names.map((n) => findByName(ctx.owners, n)).filter((o): o is { id: string; name: string } => !!o);
+    if (resolved.length === 0) throw new Error("none of those names matched a real teammate");
+    const current = await db.select({ profileId: taskAssignees.profileId }).from(taskAssignees).where(eq(taskAssignees.taskId, match.id));
+    const ids = new Set([...current.map((r) => r.profileId), ...resolved.map((r) => r.id)]);
+    await setWorkTaskAssignees(match.id, [...ids]);
+    return { label: "Assigned task", detail: `${match.task} → ${resolved.map((r) => r.name).join(", ")}`, ok: true };
+  },
+
+  async add_segment(ctx, a) {
+    const name = str(a.name);
+    if (!name) throw new Error("no segment name given");
+    await addSegmentAction(name);
+    return { label: "Created segment", detail: name, ok: true };
+  },
+
+  async add_stage(ctx, a) {
+    const label = str(a.label);
+    if (!label) throw new Error("no stage name given");
+    await addStageAction(label);
+    return { label: "Created stage", detail: label, ok: true };
+  },
 };
 
 // Not real database mutations — the model just packages content, the
@@ -252,6 +463,62 @@ const READ_TOOLS: Record<string, (ctx: Ctx, a: Args) => Promise<string>> = {
       .join(" ");
   },
 
+  async get_conversation_details(ctx, a) {
+    const title = str(a.title);
+    if (!title) throw new Error("no recording/note title given");
+    const rows = await db.select().from(conversations);
+    const match = findByField(rows, "title", title);
+    if (!match) return `No recording or note found matching "${title}".`;
+    const [participantRows, contactRows, traceRows] = await Promise.all([
+      db.select({ customerId: conversationParticipants.customerId }).from(conversationParticipants).where(eq(conversationParticipants.conversationId, match.id)),
+      db.select({ contactId: conversationContacts.contactId }).from(conversationContacts).where(eq(conversationContacts.conversationId, match.id)),
+      db.select({ kind: traceItems.kind, text: traceItems.text }).from(traceItems).where(eq(traceItems.conversationId, match.id)),
+    ]);
+    const [custRows, contRows] = await Promise.all([
+      db.select({ id: customers.id, name: customers.name }).from(customers),
+      db.select({ id: contacts.id, name: contacts.name }).from(contacts),
+    ]);
+    const participantNames = participantRows.map((r) => custRows.find((c) => c.id === r.customerId)?.name).filter(Boolean);
+    const contactNames = contactRows.map((r) => contRows.find((c) => c.id === r.contactId)?.name).filter(Boolean);
+    const decisions = traceRows.filter((t) => t.kind === "decision").map((t) => t.text);
+    const followups = traceRows.filter((t) => t.kind === "followup").map((t) => t.text);
+    return [
+      `"${match.title}" — ${match.noteBody ? "written note" : "recording"}, status ${match.status}, ${match.shared ? "shared" : "private"}.`,
+      match.summary ? `Summary: ${match.summary}` : match.noteBody ? `Note: ${match.noteBody.slice(0, 500)}` : "No summary yet (still processing or nothing extracted).",
+      decisions.length ? `Decisions: ${decisions.join("; ")}.` : "",
+      followups.length ? `Follow-ups: ${followups.join("; ")}.` : "",
+      match.aiTags?.length ? `Tags: ${match.aiTags.join(", ")}.` : "",
+      participantNames.length ? `Linked customers: ${participantNames.join(", ")}.` : "No customers linked.",
+      contactNames.length ? `Linked contacts: ${contactNames.join(", ")}.` : "No contacts linked.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  },
+
+  async list_customers(ctx, a) {
+    const rows = await db.select().from(customers);
+    let filtered = rows;
+    if (a.segment) {
+      const segment = findByName(ctx.segments, str(a.segment));
+      if (segment) filtered = filtered.filter((c) => c.segmentId === segment.id);
+    }
+    if (a.stage) {
+      const stage = findByField(ctx.stages, "label", str(a.stage));
+      if (stage) filtered = filtered.filter((c) => c.stage === stage.key);
+    }
+    if (a.owner) {
+      const owner = findByName(ctx.owners, str(a.owner));
+      if (owner) filtered = filtered.filter((c) => c.ownerId === owner.id);
+    }
+    if (a.archived === true || a.archived === false) filtered = filtered.filter((c) => c.archived === a.archived);
+    const limit = typeof a.limit === "number" ? a.limit : 40;
+    const shown = filtered.slice(0, limit);
+    if (filtered.length === 0) return "No customers match that filter.";
+    return `${filtered.length} match${filtered.length === 1 ? "" : "es"}${filtered.length > shown.length ? ` (showing first ${shown.length})` : ""}: ${shown
+      .map((c) => `${c.name} (${c.stage ?? "no stage"}, ${c.priority ?? "no priority"}${c.archived ? ", archived" : ""})`)
+      .join("; ")}.`;
+  },
+
   async list_open_tasks(ctx, a) {
     const rows = await db.select({ task: tasks.task, dueLabel: tasks.dueLabel, customerId: tasks.customerId }).from(tasks).where(eq(tasks.status, "open"));
     if (rows.length === 0) return "No open tasks.";
@@ -278,6 +545,16 @@ const TOOL_SCHEMAS: ToolSchema[] = [
   }, ["name"]),
   fn("list_open_tasks", "List real open tasks across the workspace, with which account each belongs to.", {
     limit: p("number", "Max to list, default 25."),
+  }, []),
+  fn("get_conversation_details", "Get real details on one recording or note — its summary, decisions, follow-ups, tags, status, sharing, and which customers/contacts are linked to it. This is the closest thing to a transcript summary Nova has access to.", {
+    title: p("string", "Recording/note title (fuzzy match)."),
+  }, ["title"]),
+  fn("list_customers", "List real customers, optionally filtered by segment, stage, owner, or archived status.", {
+    segment: p("string", "Segment name filter, if any."),
+    stage: p("string", "Stage label filter, if any."),
+    owner: p("string", "Owner/teammate name filter, if any."),
+    archived: p("boolean", "true = only archived, false = only active. Omit for both."),
+    limit: p("number", "Max to list, default 40."),
   }, []),
   fn("create_customer", "Create a single new customer account.", {
     name: p("string", "Company or individual name."),
@@ -324,6 +601,61 @@ const TOOL_SCHEMAS: ToolSchema[] = [
     customer: p("string", "Which account this is for (fuzzy match). Defaults to whatever account is currently open, if any."),
     due: p("string", "Due date/label as plain text, if mentioned."),
   }, ["task"]),
+  fn("update_customer", "Update fields on an existing customer — segment, stage, owner, priority, website, current solution, or next step. Only pass the fields that should change.", {
+    name: p("string", "Customer name (fuzzy match)."),
+    segment: p("string", "New segment name, if changing."),
+    stage: p("string", "New stage label, if changing."),
+    owner: p("string", "New owner/teammate name, if changing."),
+    priority: p("string", '"low", "medium", or "high", if changing.'),
+    website: p("string", "New website, if changing."),
+    current_solution: p("string", "What they currently use, if changing."),
+    next_step: p("string", "The next step text, if changing."),
+  }, ["name"]),
+  fn("archive_customer", "Archive or unarchive a customer.", {
+    name: p("string", "Customer name (fuzzy match)."),
+    archived: p("boolean", "true to archive, false to unarchive. Defaults to true."),
+  }, ["name"]),
+  fn("update_contact", "Update fields on an existing contact — role, which customer they're linked to, email, phone, LinkedIn.", {
+    name: p("string", "Contact name (fuzzy match)."),
+    role: p("string", "New role/title, if changing."),
+    customer: p("string", "Customer/company to (re)link them to (fuzzy match), if changing."),
+    email: p("string", "New email, if changing."),
+    phone: p("string", "New phone, if changing."),
+    linkedin: p("string", "New LinkedIn URL, if changing."),
+  }, ["name"]),
+  fn("add_validation_note", "Add a validation note to a customer's timeline.", {
+    customer: p("string", "Customer name (fuzzy match)."),
+    body: p("string", "The note text."),
+    quote: p("string", "A direct quote it's based on, if any."),
+  }, ["customer", "body"]),
+  fn("link_conversation_customer", "Link or unlink a customer to/from a recording or note.", {
+    conversation: p("string", "Recording/note title (fuzzy match)."),
+    customer: p("string", "Customer name (fuzzy match)."),
+    action: p("string", '"add" (default) or "remove".'),
+  }, ["conversation", "customer"]),
+  fn("link_conversation_contact", "Link or unlink a contact to/from a recording or note.", {
+    conversation: p("string", "Recording/note title (fuzzy match)."),
+    contact: p("string", "Contact name (fuzzy match)."),
+    action: p("string", '"add" (default) or "remove".'),
+  }, ["conversation", "contact"]),
+  fn("set_conversation_shared", "Make a recording/note shared (public within the workspace) or private.", {
+    conversation: p("string", "Recording/note title (fuzzy match)."),
+    shared: p("boolean", "true to share, false to make private. Defaults to true."),
+  }, ["conversation"]),
+  fn("set_task_status", "Mark a task done or reopen it.", {
+    task: p("string", "Task text to match (fuzzy, substring)."),
+    status: p("string", '"done" (default) or "open".'),
+  }, ["task"]),
+  fn("assign_task", "Assign one or more teammates to a task (adds to existing assignees).", {
+    task: p("string", "Task text to match (fuzzy, substring)."),
+    assignees: { type: "array", description: "Teammate names to assign.", items: { type: "string" } },
+  }, ["task", "assignees"]),
+  fn("add_segment", "Create a new customer segment.", {
+    name: p("string", "Segment name."),
+  }, ["name"]),
+  fn("add_stage", "Create a new pipeline stage.", {
+    label: p("string", "Stage label."),
+  }, ["label"]),
   fn(
     "generate_file",
     "Produce a document for the user to download in the chat — a report, summary, list, etc. Write the FULL content yourself.",
@@ -341,7 +673,7 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
   const ownerList = ctx.owners.map((o) => o.name).join(", ") || "none";
   const stageList = ctx.stages.map((s) => s.label).join(", ") || "none yet";
   return [
-    `You are Nova, the assistant inside GlaciaNav's field workspace — a customer-validation and conversation-intelligence tool. You have real tools for both LOOKING THINGS UP (workspace stats, conversation/task lists, customer details) and DOING things (create customers/contacts one at a time or in bulk from a file, create tasks, generate downloadable files). You are never limited to just answering from what's already in this prompt — if a question is answerable by calling get_workspace_stats, list_conversations, get_customer_details, or list_open_tasks, call it. Never tell the user you don't have a tool for something without first checking whether one of your read tools actually covers it.`,
+    `You are Nova, the assistant inside GlaciaNav's field workspace — a customer-validation and conversation-intelligence tool. You have real tools covering nearly everything a person can do by clicking around this app: look up stats/conversations/customers/tasks, read a recording's summary/decisions/follow-ups, create customers/contacts (one at a time or in bulk from a file) and tasks, edit an existing customer's segment/stage/owner/priority/website/next-step, archive/unarchive customers, edit contacts and (re)link them to customers, add validation notes, link/unlink customers and contacts to a recording, share/unshare a recording, mark tasks done/open, assign tasks to teammates, create segments and stages, and generate downloadable files. You are never limited to just answering from what's already in this prompt — before ever telling the user you can't do or check something, actually look through your tool list for one that covers it. Only say a capability doesn't exist yet if none of your tools genuinely covers it (e.g. you can't attach real audio to an existing recording, or delete a customer outright).`,
     `Voice: direct, competent, a little warm — like a sharp colleague, not a corporate bot. Keep replies tight.`,
     ``,
     `Workspace state: segments are [${segmentList}], owners are [${ownerList}], stages are [${stageList}].`,
@@ -354,6 +686,7 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
     `- When generating a file, write real, complete content — don't stub it out.`,
     `- Never invent customers, numbers, or facts that aren't in the context, a tool result, or the user's message.`,
     `- After acting, confirm briefly and naturally. Don't repeat a long list the UI will already show.`,
+    `- Your replies are rendered as real markdown (bold, bullet/numbered lists, headers, tables, links) — use it whenever it helps, e.g. **bold** for key numbers/names, a bullet list for multiple items, a small table for structured data. Don't write a wall of plain prose when a list or table would be clearer. Don't overdo it either — a one-line answer doesn't need headers.`,
     extraContext ? `\n--- ATTACHED FILE CONTENT ---\n${extraContext}` : "",
   ]
     .filter(Boolean)
