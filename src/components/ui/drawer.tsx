@@ -6,9 +6,7 @@ const FOCUSABLE =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /**
- * Right overlay drawer: quick view over the workspace, per DESIGN.md §6.
- * Focus is trapped while open; Esc and scrim click close. The panel is a
- * floating surfaced object, not an edge-flush sheet.
+ * Right overlay drawer. Focus is trapped while open; Esc and scrim click close.
  */
 export function Drawer({
   open,
@@ -61,7 +59,7 @@ export function Drawer({
 
   return (
     <div
-      className="anim-overlay-in fixed inset-0 z-40 bg-[rgba(10,46,56,0.35)]"
+      className="anim-overlay-in fixed inset-0 z-40 bg-ink/25 backdrop-blur-[2px]"
       onPointerDown={onClose}
     >
       <div
@@ -71,7 +69,7 @@ export function Drawer({
         aria-label={label}
         tabIndex={-1}
         onPointerDown={(e) => e.stopPropagation()}
-        className="anim-drawer-in surfaced-lg absolute inset-y-3 right-3 flex w-120 max-w-[calc(100vw-24px)] flex-col overflow-y-auto"
+        className="anim-drawer-in surfaced-lg absolute inset-y-2 right-2 flex w-120 max-w-[calc(100vw-16px)] flex-col overflow-y-auto sm:inset-y-3 sm:right-3"
       >
         {children}
       </div>

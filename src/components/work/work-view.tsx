@@ -103,7 +103,7 @@ function SourceChip({ source }: { source: WorkTask["source"] }) {
   return (
     <Link
       href={`/customers/${source.id}`}
-      className="flex min-w-0 shrink-0 items-center gap-1 rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-1 text-[12px] font-bold text-ink-2 transition-colors duration-150 hover:bg-[rgba(11,61,77,0.13)] hover:text-ink"
+      className="flex min-w-0 shrink-0 items-center gap-1 rounded-full bg-melt/10 px-2.5 py-1 text-[12px] font-bold text-ink-2 transition-colors duration-150 hover:bg-melt/15 hover:text-ink"
     >
       <Buildings size={12} className="shrink-0" />
       <span className="min-w-0 truncate" title={source.label}>
@@ -150,7 +150,7 @@ function AddTaskComposer({
         <input
           value={dueLabel}
           onChange={(e) => setDueLabel(e.target.value)}
-          placeholder="Due (optional — e.g. Fri, Today)"
+          placeholder="Due (optional, e.g. Fri, Today)"
           aria-label="Due label"
           className="recessed h-9 w-[220px] px-2.5 text-[13.5px] text-ink outline-none placeholder:text-ink-3"
         />
@@ -289,7 +289,7 @@ export function WorkView({
       <PageHeader
         title="Work"
         icon={ListChecks}
-        meta="One task center — action items from every conversation, follow-ups, interviews, and stale accounts, all in one place."
+        meta="One task center for action items from every conversation, follow-up, interview, and quiet account."
         actions={
           <>
             <HeaderStat label="Open" value={viewCounts.all} />
@@ -299,14 +299,14 @@ export function WorkView({
         }
       />
 
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-6 px-7 py-6">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-6 px-5 py-6 sm:px-7 lg:px-10">
         <AlertStrip items={reviewQueue} />
 
-        <div className="flex gap-6">
-          <aside className="flex w-[208px] shrink-0 flex-col gap-4">
+        <div className="flex flex-col gap-6 lg:flex-row">
+          <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-[208px] lg:gap-4">
             <SectionHeader>Views</SectionHeader>
-            <div className="surfaced flex flex-col gap-0.5 p-2">
-              <nav aria-label="Task views" className="flex flex-col gap-px">
+            <div className="surfaced overflow-x-auto p-2">
+              <nav aria-label="Task views" className="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-1">
                 {TASK_VIEWS.map((v) => (
                   <button
                     key={v.id}
@@ -324,12 +324,12 @@ export function WorkView({
                   </button>
                 ))}
               </nav>
-              <div className="my-1 h-px bg-line-2" />
+              <div className="my-1 hidden h-px bg-line-2 lg:block" />
               <button
                 type="button"
                 onClick={() => setView("stale")}
                 aria-current={view === "stale" ? "page" : undefined}
-                className={`relative flex h-8 items-center gap-2 rounded-md px-2.5 text-[13.5px] transition-colors duration-150 ${
+                className={`relative mt-1 flex h-8 items-center gap-2 rounded-md px-2.5 text-[13.5px] transition-colors duration-150 lg:mt-0 ${
                   view === "stale" ? "bg-melt/10 font-semibold text-melt" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                 }`}
               >
@@ -371,7 +371,7 @@ export function WorkView({
                   ))}
                   {staleCustomers.length === 0 && (
                     <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">
-                      Nothing has gone quiet — every account has been touched in the last week.
+                      Nothing has gone quiet. Every account has been touched in the last week.
                     </p>
                   )}
                 </div>
@@ -465,7 +465,7 @@ export function WorkView({
                             disabled={!completableRow}
                             aria-label={`Mark "${t.task}" ${t.status === "done" ? "open" : "done"}`}
                             title={completableRow ? undefined : "Only an assignee can mark this task done"}
-                            className="h-4 w-4 cursor-pointer accent-[#0295ac] disabled:cursor-not-allowed disabled:opacity-35"
+                            className="h-4 w-4 cursor-pointer accent-[#275ee7] disabled:cursor-not-allowed disabled:opacity-35"
                           />
                           <span
                             className={`min-w-0 truncate text-[14px] ${
@@ -480,7 +480,7 @@ export function WorkView({
                               bucketFor(t.dueLabel) === "Overdue" && t.status === "open" ? "text-[#b23c2e]" : "text-ink-2"
                             }`}
                           >
-                            {t.dueLabel ?? "—"}
+                            {t.dueLabel ?? "-"}
                           </span>
                           <SourceChip source={t.source} />
                           <div className="flex justify-end">
@@ -495,7 +495,7 @@ export function WorkView({
                                 ))}
                               </span>
                             ) : (
-                              <span className="text-[12px] text-ink-3">—</span>
+                              <span className="text-[12px] text-ink-3">-</span>
                             )}
                           </div>
                         </div>
@@ -503,7 +503,7 @@ export function WorkView({
                     })}
                     {filtered.length === 0 && (
                       <p className="py-4 text-[14px] text-ink-2">
-                        {search || sourceFilter !== "All" ? "No tasks match that filter." : "Nothing here — you're caught up."}
+                        {search || sourceFilter !== "All" ? "No tasks match that filter." : "Nothing here. You’re caught up."}
                       </p>
                     )}
                   </div>

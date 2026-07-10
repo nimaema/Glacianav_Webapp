@@ -70,14 +70,14 @@ function ParticipantPicker({
         return (
           <span
             key={id}
-            className="flex items-center gap-1.5 rounded-full bg-[rgba(20,184,206,0.14)] py-0.5 pl-2.5 pr-1.5 text-[13px] font-semibold text-[#0a7280]"
+            className="flex items-center gap-1.5 rounded-full bg-melt/10 py-0.5 pl-2.5 pr-1.5 text-[13px] font-semibold text-melt"
           >
             {c.name}
             <button
               type="button"
               onClick={() => onRemove(id)}
               aria-label={`Remove ${c.name} as a participant`}
-              className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition-colors duration-150 hover:bg-[#0a7280]/15"
+              className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition-colors duration-150 hover:bg-melt/15"
             >
               <X size={11} weight="bold" />
             </button>
@@ -221,8 +221,8 @@ export function RecordView({
           <p className="max-w-md text-center text-[14.5px] leading-relaxed text-ink-2">
             {participants.length > 0
               ? "This recording lands in every listed participant's customer page, and Nova can draw on it when you're working with them."
-              : "No customer attached — this recording is a standalone note (a weekly sync, a learning note). Add a participant above if it belongs to a customer."}{" "}
-            Flag moments as you go — they become transcript anchors you can
+              : "No customer attached. This recording is a standalone note (a weekly sync or learning note). Add a participant above if it belongs to a customer."}{" "}
+            Flag moments as you go. They become transcript anchors you can
             turn into tasks or comments later.
           </p>
           <button

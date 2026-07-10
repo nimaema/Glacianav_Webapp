@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Compass, Path, Sparkle, UsersThree } from "@phosphor-icons/react";
 
 // Microsoft's own "M" glyph, inline (no icon-font entry for it in Phosphor —
 // this is the one spot in the app that isn't Phosphor, by necessity).
@@ -35,73 +36,49 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     }
-    // On success the browser navigates away to Microsoft's login page —
+    // On success the browser navigates away to Microsoft’s login page.
     // nothing left to render here.
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-deep px-4">
-      {/* Same depth grammar as the rail: a quiet gradient wash, not a flat fill. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(720px 480px at 15% 8%, rgba(215,243,91,0.08), transparent 65%), radial-gradient(640px 520px at 88% 92%, rgba(215,243,91,0.05), transparent 60%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
+    <div className="grid min-h-[100dvh] bg-ice-0 lg:grid-cols-[1.08fr_.92fr]">
+      <section className="relative hidden overflow-hidden border-r border-line-2 bg-[#e9f0ff] p-12 lg:flex lg:flex-col lg:justify-between xl:p-16">
+        <div aria-hidden className="absolute inset-0 opacity-45" style={{ backgroundImage: "linear-gradient(rgba(39,94,231,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(39,94,231,.09) 1px, transparent 1px)", backgroundSize: "64px 64px" }} />
+        <div className="relative flex items-center gap-3">
+          <span className="grid h-11 w-11 place-items-center rounded-[15px] bg-melt text-white"><Compass size={24} weight="fill" /></span>
+          <span className="text-[19px] font-semibold tracking-[-0.03em] text-ink">GlaciaNav</span>
+        </div>
+        <div className="relative max-w-[620px]">
+          <p className="mb-5 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-melt">Relationship intelligence</p>
+          <h1 className="text-[clamp(3rem,5vw,5.8rem)] font-semibold leading-[.96] tracking-[-0.065em] text-ink">Know the next move.</h1>
+          <p className="mt-6 max-w-[52ch] text-[17px] leading-[1.5] text-ink-2">Conversations, commitments, and customer context stay connected in one clear workspace.</p>
+        </div>
+        <div className="relative grid max-w-[620px] grid-cols-3 gap-3">
+          {[[Path, "Map the work"], [UsersThree, "Keep context"], [Sparkle, "Find the signal"]].map(([IconEl, label]) => {
+            const FeatureIcon = IconEl as typeof Path;
+            return <div key={label as string} className="rounded-[14px] border border-white/80 bg-white/65 p-4 text-[13px] font-medium text-ink-2 backdrop-blur-sm"><FeatureIcon size={19} className="mb-3 text-melt" />{label as string}</div>;
+          })}
+        </div>
+      </section>
 
-      <div className="relative w-full max-w-[400px]">
-        <div className="mb-8 flex items-center justify-center gap-3">
-          <span className="grid h-10 w-10 place-items-center bg-signal font-mono text-[15px] font-bold text-deep">
-            GN
-          </span>
-          <div className="text-left">
-            <p className="text-[16px] font-semibold tracking-[-0.01em] text-white">GlaciaNav</p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-deep-ink-2">
-              Field workspace
-            </p>
+      <main className="flex items-center justify-center p-5 sm:p-10">
+        <div className="w-full max-w-[430px]">
+          <div className="mb-10 flex items-center gap-3 lg:hidden">
+            <span className="grid h-10 w-10 place-items-center rounded-[14px] bg-melt text-white"><Compass size={22} weight="fill" /></span>
+            <span className="text-[18px] font-semibold tracking-[-0.03em] text-ink">GlaciaNav</span>
           </div>
+          <div className="surfaced-lg p-6 sm:p-9">
+            <h2 className="text-[30px] font-semibold tracking-[-0.04em] text-ink">Welcome back</h2>
+            <p className="mt-2 max-w-[36ch] text-[14px] leading-[1.5] text-ink-2">Sign in with your GlaciaNav Microsoft 365 account.</p>
+            <button type="button" onClick={signInWithMicrosoft} disabled={loading} className="mt-8 flex h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-[13px] bg-ink text-[14px] font-semibold text-white hover:bg-ink-2 disabled:cursor-not-allowed disabled:opacity-60">
+              <MicrosoftMark />
+              {loading ? "Redirecting…" : "Continue with Microsoft"}
+            </button>
+            {error && <p className="mt-4 rounded-[10px] bg-danger/10 px-3 py-2.5 text-[13px] leading-snug text-danger" role="alert">{error}</p>}
+          </div>
+          <p className="mt-5 text-center text-[12px] leading-[1.5] text-ink-3">Access is limited to glacianav.com accounts. Contact an admin if you need access.</p>
         </div>
-
-        <div className="border border-white/10 bg-white/[0.03] p-8 backdrop-blur-sm">
-          <h1 className="text-[21px] font-semibold tracking-[-0.01em] text-white">Sign in</h1>
-          <p className="mt-1.5 text-[14px] leading-relaxed text-deep-ink-2">
-            Use your GlaciaNav Microsoft 365 account to continue.
-          </p>
-
-          <button
-            type="button"
-            onClick={signInWithMicrosoft}
-            disabled={loading}
-            className="mt-7 flex h-11 w-full cursor-pointer items-center justify-center gap-2.5 border border-white/15 bg-white text-[14.5px] font-semibold text-[#111813] transition-colors duration-150 hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <MicrosoftMark />
-            {loading ? "Redirecting…" : "Sign in with Microsoft"}
-          </button>
-
-          {error && (
-            <p className="mt-4 text-[13px] leading-snug text-[#ff8a75]" role="alert">
-              {error}
-            </p>
-          )}
-        </div>
-
-        <p className="mt-6 text-center text-[12.5px] leading-snug text-deep-ink-2">
-          Access is limited to glacianav.com accounts.
-          <br />
-          Contact an admin if you need to be added.
-        </p>
-      </div>
+      </main>
     </div>
   );
 }

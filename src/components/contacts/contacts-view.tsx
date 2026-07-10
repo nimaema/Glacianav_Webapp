@@ -92,7 +92,7 @@ export function ContactsView({
         }
       />
 
-      <div className="mx-auto max-w-[1600px] px-7 py-6">
+      <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-7 lg:px-10">
         {rows.length === 0 ? (
           <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">
             No contacts yet. Add the first person to start linking them to accounts.
@@ -141,7 +141,7 @@ export function ContactsView({
                           className={inputClass}
                         />
                       ) : (
-                        p.role ?? "—"
+                        p.role ?? "-"
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-ink-2">
@@ -161,7 +161,7 @@ export function ContactsView({
                           {p.email}
                         </a>
                       ) : (
-                        <span className="text-ink-3">—</span>
+                        <span className="text-ink-3">-</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5 font-mono text-[13.5px] text-ink-2 tabular-nums">
@@ -174,7 +174,7 @@ export function ContactsView({
                           className={inputClass}
                         />
                       ) : (
-                        p.phone ?? <span className="font-sans text-ink-3">—</span>
+                        p.phone ?? <span className="font-sans text-ink-3">-</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5">
@@ -194,7 +194,7 @@ export function ContactsView({
                           LinkedIn
                         </a>
                       ) : (
-                        <span className="text-ink-3">—</span>
+                        <span className="text-ink-3">-</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5">

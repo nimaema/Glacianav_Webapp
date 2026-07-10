@@ -158,7 +158,7 @@ export function RecordingProvider({
     <RecordingContext.Provider value={value}>
       {children}
       {showPill && (
-        <div className="surfaced-lg fixed bottom-5 right-24 z-40 flex items-center gap-3 rounded-full py-2 pl-4 pr-2">
+        <div className="surfaced-lg fixed bottom-24 left-3 right-3 z-40 flex items-center gap-3 rounded-full py-2 pl-4 pr-2 md:bottom-5 md:left-auto md:right-24">
           <span className="flex items-center gap-2">
             <span
               aria-hidden

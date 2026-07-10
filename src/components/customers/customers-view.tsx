@@ -115,7 +115,7 @@ function ColumnsMenu({
         <Rows size={15} />
         Columns
         {hiddenCount > 0 && (
-          <span className="rounded-full bg-[rgba(11,61,77,0.08)] px-1.5 font-mono text-[11px] text-ink-3 tabular-nums">
+          <span className="rounded-full bg-surface-2 px-1.5 font-mono text-[11px] text-ink-3 tabular-nums">
             {hiddenCount} hidden
           </span>
         )}
@@ -271,7 +271,7 @@ export function CustomersView({
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1600px] px-7 py-6">
+      <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-7 lg:px-10">
         {rows.length === 0 ? (
           <div className="surfaced flex flex-col items-center gap-3 px-6 py-14 text-center">
             <Buildings size={28} className="text-ink-3" />

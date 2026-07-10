@@ -102,7 +102,7 @@ export function NoteComposer({
                 className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold transition-colors duration-150 ${
                   active
                     ? "bg-melt text-white"
-                    : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                    : "bg-surface-2 text-ink-2 hover:bg-melt/10"
                 }`}
               >
                 <span
@@ -133,7 +133,7 @@ export function NoteComposer({
                 className={`rounded-full px-2.5 py-1 text-[12.5px] font-semibold transition-colors duration-150 ${
                   active
                     ? "bg-melt/15 text-melt"
-                    : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                    : "bg-surface-2 text-ink-2 hover:bg-melt/10"
                 }`}
               >
                 {c.name}
@@ -142,7 +142,7 @@ export function NoteComposer({
           })}
         </div>
         <span className="text-[12.5px] text-ink-3">
-          optional — leave empty for a standalone note
+          Optional. Leave empty for a standalone note.
         </span>
       </div>
 
@@ -162,7 +162,7 @@ export function NoteComposer({
                 className={`rounded-full px-2.5 py-1 text-[12.5px] font-semibold transition-colors duration-150 ${
                   active
                     ? "bg-melt/15 text-melt"
-                    : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                    : "bg-surface-2 text-ink-2 hover:bg-melt/10"
                 }`}
               >
                 {contact.name}

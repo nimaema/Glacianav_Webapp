@@ -110,7 +110,7 @@ function cellContent(
   contacts: Contact[],
   notesCount: number,
 ): React.ReactNode {
-  const dash = <span className="text-[13px] text-ink-3">—</span>;
+  const dash = <span className="text-[13px] text-ink-3">-</span>;
   switch (id) {
     case "stage":
       return <StagePill stage={c.stage} stages={stages} />;

@@ -49,7 +49,7 @@ const CHANNEL_META: Record<
 };
 
 export function ChannelBadge({ channel }: { channel: ContactChannel | undefined }) {
-  if (!channel) return <span className="text-[13px] text-ink-3">—</span>;
+  if (!channel) return <span className="text-[13px] text-ink-3">-</span>;
   const { icon: IconEl, label } = CHANNEL_META[channel];
   return (
     <span className="flex items-center gap-1.5 text-[13px] text-ink-2">

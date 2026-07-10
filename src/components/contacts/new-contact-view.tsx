@@ -154,7 +154,7 @@ export function NewContactView({ customers }: { customers: Customer[] }) {
                   className={`h-8 cursor-pointer rounded-md px-3 text-[13px] font-semibold transition-colors duration-150 ${
                     preferredChannel === channel.key
                       ? "bg-melt/15 text-melt"
-                      : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                      : "bg-surface-2 text-ink-2 hover:bg-melt/10"
                   }`}
                 >
                   {channel.label}

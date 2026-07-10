@@ -218,14 +218,14 @@ export function LinkedSection({
             onRemove(l.id);
           }}
           aria-label={`Unlink ${l.label}`}
-          className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-ink-3 transition-colors duration-150 hover:bg-[rgba(11,61,77,0.15)] hover:text-ink"
+          className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-ink-3 transition-colors duration-150 hover:bg-melt/15 hover:text-ink"
         >
           <X size={10} weight="bold" />
         </button>
       </>
     );
     const className =
-      "flex items-center gap-1.5 rounded-full bg-[rgba(11,61,77,0.06)] py-1 pl-3 pr-1.5 text-[13px] font-semibold text-ink-2 transition-colors duration-150 hover:bg-melt/10 hover:text-melt";
+      "flex items-center gap-1.5 rounded-full bg-surface-2 py-1 pl-3 pr-1.5 text-[13px] font-semibold text-ink-2 transition-colors duration-150 hover:bg-melt/10 hover:text-melt";
     return l.href ? (
       <Link href={l.href} className={className}>
         {inner}

@@ -103,7 +103,7 @@ export function ValidationProgressView({
         }
       />
 
-      <div className="mx-auto max-w-[1600px] px-7 py-6">
+      <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-7 lg:px-10">
         <KanbanView
           rows={activeRows}
           stages={stages}
@@ -122,7 +122,7 @@ export function ValidationProgressView({
             <h2 className="text-[12.5px] font-bold uppercase tracking-[0.11em] text-ink-2">
               Archive
             </h2>
-            <span className="rounded-full bg-[rgba(11,61,77,0.07)] px-2 py-0.5 font-mono text-[11.5px] font-bold text-ink-2 tabular-nums">
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 font-mono text-[11.5px] font-bold text-ink-2 tabular-nums">
               {archivedRows.length}
             </span>
           </div>

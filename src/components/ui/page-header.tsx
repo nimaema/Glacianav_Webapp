@@ -26,22 +26,22 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="border-b border-ink/15 bg-surface">
-      <div className="mx-auto flex max-w-[1680px] flex-col gap-4 px-6 py-8 lg:px-10 lg:py-10">
+    <header className="border-b border-line-2 bg-white">
+      <div className="mx-auto flex max-w-[1680px] flex-col gap-4 px-5 py-7 sm:px-7 lg:px-10 lg:py-9">
         <div className="flex flex-wrap items-center gap-4">
           {IconEl && (
             <span
               aria-hidden
-              className="flex h-12 w-12 shrink-0 items-center justify-center bg-deep text-signal"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-melt/10 text-melt"
             >
               <IconEl size={21} weight="bold" />
             </span>
           )}
-          <h1 className="min-w-0 text-[clamp(2rem,4vw,4rem)] font-semibold leading-none tracking-[-0.045em] text-ink">{title}</h1>
+          <h1 className="min-w-0 text-[clamp(1.9rem,3.5vw,3.4rem)] font-semibold leading-[1.05] tracking-[-0.04em] text-ink">{title}</h1>
           {actions && <div className="ml-auto flex flex-wrap items-center gap-4">{actions}</div>}
         </div>
         {(meta || children) && (
-          <div className="flex flex-wrap items-center gap-4 lg:pl-16">
+          <div className="flex flex-wrap items-center gap-4 sm:pl-[60px]">
             {meta && <p className="min-w-[220px] max-w-[70ch] flex-1 text-[15px] leading-relaxed text-ink-2">{meta}</p>}
             {children}
           </div>

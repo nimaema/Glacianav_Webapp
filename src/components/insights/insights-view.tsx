@@ -52,7 +52,7 @@ export function InsightsView({
       <PageHeader
         title="Insights"
         icon={ChartBar}
-        meta="Every number here traces back to a conversation — click through to the evidence."
+        meta="Every number here traces back to a conversation. Click through to the evidence."
         actions={
           <>
             <HeaderStat label="Accounts" value={accountCount} />

@@ -64,7 +64,7 @@ function fmtRange(monday: Date) {
   const sameMonth = monday.getMonth() === friday.getMonth();
   const startFmt = monday.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const endFmt = friday.toLocaleDateString(undefined, sameMonth ? { day: "numeric" } : { month: "short", day: "numeric" });
-  return `${startFmt} – ${endFmt}, ${friday.getFullYear()}`;
+  return `${startFmt} - ${endFmt}, ${friday.getFullYear()}`;
 }
 
 function fmtHour(h: number) {
@@ -192,7 +192,7 @@ function EventDetail({
         </span>
         <div className="flex items-center gap-2 text-[14px] text-ink-2">
           <CalendarBlank size={15} className="shrink-0 text-ink-3" />
-          {event.day} · {event.allDay ? "All day" : `${fmtHour(event.startHour)} – ${fmtHour(event.endHour)}`}
+          {event.day}, {event.allDay ? "All day" : `${fmtHour(event.startHour)} - ${fmtHour(event.endHour)}`}
         </div>
         {feed && (
           <div className="flex items-center gap-2 text-[14px] text-ink-2">
@@ -697,7 +697,7 @@ export function CalendarView({
       <PageHeader
         title="Calendar"
         icon={CalendarBlank}
-        meta="Every feed you subscribe to, layered into one week — plus who else is free."
+        meta="Every feed you subscribe to, layered into one week, plus who else is free."
         actions={
           <>
             <HeaderStat label="Today" value={todaysMeetings} />
@@ -767,7 +767,7 @@ export function CalendarView({
             </div>
             <p className="px-1 text-[12px] leading-snug text-ink-3">
               Works with any Outlook, Google, or Apple published calendar link. Busy-only by
-              default — teammates only ever see free/busy, never titles or details.
+              default. Teammates only ever see free/busy, never titles or details.
             </p>
           </section>
 
@@ -807,7 +807,7 @@ export function CalendarView({
             {freeSlots && (
               <>
                 <p className="recessed px-3 py-2.5 text-[12.5px] leading-snug text-ink-2">
-                  Green columns below mark hours everyone selected is free — busy-only feeds still
+                  Green columns below mark hours everyone selected is free. Busy-only feeds still
                   count even though you can&apos;t see what&apos;s on them.
                 </p>
                 {suggestedSlots.length > 0 && (
@@ -821,7 +821,7 @@ export function CalendarView({
                         className="surfaced rise-on-hover flex items-center justify-between gap-2 px-3 py-2 text-left text-[13px] font-semibold text-ink"
                       >
                         <span>
-                          {w.day} · {fmtHour(w.startHour)} – {fmtHour(w.endHour)}
+                          {w.day}, {fmtHour(w.startHour)} - {fmtHour(w.endHour)}
                         </span>
                         <Plus size={13} className="shrink-0 text-melt" weight="bold" />
                       </button>
@@ -1007,7 +1007,7 @@ export function CalendarView({
                               </span>
                               {roomy && (
                                 <span className="mt-0.5 block text-[10px] font-normal opacity-75">
-                                  {fmtHour(event.startHour)} – {fmtHour(event.endHour)}
+                                  {fmtHour(event.startHour)} - {fmtHour(event.endHour)}
                                 </span>
                               )}
                             </button>
@@ -1020,7 +1020,7 @@ export function CalendarView({
 
                 {shownEvents.length === 0 && (
                   <p className="mt-3 text-center text-[13px] text-ink-2">
-                    Nothing on the calendar this week yet — add an event, or connect a feed for it to sync in.
+                    Nothing on the calendar this week yet. Add an event, or connect a feed for it to sync in.
                   </p>
                 )}
               </div>

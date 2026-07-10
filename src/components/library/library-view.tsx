@@ -228,7 +228,7 @@ function TopicComposer({
               className={`flex h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[13px] font-bold transition-colors duration-150 ${
                 active
                   ? "bg-melt text-white"
-                  : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                  : "bg-surface-2 text-ink-2 hover:bg-melt/10"
               }`}
             >
               {option.icon}
@@ -251,7 +251,7 @@ function TopicComposer({
                 className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-semibold transition-colors duration-150 ${
                   active
                     ? "bg-melt/15 text-melt"
-                    : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                    : "bg-surface-2 text-ink-2 hover:bg-melt/10"
                 }`}
               >
                 <Avatar owner={owner} size={18} />
@@ -415,7 +415,7 @@ export function LibraryView({
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-[1600px] px-7 py-6">
+      <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-7 lg:px-10">
         {creatingTopic && (
           <TopicComposer
             owners={owners}
@@ -449,7 +449,7 @@ export function LibraryView({
                 aria-selected={active}
                 onClick={() => setType(t)}
                 className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-150 ${
-                  active ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                  active ? "bg-melt text-white" : "bg-surface-2 text-ink-2 hover:bg-melt/10"
                 }`}
               >
                 {IconEl && <IconEl size={13} />}
@@ -489,7 +489,7 @@ export function LibraryView({
                     className="mb-3"
                     action={
                       <span className="flex items-center gap-2">
-                        <span className="rounded-full bg-[rgba(11,61,77,0.06)] px-2 py-0.5 text-[11.5px] font-bold uppercase tracking-[0.08em] text-ink-3">
+                        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11.5px] font-bold uppercase tracking-[0.08em] text-ink-3">
                           {topic.visibility === "all"
                             ? "All users"
                             : topic.visibility === "private"

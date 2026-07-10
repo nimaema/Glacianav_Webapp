@@ -24,11 +24,11 @@ export function AppShell({
 }) {
   return (
     <RecordingProvider currentUserId={currentUserId}>
-      <div className="flex min-h-dvh overflow-hidden bg-deep">
+      <div className="flex min-h-dvh overflow-hidden bg-ice-0">
         <Rail profile={profile} />
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar profile={profile} notifications={notifications} unreadCount={unreadCount} />
-          <main className="min-h-0 flex-1 overflow-y-auto bg-ice-0">{children}</main>
+          <main className="min-h-0 flex-1 overflow-y-auto bg-ice-0 pb-20 md:pb-0">{children}</main>
         </div>
         <NovaDock context={novaContext} currentUserId={currentUserId} />
         <CommandPalette />

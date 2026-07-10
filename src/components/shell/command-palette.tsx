@@ -148,7 +148,7 @@ export function CommandPalette() {
 
   return (
     <div
-      className="anim-overlay-in fixed inset-0 z-50 bg-[rgba(10,46,56,0.55)] pt-[16vh]"
+      className="anim-overlay-in fixed inset-0 z-50 bg-ink/35 px-3 pt-[12vh] backdrop-blur-[2px] sm:pt-[16vh]"
       onPointerDown={close}
     >
       <div

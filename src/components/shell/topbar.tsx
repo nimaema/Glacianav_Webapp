@@ -12,6 +12,7 @@ import {
   NotePencil,
   Gear,
   SignOut,
+  Compass,
   type Icon,
 } from "@phosphor-icons/react";
 import { OPEN_PALETTE_EVENT } from "./command-palette";
@@ -37,8 +38,8 @@ export function TopBar({
   notifications: NotificationItem[];
   unreadCount: number;
 }) {
-  // The page itself carries its own title now (PageHeader) — repeating it
-  // here too read as two stacked headers saying the same word. The bar
+  // The page itself carries its own title now. Repeating it
+  // here would create two stacked headers saying the same word. The bar
   // stays pure utility: global search, quick-create, notifications, avatar.
   const [newOpen, setNewOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -67,41 +68,45 @@ export function TopBar({
   useOutsideClick(avatarRef, () => setAvatarOpen(false), avatarOpen);
 
   return (
-    <header className="flex h-20 shrink-0 items-center gap-4 border-b border-white/10 bg-deep px-5 text-deep-ink lg:px-8">
+    <header className="flex h-[72px] shrink-0 items-center gap-2 border-b border-line-2 bg-white px-3 text-ink sm:gap-4 sm:px-5 lg:px-8">
+      <Link href="/" aria-label="GlaciaNav home" className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] bg-melt text-white md:hidden">
+        <Compass size={21} weight="fill" />
+      </Link>
       <button
         type="button"
         onClick={() => window.dispatchEvent(new CustomEvent(OPEN_PALETTE_EVENT))}
-        className="flex h-11 w-80 max-w-[45vw] cursor-pointer items-center justify-between border border-white/15 bg-white/[0.04] px-4 text-[14px] text-deep-ink-2 transition-colors hover:border-white/30 hover:text-white"
+        aria-label="Search workspace"
+        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-[13px] border border-line-2 bg-surface-2 px-3 text-[14px] text-ink-2 hover:border-line hover:bg-white hover:text-ink sm:w-72 sm:justify-between sm:px-4"
       >
         <span className="flex items-center gap-2">
           <MagnifyingGlass size={15} />
-          Search
+          <span className="hidden sm:inline">Search workspace</span>
         </span>
-        <kbd className="border border-white/15 px-1.5 py-0.5 font-mono text-[10px] text-deep-ink-2">
+        <kbd className="hidden rounded-md border border-line bg-white px-1.5 py-0.5 font-mono text-[10px] text-ink-3 sm:inline">
           ⌘K
         </kbd>
       </button>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-2 sm:gap-3">
         <div className="relative" ref={menuRef}>
           <button
             type="button"
             onClick={() => setNewOpen((v) => !v)}
             aria-expanded={newOpen}
             aria-haspopup="menu"
-            className="flex h-11 cursor-pointer items-center gap-2 bg-signal px-4 text-[14px] font-bold text-deep transition-colors hover:bg-white"
+            className="flex h-11 cursor-pointer items-center gap-2 rounded-[13px] bg-melt px-3.5 text-[14px] font-semibold text-white shadow-[0_7px_16px_rgba(39,94,231,.18)] hover:bg-melt-strong sm:px-4"
           >
             <Plus size={16} weight="bold" />
-            New
+            <span className="hidden sm:inline">New</span>
           </button>
           {newOpen && (
             <div
               role="menu"
-              className="surfaced-lg absolute right-0 top-10 z-30 w-64 p-1.5"
+              className="surfaced-lg absolute right-0 top-12 z-30 w-64 p-1.5"
             >
               {NEW_ITEMS.map(({ icon: IconEl, label, hint, href }) => {
                 const className =
-                  "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14.5px] text-ink transition-colors duration-150 hover:bg-surface-2";
+                  "flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left text-[14px] text-ink hover:bg-surface-2";
                 const body = (
                   <>
                     <IconEl size={17} className="text-melt" />
@@ -146,7 +151,7 @@ export function TopBar({
             aria-expanded={notifOpen}
             aria-haspopup="menu"
             aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-            className="relative flex h-11 w-11 cursor-pointer items-center justify-center border border-white/15 text-deep-ink-2 transition-colors hover:border-white/30 hover:text-white"
+            className="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-[13px] border border-line-2 bg-white text-ink-2 hover:border-line hover:bg-surface-2 hover:text-ink"
           >
             <Bell size={17} />
             {unreadCount > 0 && (
@@ -159,7 +164,7 @@ export function TopBar({
           {notifOpen && (
             <div role="menu" className="surfaced-lg absolute right-0 top-12 z-30 w-80 p-1.5">
               <div className="flex items-center justify-between gap-3 px-2.5 py-2">
-                <span className="text-[12.5px] font-bold uppercase tracking-[0.1em] text-ink-2">
+                <span className="text-[14px] font-semibold text-ink">
                   Notifications
                 </span>
                 {unreadCount > 0 && (
@@ -191,7 +196,7 @@ export function TopBar({
                       <span className="mt-1 block font-mono text-[11px] text-ink-3 tabular-nums">{n.when}</span>
                     </>
                   );
-                  const rowClass = "flex w-full cursor-pointer flex-col rounded-md px-2.5 py-2 text-left transition-colors duration-150 hover:bg-surface-2";
+                  const rowClass = "flex w-full cursor-pointer flex-col rounded-[10px] px-3 py-2.5 text-left hover:bg-surface-2";
                   return n.href ? (
                     <Link
                       key={n.id}
@@ -231,7 +236,7 @@ export function TopBar({
             aria-expanded={avatarOpen}
             aria-haspopup="menu"
             aria-label="Account menu"
-            className="flex h-11 w-11 cursor-pointer items-center justify-center border border-white/15 bg-white/10 text-[13px] font-bold text-signal transition-colors hover:border-white/30"
+            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-ink text-[12px] font-semibold text-white hover:bg-ink-2"
           >
             {profile?.initials ?? "?"}
           </button>

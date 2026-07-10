@@ -56,7 +56,7 @@ export function AskView({
     if (!explained) {
       toPersist.push({
         role: "assistant",
-        content: `Live answers over ${scopeLabel(scope)} arrive with the capture pipeline and embeddings — questions asked here are saved for when that lands.`,
+        content: `Live answers over ${scopeLabel(scope)} arrive with the capture pipeline and embeddings. Questions asked here are saved for when that lands.`,
       });
     }
     setMessages((m) => [...m, ...toPersist]);
@@ -75,7 +75,7 @@ export function AskView({
       <PageHeader
         title="Ask"
         icon={Sparkle}
-        meta="Nova, scoped to whatever you're looking at — a conversation, an account, or everything."
+        meta="Nova, scoped to whatever you’re looking at: a conversation, an account, or everything."
       />
 
       <div className="mx-auto flex max-w-[1100px] gap-6 px-7 py-6">
@@ -87,7 +87,7 @@ export function AskView({
               aria-selected={scope.kind === "everything"}
               onClick={() => changeScope({ kind: "everything" })}
               className={`h-8 cursor-pointer rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-150 ${
-                scope.kind === "everything" ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                scope.kind === "everything" ? "bg-melt text-white" : "bg-surface-2 text-ink-2 hover:bg-melt/10"
               }`}
             >
               Everything
@@ -97,7 +97,7 @@ export function AskView({
               onChange={(e) => e.target.value && changeScope({ kind: "customer", id: e.target.value })}
               aria-label="Scope to a customer"
               className={`h-8 cursor-pointer rounded-full px-3 text-[13px] font-semibold outline-none transition-colors duration-150 ${
-                scope.kind === "customer" ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                scope.kind === "customer" ? "bg-melt text-white" : "bg-surface-2 text-ink-2 hover:bg-melt/10"
               }`}
             >
               <option value="" disabled>
@@ -114,7 +114,7 @@ export function AskView({
               onChange={(e) => e.target.value && changeScope({ kind: "conversation", id: e.target.value })}
               aria-label="Scope to a conversation"
               className={`h-8 cursor-pointer rounded-full px-3 text-[13px] font-semibold outline-none transition-colors duration-150 ${
-                scope.kind === "conversation" ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                scope.kind === "conversation" ? "bg-melt text-white" : "bg-surface-2 text-ink-2 hover:bg-melt/10"
               }`}
             >
               <option value="" disabled>
@@ -146,7 +146,7 @@ export function AskView({
               )}
               {messages.length === 0 && (
                 <p className="text-[13.5px] text-ink-3">
-                  Ask anything about {scopeLabel(scope)} — answers will cite the exact quote and
+                  Ask anything about {scopeLabel(scope)}. Answers will cite the exact quote and
                   moment once the pipeline is live.
                 </p>
               )}
@@ -193,7 +193,7 @@ export function AskView({
             ))}
             {recentAnswered.length === 0 && (
               <p className="recessed px-3.5 py-3 text-[13px] text-ink-2">
-                Nothing answered yet — questions asked inside a Conversation Workspace show up here.
+                Nothing answered yet. Questions asked inside a conversation workspace show up here.
               </p>
             )}
           </div>

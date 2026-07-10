@@ -151,7 +151,7 @@ function ReadField({
       <span className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.12em] text-ink-3">
         {label}
       </span>
-      <div className={readClass}>{children || <span className="text-ink-3">—</span>}</div>
+      <div className={readClass}>{children || <span className="text-ink-3">-</span>}</div>
     </div>
   );
 }
@@ -494,7 +494,7 @@ function CustomerRoomInner({
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1600px] px-7 py-6">
+      <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-7 lg:px-10">
         {tab === "Overview" && (
           <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
             <div className="flex min-w-0 flex-col gap-5">
@@ -643,7 +643,7 @@ function CustomerRoomInner({
                       </span>
                     </ReadField>
                     <ReadField label="Priority">
-                      {priority ? priority[0].toUpperCase() + priority.slice(1) : "—"}
+                      {priority ? priority[0].toUpperCase() + priority.slice(1) : "-"}
                     </ReadField>
                     <ReadField label="Compatibility">
                       <CompatibilityBadge compatibility={compatibility || null} />
@@ -660,11 +660,11 @@ function CustomerRoomInner({
                           {website.replace(/^https?:\/\//, "")}
                         </a>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </ReadField>
-                    <ReadField label="Current solution">{currentSolution || "—"}</ReadField>
-                    <ReadField label="Next step">{nextStep || "—"}</ReadField>
+                    <ReadField label="Current solution">{currentSolution || "-"}</ReadField>
+                    <ReadField label="Next step">{nextStep || "-"}</ReadField>
                   </div>
                 )}
               </section>
@@ -783,7 +783,7 @@ function CustomerRoomInner({
                         </div>
                       ) : (
                         <div className="grid gap-3 md:grid-cols-2">
-                          <ReadField label="Role">{contact.role ?? "—"}</ReadField>
+                          <ReadField label="Role">{contact.role ?? "-"}</ReadField>
                           <ReadField label="Email">
                             {contact.email ? (
                               <a
@@ -793,10 +793,10 @@ function CustomerRoomInner({
                                 {contact.email}
                               </a>
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </ReadField>
-                          <ReadField label="Phone">{contact.phone ?? "—"}</ReadField>
+                          <ReadField label="Phone">{contact.phone ?? "-"}</ReadField>
                           <ReadField label="LinkedIn">
                             {contact.linkedin ? (
                               <a
@@ -812,7 +812,7 @@ function CustomerRoomInner({
                                 LinkedIn
                               </a>
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </ReadField>
                         </div>
@@ -1083,7 +1083,7 @@ function CustomerRoomInner({
               ))}
               {tasks.length === 0 && (
                 <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">
-                  No tasks yet — they come from conversations, or add one directly below.
+                  No tasks yet. They come from conversations, or you can add one below.
                 </p>
               )}
             </div>

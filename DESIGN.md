@@ -1,60 +1,82 @@
-# GlaciaNav — Northstar design language
+# GlaciaNav V2: Glacier Atlas
 
-Northstar treats customer research as fieldwork: precise, active, and grounded in evidence. The interface combines a dark operational frame with light editorial work surfaces. It should feel like a contemporary field console, not a generic SaaS dashboard.
+Glacier Atlas is a light navigational design system for relationship intelligence. It treats every customer, conversation, and task as part of one connected route. The interface should feel precise, spacious, and quietly capable.
 
-## Core expression
+## Design intent
 
-- The shell is deep forest-black. Content is warm mineral-white.
-- Mineral lime is reserved for active navigation, primary actions, focus, and selection.
-- Geometry is squared: 0–8 px radii, visible structural rules, and occasional offset shadows.
-- Hierarchy comes from scale, spacing, and contrast. Cards are used only for actionable objects.
-- Display typography is large, tight, and left aligned. Mono type marks time, counts, scopes, and system labels.
+- Light theme only. Snow-white work surfaces sit on a cool blue-gray canvas.
+- Cobalt is the single brand accent. It marks active routes, primary actions, focus, and selection.
+- Status colors are semantic and appear only where meaning depends on them.
+- A continuous cobalt route line is the signature device. It anchors active navigation, priority cards, and key workflow moments.
+- Density is operational, not cramped. Important objects use surfaces; supporting information uses spacing and sparse dividers.
+- Motion is restrained to feedback and state transition.
 
-## Tokens
+## Foundation tokens
 
-- Deep `#111813`; deep raised `#1C261E`
-- Paper `#F6F7F1`; field `#E5E7DF`; recessed `#ECEEE6`
-- Ink `#172019`; secondary `#4A554C`; quiet `#6B766D`
-- Action green `#355C32`; signal lime `#D7F35B`
-- Structural rules `#C8CEC4` / `#D9DDD5`
+| Role | Token | Value |
+| --- | --- | --- |
+| Canvas | `--ice-0` | `#F4F7FB` |
+| Recessed canvas | `--ice-1` | `#EAF0F7` |
+| Primary surface | `--surface` | `#FFFFFF` |
+| Secondary surface | `--surface-2` | `#F0F4F9` |
+| Primary ink | `--ink` | `#14233A` |
+| Secondary ink | `--ink-2` | `#43536B` |
+| Quiet ink | `--ink-3` | `#6F7F95` |
+| Structural line | `--line` | `#CBD6E4` |
+| Soft structural line | `--line-2` | `#E2E9F2` |
+| Cobalt action | `--melt` | `#275EE7` |
+| Cobalt hover | `--melt-strong` | `#1848BD` |
+| Danger | `--danger` | `#BA493F` |
 
-The existing token aliases in `src/app/globals.css` remain for component compatibility, but these Northstar values are the source of truth.
+Legacy token names remain as compatibility aliases while all components move to the V2 language.
+
+## Typography
+
+- Space Grotesk is the interface and display family.
+- IBM Plex Mono is reserved for dates, counts, shortcuts, and compact system labels.
+- Interface body text starts at 14 px with a 1.4 to 1.5 line height.
+- Headings use close tracking and sentence case.
+- Uppercase is limited to short utility labels with 0.1 em tracking.
+- Numeric lists and tables use tabular lining figures.
+
+## Geometry
+
+- Controls: 10 px radius.
+- Small containers: 12 to 14 px radius.
+- Panels and drawers: 16 to 20 px radius.
+- Pills are reserved for statuses, filters, avatars, and other genuinely compact metadata.
+- Cards use a soft border and blue-tinted shadow. Hard offset shadows are not part of V2.
 
 ## Layout
 
-- Desktop uses a 248 px dark rail and an 80 px utility bar.
-- Page content is capped at 1680 px with 24–40 px horizontal gutters.
-- Home uses a 12-column editorial grid: eight columns for active work, four for ambient context.
-- Page headers are full-width identity zones with fluid display type.
-- Mobile collapses the rail and stacks the editorial grid without shrinking tap targets below 44 px.
+- Desktop uses a 260 px light navigation rail and a 72 px utility bar.
+- Main content is capped at 1600 to 1680 px with 20 px mobile, 28 px tablet, and 40 px desktop gutters.
+- Mobile uses a five-slot bottom navigation. Secondary destinations open in a full-width sheet.
+- Dense desktop tables may scroll horizontally, but primary actions and filters reflow before content is clipped.
+- Drawers preserve an 8 to 12 px viewport margin on every device.
 
 ## Components
 
-- Primary buttons: signal lime on deep ink, or deep ink on paper.
-- Secondary controls: structural outline with no floating shadow.
-- Action cards: mineral paper, 1 px structural edge, 4–7 px offset shadow.
-- Secondary modules: open layout with a single rule, not a container around every group.
-- Pills: compact mono labels with squared edges and semantic color plus text.
-- Focus: 2 px signal lime with 3 px offset.
+- Primary buttons: cobalt with white text.
+- High-contrast neutral actions: ink with white text.
+- Secondary controls: white or soft-gray surface with a structural border.
+- Active navigation: pale cobalt fill, cobalt icon and type, and the route-line anchor.
+- Cards: white surface, soft edge, and minimal elevation.
+- Inputs: visible labels, cool recessed fill, structural edge, and cobalt focus.
+- Empty states: short direction plus one relevant action.
 
-## Motion
+## Interaction
 
-- Interaction transitions last 150–180 ms.
-- Action surfaces may move up and left by 2 px while their offset shadow expands.
-- First-load content enters with a short stagger only when reduced motion is not requested.
-- No looping decorative motion.
-
-## Typography and copy
-
-- Schibsted Grotesk is the display and UI voice; Spline Sans Mono is the data voice.
-- Body text is at least 14 px, primary interface text at least 15 px.
-- Display type uses fluid sizing and tight tracking; body copy is limited to 70 characters where possible.
-- Sentence case for actions and prose. Uppercase appears only in short, letterspaced system labels.
-- Copy is direct, specific, and active. No decorative slogans or fabricated data.
+- Hover transitions last 160 to 180 ms.
+- Pressed controls move down by 1 px.
+- Menus and dialogs enter in 150 to 220 ms with opacity and transform only.
+- Reduced-motion preferences collapse all nonessential animation.
+- Every pointer target is at least 44 px where the layout permits.
 
 ## Accessibility
 
-- All interactive controls have visible focus and a 44 px target where practical.
-- Information never depends on color alone.
-- Text contrast meets WCAG AA.
-- Reduced-motion preferences collapse transitions and animations.
+- Focus uses a 2 px cobalt outline with 3 px offset.
+- Text and controls meet WCAG AA contrast.
+- Status is never communicated by color alone.
+- Navigation exposes `aria-current`; dialogs and drawers trap focus and close with Escape.
+- Mobile navigation respects the safe-area inset.

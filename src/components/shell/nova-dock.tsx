@@ -54,7 +54,7 @@ function downloadBlob(content: BlobPart, filename: string, type: string) {
 function exportCustomersMarkdown(customers: Customer[]) {
   const header = "| Name | Segment | Stage | Priority | Website |\n| --- | --- | --- | --- | --- |";
   const rows = customers.map(
-    (c) => `| ${mdEscape(c.name)} | ${mdEscape(c.segmentId)} | ${mdEscape(c.stage)} | ${c.priority ?? "—"} | ${c.website ?? "—"} |`,
+    (c) => `| ${mdEscape(c.name)} | ${mdEscape(c.segmentId)} | ${mdEscape(c.stage)} | ${c.priority ?? "-"} | ${c.website ?? "-"} |`,
   );
   const md = `# Customers export\n\n${header}\n${rows.join("\n")}\n`;
   downloadBlob(md, `customers-${new Date().toISOString().slice(0, 10)}.md`, "text/markdown");
@@ -70,7 +70,7 @@ async function exportCustomersPdf(customers: Customer[]) {
   autoTable(doc, {
     startY: 28,
     head: [["Name", "Segment", "Stage", "Priority", "Website"]],
-    body: customers.map((c) => [c.name, c.segmentId, c.stage, c.priority ?? "—", c.website ?? "—"]),
+    body: customers.map((c) => [c.name, c.segmentId, c.stage, c.priority ?? "-", c.website ?? "-"]),
     styles: { fontSize: 9 },
     headStyles: { fillColor: [17, 24, 19] },
   });
@@ -226,7 +226,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     if (!q) return;
     const answer = customer
       ? `${openTaskCount} open task${openTaskCount === 1 ? "" : "s"} on ${customer.name}${customer.nextStep ? `. Next step: "${customer.nextStep}".` : "."}`
-      : "Live answers over the whole workspace arrive with the capture pipeline and embeddings — this question is saved for when that lands.";
+      : "Live answers over the whole workspace arrive with the capture pipeline and embeddings. This question is saved for when that lands.";
     setMessages((m) => [...m, { prompt: q, answer }]);
     setDraft("");
     void postQaMessage({
@@ -238,11 +238,11 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3" ref={panelRef}>
+    <div className="fixed bottom-24 right-3 z-40 flex flex-col items-end gap-3 md:bottom-6 md:right-6" ref={panelRef}>
       {open && (
         <section
           aria-label="Nova assistant"
-          className="flex h-[560px] w-[min(420px,calc(100vw-2rem))] flex-col border border-white/15 bg-deep text-deep-ink shadow-[10px_10px_0_rgba(17,24,19,.22)]"
+          className="flex h-[min(560px,calc(100dvh-7rem))] w-[min(420px,calc(100vw-1.5rem))] flex-col border border-line-2 bg-white text-ink"
         >
           <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 pb-3 pt-4">
             <span className="flex items-center gap-2 text-[15px] font-semibold">
@@ -284,7 +284,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
               <div className="flex min-h-full flex-col">
                 <p className="mb-3 text-[13.5px] text-deep-ink-2">
                   {customer
-                    ? `Scoped to ${customer.name} — every real conversation and task tied to this account.`
+                    ? `Scoped to ${customer.name}, including every conversation and task tied to this account.`
                     : "Ask across every conversation and customer you can access."}
                 </p>
                 <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
@@ -296,7 +296,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                   ))}
                   {messages.length === 0 && (
                     <p className="text-[13px] text-deep-ink-2">
-                      Nothing asked yet this session — try &ldquo;What&rsquo;s still open?&rdquo;
+                      Nothing asked yet this session. Try &ldquo;What&rsquo;s still open?&rdquo;
                     </p>
                   )}
                 </div>
@@ -389,7 +389,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                     </button>
                   </div>
                   {context.customers.length === 0 && (
-                    <p className="mt-1.5 text-[11.5px] text-deep-ink-2">No customers yet — nothing to export.</p>
+                    <p className="mt-1.5 text-[11.5px] text-deep-ink-2">No customers yet. There is nothing to export.</p>
                   )}
                 </div>
               </div>
@@ -402,7 +402,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex h-12 cursor-pointer items-center gap-2 bg-signal px-5 text-[14px] font-bold text-deep shadow-[5px_5px_0_rgba(17,24,19,.2)] transition-transform hover:-translate-y-px"
+        className="flex h-12 cursor-pointer items-center gap-2 rounded-[14px] bg-melt px-5 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(39,94,231,.24)] hover:bg-melt-strong"
       >
         <Sparkle size={17} />
         Nova

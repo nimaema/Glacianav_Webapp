@@ -73,7 +73,7 @@ export function AdminView({ roster: initialRoster, config: initialConfig, queueH
                 <button
                   type="button"
                   onClick={() => toggleRole(o.id)}
-                  className="shrink-0 cursor-pointer rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-1 text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-2 transition-colors duration-150 hover:bg-[rgba(11,61,77,0.13)] hover:text-ink"
+                  className="shrink-0 cursor-pointer rounded-full bg-surface-2 px-2.5 py-1 text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-2 transition-colors duration-150 hover:bg-melt/10 hover:text-ink"
                   title="Click to change role"
                 >
                   {o.role}
@@ -82,7 +82,7 @@ export function AdminView({ roster: initialRoster, config: initialConfig, queueH
               </div>
             ))}
             <p className="border-t border-line-2 py-3 text-[12.5px] text-ink-2">
-              No public sign-up — accounts are provisioned here or auto-created on first SSO
+              No public sign-up. Accounts are provisioned here or auto-created on first SSO
               login from an allowed domain.
             </p>
           </div>
@@ -111,7 +111,7 @@ export function AdminView({ roster: initialRoster, config: initialConfig, queueH
               <span className="text-[14px] font-semibold text-ink">Allowed domains</span>
               <div className="flex gap-1.5">
                 {config.allowedDomains.map((d) => (
-                  <span key={d} className="rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-0.5 font-mono text-[12px] font-semibold text-ink-2">
+                  <span key={d} className="rounded-full bg-surface-2 px-2.5 py-0.5 font-mono text-[12px] font-semibold text-ink-2">
                     {d}
                   </span>
                 ))}

@@ -30,13 +30,13 @@ export default async function HomePage() {
   return (
     <SurfaceReveal>
       <HeaderBand greetingName={data.greetingName} stats={data.stats} />
-      <div className="mx-auto max-w-[1680px] px-6 py-8 lg:px-10 lg:py-10">
+      <div className="mx-auto max-w-[1680px] px-5 py-7 sm:px-7 lg:px-10 lg:py-9">
         <div className="grid grid-cols-1 gap-8 xl:grid-cols-12">
           <div className="flex min-w-0 flex-col gap-8 xl:col-span-8">
             <UpNextCard topItem={topItem} />
             <AttentionQueue items={data.attention} skipId={topItem?.id} />
           </div>
-          <aside className="flex flex-col gap-5 border-t border-ink/20 pt-5 xl:col-span-4 xl:border-l xl:border-t-0 xl:pl-8 xl:pt-0">
+          <aside className="flex flex-col gap-5 border-t border-line pt-6 xl:col-span-4 xl:border-l xl:border-t-0 xl:pl-8 xl:pt-0">
             <TodayCard />
             <PipelineCard cadence={data.cadence} hasAnyCustomers={data.hasAnyCustomers} />
             <ActivityCard items={data.recentActivity} />

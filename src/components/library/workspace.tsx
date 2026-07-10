@@ -247,7 +247,7 @@ function QaPanel({
       if (!explained) {
         next.push({
           role: "assistant",
-          content: "Live answers arrive with the capture pipeline — questions asked here are saved.",
+          content: "Live answers arrive with the capture pipeline. Questions asked here are saved.",
         });
       }
       return next;
@@ -293,7 +293,7 @@ function QaPanel({
         )}
         {messages.length === 0 && (
           <p className="text-[13.5px] text-ink-3">
-            Ask anything said here — answers cite the transcript moment.
+            Ask anything said here. Answers cite the transcript moment.
           </p>
         )}
       </div>
@@ -516,7 +516,7 @@ export function ConversationWorkspace({
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1600px] px-7 py-6">
+      <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-7 lg:px-10">
         {c.status === "processing" ? (
           <ProcessingView title={c.title} />
         ) : (

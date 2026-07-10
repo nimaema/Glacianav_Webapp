@@ -70,7 +70,7 @@ export function SettingsView({
                     <p className="text-[15.5px] font-semibold text-ink">{me.name}</p>
                     <p className="text-[13px] text-ink-2">{me.email}</p>
                   </div>
-                  <span className="ml-auto rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.06em] text-ink-2">
+                  <span className="ml-auto rounded-full bg-surface-2 px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.06em] text-ink-2">
                     {me.role}
                   </span>
                   <button
@@ -145,7 +145,7 @@ export function SettingsView({
                   <p className="truncate text-[14.5px] font-semibold text-ink">{o.name}</p>
                   <p className="truncate text-[12.5px] text-ink-2">{o.email}</p>
                 </div>
-                <span className="shrink-0 rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-0.5 text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-2">
+                <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-0.5 text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-2">
                   {o.role}
                 </span>
                 <span

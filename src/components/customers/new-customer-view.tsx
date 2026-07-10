@@ -56,7 +56,7 @@ function ModeButton({
       disabled={disabled}
       aria-pressed={active}
       className={`h-8 cursor-pointer rounded-md px-3 text-[13px] font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
-        active ? "bg-melt/15 text-melt" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+        active ? "bg-melt/15 text-melt" : "bg-surface-2 text-ink-2 hover:bg-melt/10"
       }`}
     >
       {children}
@@ -331,7 +331,7 @@ export function NewCustomerView({
               onChange={(e) => setPriority(e.target.value as Priority | "")}
               className={inputClass}
             >
-              <option value="">—</option>
+              <option value="">-</option>
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>
                   {p[0].toUpperCase() + p.slice(1)}
@@ -382,7 +382,7 @@ export function NewCustomerView({
                     </select>
                   ) : (
                     <p className="text-[13.5px] text-ink-3">
-                      No unassigned contacts yet — create a new one instead.
+                      No unassigned contacts yet. Create a new one instead.
                     </p>
                   )
                 ) : (
