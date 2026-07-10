@@ -17,6 +17,7 @@ import {
   FileZip,
   Paperclip,
   PaperPlaneTilt,
+  Sparkle,
   ShieldWarning,
   X,
   XCircle,
@@ -157,39 +158,105 @@ function ActionReceipts({ actions }: { actions: NovaActionLog[] }) {
   );
 }
 
-// ─── Thinking state ───────────────────────────────────────────────────
-function ThinkingRow({
-  stage,
-  progress,
-  onCancel,
-}: {
-  stage: string;
-  progress: number;
-  onCancel: () => void;
-}) {
+// ─── Working state ────────────────────────────────────────────────────
+// The queue reports coarse stages, not measurable completion. Translate
+// those real states into natural language instead of showing a fake percent.
+function workingCopy(stage: string) {
+  const normalized = stage.toLowerCase();
+  if (normalized.includes("upload") || normalized.includes("attachment")) {
+    return {
+      label: "Preparing your request",
+      title: normalized.includes("reading") ? "Reading your file" : "Securing your attachment",
+      detail: normalized.includes("reading")
+        ? "Nova is working through the file before deciding what it needs."
+        : "Keeping the file private while it moves into Nova’s workspace.",
+    };
+  }
+  if (normalized.includes("queue") || normalized.includes("submit")) {
+    return {
+      label: "Task received",
+      title: "Nova has it",
+      detail: "She’ll begin as soon as the workspace is ready.",
+    };
+  }
+  if (normalized.includes("preparing") || normalized.includes("context")) {
+    return {
+      label: "Getting oriented",
+      title: "Gathering the right context",
+      detail: "Nova is finding the workspace details that matter for this request.",
+    };
+  }
+  if (normalized.includes("securing") || normalized.includes("result")) {
+    return {
+      label: "Nearly there",
+      title: "Finishing the handoff",
+      detail: "Nova is checking and securing the result before returning it.",
+    };
+  }
+  if (normalized.includes("retry")) {
+    return {
+      label: "Taking another pass",
+      title: "Nova is retrying safely",
+      detail: "A temporary issue interrupted the first attempt; your task is still intact.",
+    };
+  }
+  if (normalized.includes("cancel")) {
+    return {
+      label: "Wrapping up",
+      title: "Stopping the task safely",
+      detail: "Nova is closing the background work now.",
+    };
+  }
+  return {
+    label: "Working in the background",
+    title: "Nova is thinking it through",
+    detail: "You can keep browsing or close this panel—she’ll be here when it’s ready.",
+  };
+}
+
+function WorkingRow({ stage, onCancel }: { stage: string; onCancel: () => void }) {
+  const copy = workingCopy(stage);
+  const isCancelling = stage.toLowerCase().includes("cancel");
   return (
-    <div className="anim-msg-in flex items-center gap-2.5" role="status">
-      <span className="nova-orb nova-orb-busy flex h-7 w-7 shrink-0 items-center justify-center rounded-pill">
-        <span className="nova-think-mark flex">
-          <NovaMark size={14} tone="white" />
+    <div
+      className="anim-msg-in surfaced relative overflow-hidden p-3"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <div className="flex items-start gap-3">
+        <span className="nova-working-presence relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center">
+          <span className="nova-orb nova-orb-busy flex h-9 w-9 items-center justify-center rounded-pill">
+            <span className="nova-think-mark flex">
+              <NovaMark size={17} tone="white" />
+            </span>
+          </span>
+          <span aria-hidden className="nova-working-spark nova-working-spark-a" />
+          <span aria-hidden className="nova-working-spark nova-working-spark-b" />
         </span>
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center justify-between gap-3 text-[13px] font-medium text-ink-2">
-          <span className="truncate">{stage}</span>
-          <span className="font-mono text-[10.5px] tabular-nums text-ink-3">{progress}%</span>
+        <div key={stage} className="anim-nova-stage min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.09em] text-accent-strong">
+            <Sparkle size={11} weight="fill" aria-hidden />
+            {copy.label}
+          </p>
+          <p className="mt-1 text-[14px] font-semibold leading-snug text-ink">{copy.title}</p>
+          <p className="mt-1 max-w-[34ch] text-[12.5px] leading-[1.45] text-ink-2">{copy.detail}</p>
+        </div>
+      </div>
+      <div className="mt-2.5 flex items-center justify-between border-t border-line-2 pt-2">
+        <span className="text-[11.5px] text-ink-3">
+          {isCancelling ? "Nova will close this safely." : "This task keeps running in the background."}
         </span>
-        <span className="mt-1 block h-1 overflow-hidden rounded-full bg-line">
-          <span className="block h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${progress}%` }} />
-        </span>
-      </span>
-      <button
-        type="button"
-        onClick={onCancel}
-        className="cursor-pointer rounded-md px-2 py-1 text-[11.5px] font-bold text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-danger"
-      >
-        Cancel
-      </button>
+        {!isCancelling && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-8 cursor-pointer rounded-control px-2.5 text-[11.5px] font-bold text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-danger"
+          >
+            Cancel task
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -210,7 +277,6 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
   const [sending, setSending] = useState(false);
   const [activeJob, setActiveJob] = useState<{ id: string; question: string } | null>(null);
   const [jobStage, setJobStage] = useState("Queued");
-  const [jobProgress, setJobProgress] = useState(0);
   const [confirmingToken, setConfirmingToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -296,7 +362,6 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
         }
         if (stopped) return;
         setJobStage(job.stage || "Working");
-        setJobProgress(job.progress ?? 0);
         if (job.status === "completed" && job.response) {
           const result = job.response;
           setMessages((current) => [...current, {
@@ -368,7 +433,6 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     setPendingFile(null);
     setSending(true);
     setJobStage(file ? "Uploading attachment" : "Submitting task");
-    setJobProgress(1);
     if (inputRef.current) inputRef.current.style.height = "auto";
 
     try {
@@ -385,7 +449,6 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
       window.localStorage.setItem("glacianav:nova-active-job", JSON.stringify(job));
       setActiveJob(job);
       setJobStage("Queued");
-      setJobProgress(5);
     } catch (e) {
       setMessages((m) => [
         ...m,
@@ -594,7 +657,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                 </div>
               ),
             )}
-            {sending && <ThinkingRow stage={jobStage} progress={jobProgress} onCancel={() => void cancelActiveJob()} />}
+            {sending && <WorkingRow stage={jobStage} onCancel={() => void cancelActiveJob()} />}
           </div>
 
           {/* Composer */}

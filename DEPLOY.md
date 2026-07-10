@@ -10,7 +10,7 @@ push to main  →  GitHub Actions builds image  →  pushes to GHCR  →  Watcht
 
 | Service | Image | Role |
 | --- | --- | --- |
-| `web` | `ghcr.io/nimaema/glacianav_webapp:latest` | Next.js app |
+| `web` | `ghcr.io/nimaema/glacianav_webapp:latest` | Next.js app and durable Nova job coordinator |
 | `nova-worker` | `ghcr.io/nimaema/glacianav_nova-worker:latest` | Networkless Python file lab |
 | `minio` | `minio/minio` | Local S3-compatible storage for recording audio, private bucket |
 | `tunnel` | `cloudflare/cloudflared` | Cloudflare Tunnel → app.glacianav.com, no open ports |
@@ -65,6 +65,12 @@ at **build** time, not read at container runtime:
 Watchtower polls every 60s (`WATCHTOWER_INTERVAL`) and rolling-restarts `web` when the
 image changes. It also updates the isolated Nova worker image. So: **commit → push →
 it's live in a minute or two.**
+
+Nova’s durable queue processor starts with the `web` server. It does not require a
+separate Compose service, so normal Watchtower image updates also deploy queue changes.
+Set `NOVA_PROCESSOR_DISABLED=true` only when an external coordinator intentionally owns
+queue consumption; the authenticated internal processing route remains available for
+manual recovery.
 
 ## Nova sandbox
 
