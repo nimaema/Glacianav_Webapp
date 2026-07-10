@@ -7,7 +7,7 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts, customers, profiles, segments, stages, tasks } from "@/db/schema";
+import { contacts, conversations, customers, profiles, segments, stages, tasks } from "@/db/schema";
 import {
   deepseekChatWithTools,
   fn,
@@ -176,7 +176,109 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
 // caller (runNovaAgent) turns it into a NovaFile for the client to render
 // as a download. No executor needed; handled inline in the loop below.
 
+// ─── Read tools ───────────────────────────────────────────────────────
+// Return a plain-text summary the model reads and phrases into a normal
+// answer — unlike EXECUTORS above, these aren't mutations, so they don't
+// produce an action-log entry ("✓ Created X"); the model just answers in
+// prose using what it learns. This is the gap that caused Nova to say "I
+// don't have a tool for that" when asked something as simple as how many
+// recordings are public — every tool that existed before this was
+// write-only.
+const READ_TOOLS: Record<string, (ctx: Ctx, a: Args) => Promise<string>> = {
+  async get_workspace_stats() {
+    const [customerRows, contactRows, conversationRows, taskRows] = await Promise.all([
+      db.select({ segmentId: customers.segmentId, archived: customers.archived }).from(customers),
+      db.select({ id: contacts.id }).from(contacts),
+      db.select({ status: conversations.status, shared: conversations.shared, noteBody: conversations.noteBody }).from(conversations),
+      db.select({ status: tasks.status }).from(tasks),
+    ]);
+
+    const recordings = conversationRows.filter((c) => !c.noteBody);
+    const notes = conversationRows.filter((c) => c.noteBody);
+    const shared = conversationRows.filter((c) => c.shared).length;
+    const byStatus = (rows: typeof conversationRows) => ({
+      processing: rows.filter((c) => c.status === "processing").length,
+      ready: rows.filter((c) => c.status === "ready").length,
+      reviewed: rows.filter((c) => c.status === "reviewed").length,
+    });
+
+    return [
+      `Customers: ${customerRows.length} total (${customerRows.filter((c) => c.archived).length} archived).`,
+      `Contacts: ${contactRows.length} total.`,
+      `Conversations: ${conversationRows.length} total — ${recordings.length} recordings, ${notes.length} written notes.`,
+      `Of those, ${shared} are shared with the team (public within the workspace) and ${conversationRows.length - shared} are private.`,
+      `Recording status breakdown: ${JSON.stringify(byStatus(recordings))}.`,
+      `Tasks: ${taskRows.length} total — ${taskRows.filter((t) => t.status === "open").length} open, ${taskRows.filter((t) => t.status === "done").length} done.`,
+    ].join(" ");
+  },
+
+  async list_conversations(ctx, a) {
+    const rows = await db
+      .select({ id: conversations.id, title: conversations.title, status: conversations.status, shared: conversations.shared, noteBody: conversations.noteBody })
+      .from(conversations);
+    let filtered = rows;
+    if (a.shared === true || a.shared === false) filtered = filtered.filter((c) => c.shared === a.shared);
+    if (typeof a.status === "string" && a.status) filtered = filtered.filter((c) => c.status === a.status);
+    if (a.kind === "recording") filtered = filtered.filter((c) => !c.noteBody);
+    if (a.kind === "note") filtered = filtered.filter((c) => !!c.noteBody);
+    const limit = typeof a.limit === "number" ? a.limit : 25;
+    const shown = filtered.slice(0, limit);
+    if (filtered.length === 0) return "No conversations match that filter.";
+    return `${filtered.length} match${filtered.length === 1 ? "" : "es"}${filtered.length > shown.length ? ` (showing first ${shown.length})` : ""}: ${shown
+      .map((c) => `"${c.title}" (${c.noteBody ? "note" : "recording"}, ${c.status}, ${c.shared ? "shared" : "private"})`)
+      .join("; ")}.`;
+  },
+
+  async get_customer_details(ctx, a) {
+    const name = str(a.name);
+    if (!name) throw new Error("no customer name given");
+    const rows = await db.select().from(customers);
+    const match = findByName(rows, name);
+    if (!match) return `No customer found matching "${name}".`;
+    const segment = ctx.segments.find((s) => s.id === match.segmentId)?.name ?? "unassigned";
+    const owner = ctx.owners.find((o) => o.id === match.ownerId)?.name ?? "unassigned";
+    const [taskRows, contactRows] = await Promise.all([
+      db.select({ status: tasks.status }).from(tasks).where(eq(tasks.customerId, match.id)),
+      db.select({ name: contacts.name }).from(contacts).where(eq(contacts.customerId, match.id)),
+    ]);
+    return [
+      `${match.name}: stage "${match.stage ?? "none"}", segment "${segment}", owner "${owner}", priority ${match.priority ?? "unset"}.`,
+      match.website ? `Website: ${match.website}.` : "",
+      match.nextStep ? `Next step: ${match.nextStep}.` : "",
+      `${taskRows.filter((t) => t.status === "open").length} open task(s), ${taskRows.length - taskRows.filter((t) => t.status === "open").length} done.`,
+      contactRows.length > 0 ? `Contacts: ${contactRows.map((c) => c.name).join(", ")}.` : "No linked contacts.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  },
+
+  async list_open_tasks(ctx, a) {
+    const rows = await db.select({ task: tasks.task, dueLabel: tasks.dueLabel, customerId: tasks.customerId }).from(tasks).where(eq(tasks.status, "open"));
+    if (rows.length === 0) return "No open tasks.";
+    const customerRows = await db.select({ id: customers.id, name: customers.name }).from(customers);
+    const nameFor = (id: string | null) => customerRows.find((c) => c.id === id)?.name ?? "unassigned account";
+    const limit = typeof a.limit === "number" ? a.limit : 25;
+    const shown = rows.slice(0, limit);
+    return `${rows.length} open task(s)${rows.length > shown.length ? ` (showing first ${shown.length})` : ""}: ${shown
+      .map((t) => `"${t.task}" (${nameFor(t.customerId)}${t.dueLabel ? `, due ${t.dueLabel}` : ""})`)
+      .join("; ")}.`;
+  },
+};
+
 const TOOL_SCHEMAS: ToolSchema[] = [
+  fn("get_workspace_stats", "Get real counts across the whole workspace — customers, contacts, conversations (recordings vs notes, by status, shared vs private), and tasks. Use this for any \"how many...\" question.", {}, []),
+  fn("list_conversations", "List real conversations (recordings/notes), optionally filtered.", {
+    shared: p("boolean", "true = only shared/public ones, false = only private ones. Omit for both."),
+    status: p("string", '"processing", "ready", or "reviewed". Omit for all.'),
+    kind: p("string", '"recording" or "note". Omit for both.'),
+    limit: p("number", "Max to list, default 25."),
+  }, []),
+  fn("get_customer_details", "Get real details on one specific customer — stage, segment, owner, priority, next step, open tasks, linked contacts.", {
+    name: p("string", "Customer/company name (fuzzy match)."),
+  }, ["name"]),
+  fn("list_open_tasks", "List real open tasks across the workspace, with which account each belongs to.", {
+    limit: p("number", "Max to list, default 25."),
+  }, []),
   fn("create_customer", "Create a single new customer account.", {
     name: p("string", "Company or individual name."),
     kind: p("string", '"company" or "individual".'),
@@ -239,17 +341,18 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
   const ownerList = ctx.owners.map((o) => o.name).join(", ") || "none";
   const stageList = ctx.stages.map((s) => s.label).join(", ") || "none yet";
   return [
-    `You are Nova, the assistant inside GlaciaNav's field workspace — a customer-validation and conversation-intelligence tool. You can answer questions AND get real things done by calling tools: create customers/contacts (one at a time or in bulk from a file), create tasks, and generate downloadable files (markdown, csv, txt, or pdf).`,
+    `You are Nova, the assistant inside GlaciaNav's field workspace — a customer-validation and conversation-intelligence tool. You have real tools for both LOOKING THINGS UP (workspace stats, conversation/task lists, customer details) and DOING things (create customers/contacts one at a time or in bulk from a file, create tasks, generate downloadable files). You are never limited to just answering from what's already in this prompt — if a question is answerable by calling get_workspace_stats, list_conversations, get_customer_details, or list_open_tasks, call it. Never tell the user you don't have a tool for something without first checking whether one of your read tools actually covers it.`,
     `Voice: direct, competent, a little warm — like a sharp colleague, not a corporate bot. Keep replies tight.`,
     ``,
     `Workspace state: segments are [${segmentList}], owners are [${ownerList}], stages are [${stageList}].`,
     ctx.scopeCustomer ? `Currently scoped to customer: ${ctx.scopeCustomer.name}.` : `Not scoped to a specific customer right now.`,
     ``,
     `Guidelines:`,
+    `- For any factual/"how many"/"which ones" question about the workspace, call a read tool FIRST — don't guess, and don't say you can't check.`,
     `- When the user asks you to DO something (create a customer, import a file, make a report), call the matching tool(s). You may call several in one turn.`,
     `- When a file's content is included in context, read it carefully and extract real rows/facts yourself — never ask the user to reformat their own file.`,
     `- When generating a file, write real, complete content — don't stub it out.`,
-    `- Never invent customers, numbers, or facts that aren't in the context or the user's message.`,
+    `- Never invent customers, numbers, or facts that aren't in the context, a tool result, or the user's message.`,
     `- After acting, confirm briefly and naturally. Don't repeat a long list the UI will already show.`,
     extraContext ? `\n--- ATTACHED FILE CONTENT ---\n${extraContext}` : "",
   ]
@@ -293,6 +396,12 @@ export async function runNovaAgent(input: {
         files.push({ filename, format, content });
         actions.push({ label: "Generated file", detail: `${filename}.${format === "markdown" ? "md" : format}`, ok: true });
         toolResult = "File generated and attached for download.";
+      } else if (READ_TOOLS[call.function.name]) {
+        try {
+          toolResult = await READ_TOOLS[call.function.name](ctx, args);
+        } catch (e) {
+          toolResult = `Couldn't look that up: ${e instanceof Error ? e.message : "failed"}`;
+        }
       } else if (EXECUTORS[call.function.name]) {
         try {
           const action = await EXECUTORS[call.function.name](ctx, args);
