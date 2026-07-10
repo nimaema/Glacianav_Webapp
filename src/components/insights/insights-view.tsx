@@ -1,26 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { CaretDown, ChartBar } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
 import { PageHeader, HeaderStat } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
-import {
-  cadence,
-  conversationDetails,
-  conversations,
-  customerTasks,
-  customers,
-  funnel,
-  ownerById,
-  owners,
-  validationNotes,
-} from "@/lib/fixtures";
+import type { InsightsPageData } from "@/lib/data/insights";
 
-function CadenceChart() {
+function CadenceChart({ cadence }: { cadence: InsightsPageData["cadence"] }) {
   const { points, target } = cadence;
-  const max = Math.max(...points, target);
+  const max = Math.max(...points, target, 1);
   const w = 560;
   const h = 90;
   const step = w / (points.length - 1);
@@ -44,47 +34,17 @@ function CadenceChart() {
   );
 }
 
-export function InsightsView() {
+export function InsightsView({
+  accountCount,
+  problemSplit,
+  funnel,
+  cadence,
+  needsFrequency,
+  workload,
+}: InsightsPageData) {
   const [openTag, setOpenTag] = useState<string | null>(null);
 
-  const needsFrequency = useMemo(() => {
-    const counts = new Map<string, string[]>();
-    for (const c of customers) {
-      for (const tag of c.tags ?? []) {
-        counts.set(tag, [...(counts.get(tag) ?? []), c.id]);
-      }
-    }
-    return [...counts.entries()]
-      .map(([tag, ids]) => ({ tag, ids }))
-      .sort((a, b) => b.ids.length - a.ids.length);
-  }, []);
-  const maxNeeds = Math.max(1, ...needsFrequency.map((n) => n.ids.length));
-
-  const problemSplit = useMemo(() => {
-    const yes = customers.filter((c) => c.problem === "yes").length;
-    const no = customers.filter((c) => c.problem === "no").length;
-    const unknown = customers.filter((c) => c.problem === "unknown").length;
-    return { yes, no, unknown, total: customers.length };
-  }, []);
-
-  const workload = useMemo(() => {
-    const openByOwner = new Map<string, number>(owners.map((o) => [o.id, 0]));
-    for (const cv of conversations) {
-      for (const a of conversationDetails[cv.id]?.actionItems ?? []) {
-        if (a.status !== "open") continue;
-        for (const id of a.assigneeIds) openByOwner.set(id, (openByOwner.get(id) ?? 0) + 1);
-      }
-    }
-    for (const c of customers) {
-      for (const t of customerTasks[c.id] ?? []) {
-        if (t.status !== "open") continue;
-        for (const id of t.assigneeIds) openByOwner.set(id, (openByOwner.get(id) ?? 0) + 1);
-      }
-    }
-    return owners
-      .map((o) => ({ owner: o, count: openByOwner.get(o.id) ?? 0 }))
-      .sort((a, b) => b.count - a.count);
-  }, []);
+  const maxNeeds = Math.max(1, ...needsFrequency.map((n) => n.customers.length));
   const maxWorkload = Math.max(1, ...workload.map((w) => w.count));
 
   return (
@@ -95,8 +55,8 @@ export function InsightsView() {
         meta="Every number here traces back to a conversation — click through to the evidence."
         actions={
           <>
-            <HeaderStat label="Accounts" value={customers.length} />
-            <HeaderStat label="Problem confirmed" value={`${problemSplit.yes}/${problemSplit.total}`} divider />
+            <HeaderStat label="Accounts" value={accountCount} />
+            <HeaderStat label="Problem confirmed" value={`${problemSplit.yes}/${problemSplit.total || 0}`} divider />
           </>
         }
       />
@@ -127,9 +87,9 @@ export function InsightsView() {
           <div className="surfaced flex flex-col gap-3 px-5 py-4">
             <SectionHeader>Problem confirmation</SectionHeader>
             <div className="flex h-4 overflow-hidden rounded-full bg-[rgba(11,61,77,0.07)]">
-              <span style={{ width: `${(problemSplit.yes / problemSplit.total) * 100}%` }} className="bg-[#27b577]" title="Confirmed" />
-              <span style={{ width: `${(problemSplit.unknown / problemSplit.total) * 100}%` }} className="bg-[#d9b23c]" title="Unknown" />
-              <span style={{ width: `${(problemSplit.no / problemSplit.total) * 100}%` }} className="bg-[#cf5040]" title="Not confirmed" />
+              <span style={{ width: `${problemSplit.total ? (problemSplit.yes / problemSplit.total) * 100 : 0}%` }} className="bg-[#27b577]" title="Confirmed" />
+              <span style={{ width: `${problemSplit.total ? (problemSplit.unknown / problemSplit.total) * 100 : 0}%` }} className="bg-[#d9b23c]" title="Unknown" />
+              <span style={{ width: `${problemSplit.total ? (problemSplit.no / problemSplit.total) * 100 : 0}%` }} className="bg-[#cf5040]" title="Not confirmed" />
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[13px]">
               <span className="flex items-center gap-1.5 text-ink-2"><span className="h-2.5 w-2.5 rounded-full bg-[#27b577]" />Confirmed · {problemSplit.yes}</span>
@@ -148,14 +108,14 @@ export function InsightsView() {
                 {cadence.points[cadence.points.length - 1]} of {cadence.target} target
               </span>
             </div>
-            <CadenceChart />
+            <CadenceChart cadence={cadence} />
           </div>
         </section>
 
         <section className="flex flex-col gap-2.5">
           <SectionHeader count={needsFrequency.length}>Needs &amp; problem themes</SectionHeader>
           <div className="surfaced flex flex-col px-5">
-            {needsFrequency.map(({ tag, ids }) => {
+            {needsFrequency.map(({ tag, customers: taggedCustomers }) => {
               const open = openTag === tag;
               return (
                 <div key={tag} className="border-t border-line-2 first:border-t-0">
@@ -168,33 +128,32 @@ export function InsightsView() {
                     <span className="w-[180px] shrink-0 truncate text-[14px] font-semibold text-ink">{tag}</span>
                     <span
                       className="h-3.5 rounded-r bg-melt/60"
-                      style={{ width: `${(ids.length / maxNeeds) * 100}%`, maxWidth: "40%" }}
+                      style={{ width: `${(taggedCustomers.length / maxNeeds) * 100}%`, maxWidth: "40%" }}
                       aria-hidden
                     />
-                    <span className="font-mono text-[13px] font-bold text-ink tabular-nums">{ids.length}</span>
+                    <span className="font-mono text-[13px] font-bold text-ink tabular-nums">{taggedCustomers.length}</span>
                     <CaretDown size={13} className={`ml-auto shrink-0 text-ink-3 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
                   </button>
                   {open && (
                     <div className="flex flex-wrap gap-1.5 pb-3">
-                      {ids.map((id) => {
-                        const c = customers.find((x) => x.id === id)!;
-                        const note = (validationNotes[id] ?? [])[0];
-                        return (
-                          <Link
-                            key={id}
-                            href={`/customers/${id}`}
-                            className="recessed flex max-w-[280px] flex-col gap-0.5 px-3 py-2 text-[12.5px] transition-colors duration-150 hover:bg-surface-2"
-                          >
-                            <span className="font-semibold text-ink">{c.name}</span>
-                            {note?.quote && <span className="truncate text-ink-2">&ldquo;{note.quote}&rdquo;</span>}
-                          </Link>
-                        );
-                      })}
+                      {taggedCustomers.map((c) => (
+                        <Link
+                          key={c.id}
+                          href={`/customers/${c.id}`}
+                          className="recessed flex max-w-[280px] flex-col gap-0.5 px-3 py-2 text-[12.5px] transition-colors duration-150 hover:bg-surface-2"
+                        >
+                          <span className="font-semibold text-ink">{c.name}</span>
+                          {c.quote && <span className="truncate text-ink-2">&ldquo;{c.quote}&rdquo;</span>}
+                        </Link>
+                      ))}
                     </div>
                   )}
                 </div>
               );
             })}
+            {needsFrequency.length === 0 && (
+              <p className="py-3 text-[13.5px] text-ink-2">No tagged needs yet.</p>
+            )}
           </div>
         </section>
 
@@ -203,7 +162,7 @@ export function InsightsView() {
           <div className="surfaced flex flex-col px-5">
             {workload.map(({ owner, count }) => (
               <div key={owner.id} className="flex items-center gap-3 border-t border-line-2 py-3 first:border-t-0">
-                <Avatar owner={ownerById(owner.id)} size={26} />
+                <Avatar owner={owner} size={26} />
                 <span className="w-[80px] shrink-0 text-[14px] font-semibold text-ink">{owner.name}</span>
                 <span
                   className="h-3.5 rounded-r"
