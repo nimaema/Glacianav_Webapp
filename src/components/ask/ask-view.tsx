@@ -1,28 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { PaperPlaneTilt, Sparkle } from "@phosphor-icons/react";
 import { SectionHeader } from "@/components/ui/section-header";
 import { PageHeader } from "@/components/ui/page-header";
-import {
-  conversationDetails,
-  conversations,
-  customerById,
-  customers,
-  type QaMessage,
-} from "@/lib/fixtures";
+import type { Customer, QaMessage } from "@/lib/fixtures";
+import type { AnsweredItem, AskPageData, ConversationOption } from "@/lib/data/ask";
+import { postQaMessage } from "@/lib/data/library-actions";
 
 type Scope =
   | { kind: "everything" }
   | { kind: "customer"; id: string }
   | { kind: "conversation"; id: string };
-
-function scopeLabel(scope: Scope): string {
-  if (scope.kind === "everything") return "the whole workspace";
-  if (scope.kind === "customer") return customerById(scope.id)?.name ?? "this customer";
-  return conversations.find((c) => c.id === scope.id)?.title ?? "this conversation";
-}
 
 function fmtMs(ms: number) {
   const totalSec = Math.floor(ms / 1000);
@@ -31,38 +21,54 @@ function fmtMs(ms: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function AskView() {
+export function AskView({
+  customers,
+  conversations,
+  recentAnswered,
+  everythingThread,
+  currentUserId,
+}: AskPageData & { currentUserId: string }) {
   const [scope, setScope] = useState<Scope>({ kind: "everything" });
-  const [messages, setMessages] = useState<QaMessage[]>([]);
+  const [messages, setMessages] = useState<QaMessage[]>(everythingThread);
   const [draft, setDraft] = useState("");
-  const [explained, setExplained] = useState(false);
+  const [explained, setExplained] = useState(everythingThread.length > 0);
+
+  const scopeLabel = (s: Scope): string => {
+    if (s.kind === "everything") return "the whole workspace";
+    if (s.kind === "customer") return customers.find((c: Customer) => c.id === s.id)?.name ?? "this customer";
+    return conversations.find((c: ConversationOption) => c.id === s.id)?.title ?? "this conversation";
+  };
+
+  const changeScope = (next: Scope) => {
+    setScope(next);
+    // Only "everything" has its persisted history preloaded — switching to
+    // a customer/conversation scope starts a fresh thread (still real,
+    // still persists), same simplification the placeholder-answer already
+    // implies: nothing scoped has real answers to show yet either way.
+    setMessages(next.kind === "everything" ? everythingThread : []);
+    setExplained(next.kind === "everything" && everythingThread.length > 0);
+  };
 
   const send = () => {
     const q = draft.trim();
     if (!q) return;
-    setMessages((m) => {
-      const next: QaMessage[] = [...m, { role: "user", content: q }];
-      if (!explained) {
-        next.push({
-          role: "assistant",
-          content: `Live answers over ${scopeLabel(scope)} arrive with the capture pipeline and embeddings — questions asked here are saved for when that lands.`,
-        });
-      }
-      return next;
-    });
+    const toPersist: QaMessage[] = [{ role: "user", content: q }];
+    if (!explained) {
+      toPersist.push({
+        role: "assistant",
+        content: `Live answers over ${scopeLabel(scope)} arrive with the capture pipeline and embeddings — questions asked here are saved for when that lands.`,
+      });
+    }
+    setMessages((m) => [...m, ...toPersist]);
     setExplained(true);
     setDraft("");
-  };
 
-  // A real cross-workspace feed: every question already answered inside a
-  // Conversation Workspace, surfaced here read-only so "ask everything" has
-  // real evidence to point at before the live RAG layer exists.
-  const recentAcrossWorkspace = useMemo(() => {
-    return conversations
-      .flatMap((cv) => (conversationDetails[cv.id]?.qa ?? []).map((m, i) => ({ cv, m, i })))
-      .filter(({ m }) => m.role === "assistant")
-      .slice(0, 8);
-  }, []);
+    const conversationId = scope.kind === "conversation" ? scope.id : undefined;
+    const customerId = scope.kind === "customer" ? scope.id : undefined;
+    for (const m of toPersist) {
+      void postQaMessage({ conversationId, customerId, authorId: currentUserId, role: m.role, content: m.content });
+    }
+  };
 
   return (
     <>
@@ -79,7 +85,7 @@ export function AskView() {
               type="button"
               role="tab"
               aria-selected={scope.kind === "everything"}
-              onClick={() => setScope({ kind: "everything" })}
+              onClick={() => changeScope({ kind: "everything" })}
               className={`h-8 cursor-pointer rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-150 ${
                 scope.kind === "everything" ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
               }`}
@@ -88,7 +94,7 @@ export function AskView() {
             </button>
             <select
               value={scope.kind === "customer" ? scope.id : ""}
-              onChange={(e) => e.target.value && setScope({ kind: "customer", id: e.target.value })}
+              onChange={(e) => e.target.value && changeScope({ kind: "customer", id: e.target.value })}
               aria-label="Scope to a customer"
               className={`h-8 cursor-pointer rounded-full px-3 text-[13px] font-semibold outline-none transition-colors duration-150 ${
                 scope.kind === "customer" ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
@@ -105,7 +111,7 @@ export function AskView() {
             </select>
             <select
               value={scope.kind === "conversation" ? scope.id : ""}
-              onChange={(e) => e.target.value && setScope({ kind: "conversation", id: e.target.value })}
+              onChange={(e) => e.target.value && changeScope({ kind: "conversation", id: e.target.value })}
               aria-label="Scope to a conversation"
               className={`h-8 cursor-pointer rounded-full px-3 text-[13px] font-semibold outline-none transition-colors duration-150 ${
                 scope.kind === "conversation" ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
@@ -169,23 +175,23 @@ export function AskView() {
         <aside className="flex w-[300px] shrink-0 flex-col gap-2.5">
           <SectionHeader>Answered already</SectionHeader>
           <div className="flex flex-col gap-2.5">
-            {recentAcrossWorkspace.map(({ cv, m, i }) => (
+            {recentAnswered.map((item: AnsweredItem, i: number) => (
               <Link
-                key={`${cv.id}-${i}`}
-                href={`/library/${cv.id}`}
+                key={`${item.conversationId}-${i}`}
+                href={`/library/${item.conversationId}`}
                 className="surfaced rise-on-hover flex flex-col gap-1.5 px-3.5 py-3 text-[13px]"
                 data-rise
               >
-                <span className="line-clamp-2 leading-snug text-ink-2">{m.content}</span>
-                {m.citations?.[0] && (
+                <span className="line-clamp-2 leading-snug text-ink-2">{item.content}</span>
+                {item.citationMs != null && (
                   <span className="flex items-center gap-1.5 font-mono text-[11.5px] font-bold text-melt">
-                    {fmtMs(m.citations[0].startMs)}
-                    <span className="truncate font-sans font-semibold text-ink-3">{cv.title}</span>
+                    {fmtMs(item.citationMs)}
+                    <span className="truncate font-sans font-semibold text-ink-3">{item.conversationTitle}</span>
                   </span>
                 )}
               </Link>
             ))}
-            {recentAcrossWorkspace.length === 0 && (
+            {recentAnswered.length === 0 && (
               <p className="recessed px-3.5 py-3 text-[13px] text-ink-2">
                 Nothing answered yet — questions asked inside a Conversation Workspace show up here.
               </p>
