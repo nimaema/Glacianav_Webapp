@@ -75,7 +75,7 @@ export function AskView({
       <PageHeader
         title="Ask"
         icon={Sparkle}
-        meta="Cass, scoped to whatever you're looking at — a conversation, an account, or everything."
+        meta="Nova, scoped to whatever you're looking at — a conversation, an account, or everything."
       />
 
       <div className="mx-auto flex max-w-[1100px] gap-6 px-7 py-6">
@@ -128,7 +128,7 @@ export function AskView({
             </select>
           </div>
 
-          <section data-rise aria-label="Ask Cass" className="surfaced flex flex-1 flex-col p-4">
+          <section data-rise aria-label="Ask Nova" className="surfaced flex flex-1 flex-col p-4">
             <SectionHeader icon={<Sparkle size={16} />} className="mb-3">
               Ask {scopeLabel(scope)}
             </SectionHeader>
@@ -157,7 +157,7 @@ export function AskView({
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && send()}
                 placeholder={`Ask about ${scopeLabel(scope)}`}
-                aria-label="Ask Cass"
+                aria-label="Ask Nova"
                 className="recessed h-9 w-full px-3 text-[14px] text-ink outline-none placeholder:text-ink-3"
               />
               <button

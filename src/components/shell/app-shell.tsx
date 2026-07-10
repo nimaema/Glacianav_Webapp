@@ -1,10 +1,11 @@
 import { Rail } from "./rail";
 import { TopBar } from "./topbar";
-import { CassDock } from "./cass-dock";
+import { NovaDock } from "./nova-dock";
 import { CommandPalette } from "./command-palette";
 import { RecordingProvider } from "@/components/record/recording-provider";
 import type { Profile } from "@/lib/auth/ensure-profile";
 import type { NotificationItem } from "@/lib/data/notifications";
+import type { NovaContextData } from "@/lib/data/nova";
 
 export function AppShell({
   children,
@@ -12,12 +13,14 @@ export function AppShell({
   profile,
   notifications,
   unreadCount,
+  novaContext,
 }: {
   children: React.ReactNode;
   currentUserId: string;
   profile: Profile | null;
   notifications: NotificationItem[];
   unreadCount: number;
+  novaContext: NovaContextData;
 }) {
   return (
     <RecordingProvider currentUserId={currentUserId}>
@@ -27,7 +30,7 @@ export function AppShell({
           <TopBar profile={profile} notifications={notifications} unreadCount={unreadCount} />
           <main className="min-h-0 flex-1 overflow-y-auto bg-ice-0">{children}</main>
         </div>
-        <CassDock />
+        <NovaDock context={novaContext} currentUserId={currentUserId} />
         <CommandPalette />
       </div>
     </RecordingProvider>

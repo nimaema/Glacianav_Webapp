@@ -220,7 +220,7 @@ export function RecordView({
         <div className="surfaced flex flex-col items-center gap-4 px-6 py-10">
           <p className="max-w-md text-center text-[14.5px] leading-relaxed text-ink-2">
             {participants.length > 0
-              ? "This recording lands in every listed participant's customer page, and Cass can draw on it when you're working with them."
+              ? "This recording lands in every listed participant's customer page, and Nova can draw on it when you're working with them."
               : "No customer attached — this recording is a standalone note (a weekly sync, a learning note). Add a participant above if it belongs to a customer."}{" "}
             Flag moments as you go — they become transcript anchors you can
             turn into tasks or comments later.

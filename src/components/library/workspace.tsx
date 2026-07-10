@@ -257,7 +257,7 @@ function QaPanel({
   };
 
   return (
-    <section data-rise aria-label="Ask Cass" className="surfaced flex flex-col p-4">
+    <section data-rise aria-label="Ask Nova" className="surfaced flex flex-col p-4">
       <SectionHeader icon={<Sparkle size={16} />} className="mb-3">
         Ask this conversation
       </SectionHeader>

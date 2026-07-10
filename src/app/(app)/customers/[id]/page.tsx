@@ -2,6 +2,13 @@ import { CustomerRoom } from "@/components/customers/customer-room";
 import { getCustomerRoomData, getCustomersPageData } from "@/lib/data/customers";
 import { getCurrentProfile } from "@/lib/data/current-user";
 
+// Reads live DB data — DATABASE_URL isn't available at Docker build time
+// (deliberately kept server-only, out of the build stage), so this can't
+// be statically prerendered. Dynamic route segments already default to
+// per-request rendering without generateStaticParams, but explicit here
+// too now that implicit inference has proven fragile elsewhere (see Home).
+export const dynamic = "force-dynamic";
+
 export default async function CustomerRoomPage({
   params,
 }: {

@@ -7,6 +7,14 @@ import { ActivityCard, PipelineCard, TodayCard } from "@/components/home/side-ca
 import { getCurrentProfile } from "@/lib/data/current-user";
 import { getHomeData } from "@/lib/data/home";
 
+// Reads live DB data — DATABASE_URL isn't available at Docker build time
+// (deliberately kept server-only, out of the build stage), so this can't
+// be statically prerendered. Was previously relying on implicit dynamic
+// inference via layout.tsx's cookies() usage, which turned out to be
+// fragile — an unrelated layout change (adding another DB call) flipped
+// this page back to trying to statically export and broke the build.
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const profile = await getCurrentProfile();
   // AUTH_REQUIRED is off in local dev by default (see src/proxy.ts) — a

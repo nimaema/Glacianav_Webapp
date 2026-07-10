@@ -11,7 +11,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
-import { contacts, customers, segments, stages, validationNotes } from "@/db/schema";
+import { contacts, customers, profiles, segments, stages, validationNotes } from "@/db/schema";
 import type { CompatibilityLevel, ContactChannel, Customer, CustomerKind, Priority } from "@/lib/fixtures";
 import { notifyProfile } from "@/lib/data/notifications";
 
@@ -96,6 +96,82 @@ export async function createCustomer(input: {
   revalidateBoth();
   revalidatePath("/contacts");
   return { id };
+}
+
+// Backs Nova's "Import from Excel" — each row becomes a real customer
+// (+ an optional linked contact), reusing the exact same insert shape
+// createCustomer uses, just batched. Segment/owner are resolved by name
+// against what already exists rather than requiring the sheet to know
+// internal ids; unmatched segments/owners fall back to the first real
+// segment/owner so nothing silently fails to import.
+export async function bulkImportCustomers(
+  rows: {
+    name: string;
+    segmentName?: string;
+    ownerName?: string;
+    website?: string;
+    priority?: Priority;
+    contactName?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+  }[],
+) {
+  const [segmentRows, owners, stageRows] = await Promise.all([
+    db.select().from(segments).orderBy(segments.sortOrder),
+    db.select().from(profiles),
+    db.select({ key: stages.key }).from(stages).orderBy(stages.sortOrder).limit(1),
+  ]);
+  const defaultStage = stageRows[0]?.key ?? null;
+  const defaultSegmentId = segmentRows[0]?.id ?? null;
+  const defaultOwnerId = owners[0]?.id ?? null;
+
+  let created = 0;
+  const skipped: string[] = [];
+
+  for (const row of rows) {
+    const name = row.name?.trim();
+    if (!name) {
+      skipped.push("(blank row)");
+      continue;
+    }
+    const segment = row.segmentName ? segmentRows.find((s) => s.name.toLowerCase() === row.segmentName!.toLowerCase()) : undefined;
+    const owner = row.ownerName ? owners.find((o) => o.name.toLowerCase() === row.ownerName!.toLowerCase()) : undefined;
+    const segmentId = segment?.id ?? defaultSegmentId;
+    const ownerId = owner?.id ?? defaultOwnerId;
+    if (!segmentId || !ownerId) {
+      skipped.push(`${name} (no segment/owner to assign — create one first)`);
+      continue;
+    }
+
+    const id = `${slugify(name)}-${Date.now().toString(36)}-${created}`;
+    await db.insert(customers).values({
+      id,
+      name,
+      kind: "company",
+      segmentId,
+      stage: defaultStage,
+      priority: row.priority,
+      website: row.website,
+      ownerId,
+    });
+
+    if (row.contactName?.trim()) {
+      const contactId = `${slugify(row.contactName)}-${Date.now().toString(36)}-${created}`;
+      await db.insert(contacts).values({
+        id: contactId,
+        name: row.contactName.trim(),
+        customerId: id,
+        email: row.contactEmail,
+        phone: row.contactPhone,
+      });
+    }
+
+    created += 1;
+  }
+
+  revalidateBoth();
+  revalidatePath("/contacts");
+  return { created, skipped };
 }
 
 export async function createContact(input: {
