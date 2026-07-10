@@ -31,6 +31,25 @@ const PUBLIC_PATHS = ["/login", "/auth/callback"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const novaInternalSecret =
+    process.env.NOVA_INTERNAL_SECRET || process.env.NOVA_CONFIRMATION_SECRET;
+
+  // The Nova orchestrator is an internal Docker-network caller, not a browser
+  // session. Let a correctly signed request reach the route handler, which
+  // performs the same secret check again before claiming any work.
+  if (
+    request.nextUrl.pathname === "/api/internal/nova/process" &&
+    novaInternalSecret &&
+    request.headers.get("authorization") === `Bearer ${novaInternalSecret}`
+  ) {
+    return response;
+  }
+
+  // Match getCurrentProfile's local-only test escape hatch. Without this,
+  // AUTH_REQUIRED redirects before API routes can resolve DEV_PROFILE_EMAIL.
+  if (process.env.NODE_ENV === "development" && process.env.DEV_PROFILE_EMAIL) {
+    return response;
+  }
 
   // No project connected yet (fixture-data phase) — skip rather than throw,
   // so the app keeps working exactly as before until env vars are set.

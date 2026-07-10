@@ -17,6 +17,8 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
       nova-jobs-init:
         condition: service_completed_successfully
       nova-worker:
@@ -33,6 +35,28 @@ services:
     labels:
       # Only Watchtower-managed container in this stack
       com.centurylinklabs.watchtower.enable: "true"
+
+  # Trusted coordinator for durable Nova jobs. Browser requests only enqueue
+  # work; this internal loop calls the web container directly, outside the
+  # Cloudflare request path, so long tasks cannot hit the proxy timeout.
+  nova-orchestrator:
+    image: curlimages/curl:8.12.1
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_started
+    env_file:
+      - .env
+    command:
+      - sh
+      - -c
+      - >-
+        while true; do
+          curl -fsS --max-time 900 -X POST
+          -H "Authorization: Bearer $${NOVA_INTERNAL_SECRET:-$${NOVA_CONFIRMATION_SECRET}}"
+          http://web:3000/api/internal/nova/process || true;
+          sleep 1;
+        done
 
   # Nova's file lab is deliberately a separate, networkless container. It
   # receives jobs only through the shared queue volume and has no app secrets,

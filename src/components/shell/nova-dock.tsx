@@ -23,7 +23,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import type { NovaContextData } from "@/lib/data/nova";
-import { confirmNovaAction, sendNovaMessage } from "@/lib/data/nova-actions";
+import { confirmNovaAction } from "@/lib/data/nova-actions";
 import type {
   NovaActionLog,
   NovaConfirmation,
@@ -70,6 +70,13 @@ function fmtBytes(n?: number) {
 
 function downloadFile(f: NovaFile) {
   const ext = f.format === "markdown" ? "md" : f.format;
+  if (f.downloadUrl) {
+    const anchor = document.createElement("a");
+    anchor.href = f.downloadUrl;
+    anchor.download = `${f.filename}.${ext}`;
+    anchor.click();
+    return;
+  }
   const mime =
     f.mimeType ??
     (f.format === "pdf"
@@ -151,34 +158,38 @@ function ActionReceipts({ actions }: { actions: NovaActionLog[] }) {
 }
 
 // ─── Thinking state ───────────────────────────────────────────────────
-const THINKING_VERBS = [
-  "Reading the workspace…",
-  "Calling tools…",
-  "Cross-checking records…",
-  "Writing it up…",
-];
-
-function ThinkingRow() {
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setStep((s) => (s + 1) % THINKING_VERBS.length), 2400);
-    return () => clearInterval(id);
-  }, []);
+function ThinkingRow({
+  stage,
+  progress,
+  onCancel,
+}: {
+  stage: string;
+  progress: number;
+  onCancel: () => void;
+}) {
   return (
-    <div className="anim-msg-in flex items-center gap-2.5">
+    <div className="anim-msg-in flex items-center gap-2.5" role="status">
       <span className="nova-orb nova-orb-busy flex h-7 w-7 shrink-0 items-center justify-center rounded-pill">
         <span className="nova-think-mark flex">
           <NovaMark size={14} tone="white" />
         </span>
       </span>
-      <span className="flex items-center gap-2 text-[13px] font-medium text-ink-2" role="status">
-        {THINKING_VERBS[step]}
-        <span aria-hidden className="flex items-end gap-[3px]">
-          <span className="nova-think-dot h-1 w-1 rounded-full bg-ink-3" />
-          <span className="nova-think-dot h-1 w-1 rounded-full bg-ink-3" />
-          <span className="nova-think-dot h-1 w-1 rounded-full bg-ink-3" />
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center justify-between gap-3 text-[13px] font-medium text-ink-2">
+          <span className="truncate">{stage}</span>
+          <span className="font-mono text-[10.5px] tabular-nums text-ink-3">{progress}%</span>
+        </span>
+        <span className="mt-1 block h-1 overflow-hidden rounded-full bg-line">
+          <span className="block h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${progress}%` }} />
         </span>
       </span>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="cursor-pointer rounded-md px-2 py-1 text-[11.5px] font-bold text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-danger"
+      >
+        Cancel
+      </button>
     </div>
   );
 }
@@ -197,6 +208,9 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
   const [draft, setDraft] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [activeJob, setActiveJob] = useState<{ id: string; question: string } | null>(null);
+  const [jobStage, setJobStage] = useState("Queued");
+  const [jobProgress, setJobProgress] = useState(0);
   const [confirmingToken, setConfirmingToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -226,6 +240,96 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("glacianav:nova-active-job");
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { id?: string; question?: string };
+      if (!saved.id || !saved.question) return;
+      const restored = { id: saved.id, question: saved.question };
+      setActiveJob(restored);
+      setSending(true);
+      setMessages((current) => current.length ? current : [{ role: "user", content: restored.question }]);
+    } catch {
+      window.localStorage.removeItem("glacianav:nova-active-job");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeJob) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const clearActive = () => {
+      window.localStorage.removeItem("glacianav:nova-active-job");
+      setActiveJob(null);
+      setSending(false);
+    };
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/nova/jobs/${activeJob.id}`, { cache: "no-store" });
+        const job = await response.json() as {
+          status?: string;
+          stage?: string;
+          progress?: number;
+          error?: string;
+          response?: {
+            answer: string;
+            actions: NovaActionLog[];
+            files: NovaFile[];
+            confirmations: NovaConfirmation[];
+            fileParseNote?: string;
+          };
+        };
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 404) {
+            setMessages((current) => [...current, {
+              role: "assistant",
+              content: response.status === 401
+                ? "Sign in again to continue this task."
+                : "This saved Nova task is no longer available.",
+            }]);
+            clearActive();
+            return;
+          }
+          throw new Error(job.error || "Nova task status could not be read.");
+        }
+        if (stopped) return;
+        setJobStage(job.stage || "Working");
+        setJobProgress(job.progress ?? 0);
+        if (job.status === "completed" && job.response) {
+          const result = job.response;
+          setMessages((current) => [...current, {
+            role: "assistant",
+            content: result.fileParseNote ? `${result.answer}\n\n${result.fileParseNote}` : result.answer,
+            actions: result.actions,
+            files: result.files,
+            confirmations: result.confirmations,
+          }]);
+          clearActive();
+          return;
+        }
+        if (job.status === "failed" || job.status === "cancelled") {
+          setMessages((current) => [...current, {
+            role: "assistant",
+            content: job.status === "cancelled"
+              ? "Task cancelled. Nothing else was changed."
+              : `I couldn’t finish this task: ${job.error || "unknown error"}`,
+          }]);
+          clearActive();
+          return;
+        }
+      } catch (error) {
+        if (!stopped) setJobStage(error instanceof Error ? error.message : "Reconnecting to task…");
+      }
+      if (!stopped) timer = setTimeout(poll, 1_200);
+    };
+    void poll();
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [activeJob]);
 
   const suggestions = useMemo(
     () =>
@@ -263,32 +367,38 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     setDraft("");
     setPendingFile(null);
     setSending(true);
+    setJobStage(file ? "Uploading attachment" : "Submitting task");
+    setJobProgress(1);
     if (inputRef.current) inputRef.current.style.height = "auto";
 
     try {
-      const response = await sendNovaMessage({
-        message: text || `Read the attached file and do what makes sense with it.`,
-        history,
-        authorId: currentUserId,
-        scopeCustomerId: scopeCustomer?.id,
-        file,
-      });
-      const reply: ChatMessage = {
-        role: "assistant",
-        content: response.fileParseNote ? `${response.answer}\n\n${response.fileParseNote}` : response.answer,
-        actions: response.actions,
-        files: response.files,
-        confirmations: response.confirmations,
-      };
-      setMessages((m) => [...m, reply]);
+      const form = new FormData();
+      const question = text || "Read the attached file and complete the requested work.";
+      form.set("message", question);
+      form.set("history", JSON.stringify(history));
+      if (scopeCustomer?.id) form.set("scopeCustomerId", scopeCustomer.id);
+      if (file) form.set("file", file);
+      const response = await fetch("/api/nova/jobs", { method: "POST", body: form });
+      const payload = await response.json() as { jobId?: string; error?: string };
+      if (!response.ok || !payload.jobId) throw new Error(payload.error || "Nova could not accept this task.");
+      const job = { id: payload.jobId, question };
+      window.localStorage.setItem("glacianav:nova-active-job", JSON.stringify(job));
+      setActiveJob(job);
+      setJobStage("Queued");
+      setJobProgress(5);
     } catch (e) {
       setMessages((m) => [
         ...m,
         { role: "assistant", content: `Something went wrong on my end: ${e instanceof Error ? e.message : "unknown error"}. Try that once more.` },
       ]);
-    } finally {
       setSending(false);
     }
+  };
+
+  const cancelActiveJob = async () => {
+    if (!activeJob) return;
+    setJobStage("Cancelling");
+    await fetch(`/api/nova/jobs/${activeJob.id}`, { method: "DELETE" }).catch(() => undefined);
   };
 
   const confirmAction = async (messageIndex: number, confirmation: NovaConfirmation) => {
@@ -484,7 +594,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                 </div>
               ),
             )}
-            {sending && <ThinkingRow />}
+            {sending && <ThinkingRow stage={jobStage} progress={jobProgress} onCancel={() => void cancelActiveJob()} />}
           </div>
 
           {/* Composer */}

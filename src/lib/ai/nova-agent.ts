@@ -95,6 +95,7 @@ export type NovaFile = {
   dataBase64?: string;
   mimeType?: string;
   byteSize?: number;
+  downloadUrl?: string;
 };
 export type NovaAttachment = {
   filename: string;

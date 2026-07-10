@@ -14,6 +14,7 @@ import {
   boolean,
   doublePrecision,
   integer,
+  jsonb,
   pgEnum,
   pgSchema,
   pgTable,
@@ -338,6 +339,33 @@ export const validationNotes = pgTable("validation_notes", {
   quote: text("quote"),
   conversationId: text("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Durable Nova work. Every request is accepted quickly and processed outside
+// the browser request, so refreshes, deployments, and proxy timeouts cannot
+// discard long AI/file tasks. Result JSON stores only metadata; binary inputs
+// and outputs live in private object storage.
+export const novaJobs = pgTable("nova_jobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  authorId: uuid("author_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  question: text("question").notNull(),
+  history: jsonb("history").$type<{ role: "user" | "assistant"; content: string }[]>().default([]).notNull(),
+  scopeCustomerId: text("scope_customer_id").references(() => customers.id, { onDelete: "set null" }),
+  inputFilename: text("input_filename"),
+  inputMimeType: text("input_mime_type"),
+  inputStorageKey: text("input_storage_key"),
+  status: text("status").notNull().default("queued"),
+  stage: text("stage").notNull().default("Queued"),
+  progress: integer("progress").notNull().default(0),
+  response: jsonb("response").$type<Record<string, unknown>>(),
+  error: text("error"),
+  attempts: integer("attempts").notNull().default(0),
+  cancelRequested: boolean("cancel_requested").notNull().default(false),
+  leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // ─── Calendar: layered ICS feeds + events ───────────────────────────
