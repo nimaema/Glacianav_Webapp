@@ -305,7 +305,7 @@ export function KanbanView({
           <button
             type="button"
             onClick={() => setAddingStage(true)}
-            className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line text-[13px] font-bold text-ink-3 transition-colors duration-150 hover:border-melt/60 hover:text-melt"
+            className="flex h-11 cursor-pointer items-center justify-center gap-1.5 border border-dashed border-line text-[13px] font-bold text-ink-3 transition-colors duration-150 hover:border-melt/60 hover:text-melt"
           >
             <Plus size={15} weight="bold" />
             Add stage

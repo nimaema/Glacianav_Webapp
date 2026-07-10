@@ -273,21 +273,15 @@ export function CustomersView({
 
       <div className="mx-auto max-w-[1600px] px-5 py-6 sm:px-7 lg:px-10">
         {rows.length === 0 ? (
-          <div className="surfaced flex flex-col items-center gap-3 px-6 py-14 text-center">
-            <Buildings size={28} className="text-ink-3" />
+          <div className="grid min-h-[280px] border-y border-ink bg-surface px-5 py-10 sm:grid-cols-[160px_1fr] sm:items-center sm:px-8">
+            <Buildings size={42} className="mb-6 text-melt sm:mb-0" />
             <div>
-              <p className="text-[15.5px] font-semibold text-ink">No customer accounts yet</p>
-              <p className="mt-1 text-[13.5px] text-ink-2">
+              <p className="font-display text-[34px] font-semibold leading-none text-ink">No customer accounts yet</p>
+              <p className="mt-3 text-[14px] text-ink-2">
                 Add your first account to start tracking validation.
               </p>
+              <Link href="/customers/new" className="mt-6 inline-flex h-11 cursor-pointer items-center gap-1.5 bg-ink px-5 text-[13.5px] font-semibold text-deep-ink hover:bg-deep-2"><UserPlus size={15} />New customer</Link>
             </div>
-            <Link
-              href="/customers/new"
-              className="mt-1 flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-melt px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
-            >
-              <UserPlus size={15} />
-              New customer
-            </Link>
           </div>
         ) : (
           <BoardView

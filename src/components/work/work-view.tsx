@@ -61,19 +61,18 @@ const TASK_GRID = `${CHECK_W}px minmax(0,1fr) ${DUE_W}px ${SOURCE_W}px ${ASSIGNE
 function AlertStrip({ items }: { items: ReviewQueueItem[] }) {
   if (items.length === 0) return null;
   return (
-    <section className="flex flex-col gap-2.5">
+    <section>
       <SectionHeader count={items.length}>Needs attention</SectionHeader>
-      <div className="flex flex-wrap gap-2">
+      <div>
         {items.map((item) => (
           <Link
             key={item.id}
             href={`/library/${item.id}`}
-            className="surfaced rise-on-hover flex items-center gap-2.5 rounded-full py-2 pl-2.5 pr-3.5"
+            className="rise-on-hover grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-line bg-transparent px-1 py-2.5"
             data-rise
           >
             <span
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-              style={{ background: "#6e5be822", color: "#6e5be8" }}
+              className="flex h-7 w-7 shrink-0 items-center justify-center bg-ink text-signal"
             >
               <ChatCircleText size={13} weight="bold" />
             </span>
@@ -305,7 +304,7 @@ export function WorkView({
         <div className="flex flex-col gap-6 lg:flex-row">
           <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-[208px] lg:gap-4">
             <SectionHeader>Views</SectionHeader>
-            <div className="surfaced overflow-x-auto p-2">
+            <div className="border-t border-line">
               <nav aria-label="Task views" className="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-1">
                 {TASK_VIEWS.map((v) => (
                   <button
@@ -313,12 +312,12 @@ export function WorkView({
                     type="button"
                     onClick={() => setView(v.id)}
                     aria-current={view === v.id ? "page" : undefined}
-                    className={`relative flex h-8 items-center gap-2 rounded-md px-2.5 text-[13.5px] transition-colors duration-150 ${
-                      view === v.id ? "bg-melt/10 font-semibold text-melt" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                    className={`relative flex h-10 items-center gap-2 border-b border-line px-2.5 text-[13.5px] transition-colors duration-150 ${
+                      view === v.id ? "bg-ink font-semibold text-deep-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                     }`}
                   >
                     <span className="min-w-0 flex-1 truncate text-left">{v.label}</span>
-                    <span className={`font-mono text-[12px] tabular-nums ${view === v.id ? "text-melt" : "text-ink-3"}`}>
+                    <span className={`text-[12px] tabular-nums ${view === v.id ? "text-signal" : "text-ink-3"}`}>
                       {v.id === "done" ? viewCounts.done : v.id === "all" ? viewCounts.all : viewCounts[v.id as Bucket]}
                     </span>
                   </button>
@@ -329,12 +328,12 @@ export function WorkView({
                 type="button"
                 onClick={() => setView("stale")}
                 aria-current={view === "stale" ? "page" : undefined}
-                className={`relative mt-1 flex h-8 items-center gap-2 rounded-md px-2.5 text-[13.5px] transition-colors duration-150 lg:mt-0 ${
-                  view === "stale" ? "bg-melt/10 font-semibold text-melt" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                className={`relative flex h-10 items-center gap-2 border-b border-line px-2.5 text-[13.5px] transition-colors duration-150 ${
+                  view === "stale" ? "bg-ink font-semibold text-deep-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                 }`}
               >
                 <span className="min-w-0 flex-1 truncate text-left">Stale accounts</span>
-                <span className={`font-mono text-[12px] tabular-nums ${view === "stale" ? "text-melt" : "text-ink-3"}`}>
+                <span className={`text-[12px] tabular-nums ${view === "stale" ? "text-signal" : "text-ink-3"}`}>
                   {staleCustomers.length}
                 </span>
               </button>
@@ -378,7 +377,7 @@ export function WorkView({
               </div>
             ) : (
               <>
-                <div className="surfaced mb-3 flex flex-wrap items-center gap-3 px-3 py-2.5">
+                <div className="mb-4 flex flex-wrap items-center gap-3 border-y border-line bg-surface px-3 py-2.5">
                   <div role="tablist" aria-label="Scope" className="recessed flex shrink-0 gap-0.5 p-1">
                     {(["Everyone", "Mine"] as const).map((s) => (
                       <button
@@ -465,7 +464,7 @@ export function WorkView({
                             disabled={!completableRow}
                             aria-label={`Mark "${t.task}" ${t.status === "done" ? "open" : "done"}`}
                             title={completableRow ? undefined : "Only an assignee can mark this task done"}
-                            className="h-4 w-4 cursor-pointer accent-[#275ee7] disabled:cursor-not-allowed disabled:opacity-35"
+                            className="h-4 w-4 cursor-pointer accent-[#1e5b4c] disabled:cursor-not-allowed disabled:opacity-35"
                           />
                           <span
                             className={`min-w-0 truncate text-[14px] ${

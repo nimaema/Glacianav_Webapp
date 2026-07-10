@@ -2,12 +2,12 @@ import type { PillTone } from "@/lib/fixtures";
 export type { PillTone };
 
 const TONES: Record<PillTone, string> = {
-  cyan: "bg-[rgba(20,184,206,0.14)] text-[#0a7280]",
-  green: "bg-[rgba(39,181,119,0.14)] text-[#157a4e]",
-  violet: "bg-[rgba(110,91,232,0.13)] text-[#4d3dbd]",
-  coral: "bg-[rgba(242,109,95,0.14)] text-[#b23c2e]",
-  blue: "bg-[rgba(47,111,208,0.14)] text-[#1d4a97]",
-  gray: "bg-[#e7eef1] text-[#5a7078]",
+  cyan: "bg-[rgba(36,110,120,0.13)] text-[#1b5d66]",
+  green: "bg-[rgba(54,115,79,0.13)] text-[#285f40]",
+  violet: "bg-[rgba(107,86,138,0.13)] text-[#594475]",
+  coral: "bg-[rgba(183,75,53,0.13)] text-[#963b2b]",
+  blue: "bg-[rgba(63,95,134,0.13)] text-[#354f71]",
+  gray: "bg-[#e5e6df] text-[#53605a]",
 };
 
 export function Pill({

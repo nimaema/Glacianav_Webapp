@@ -7,7 +7,7 @@ import { useGSAP } from "@gsap/react";
 gsap.registerPlugin(useGSAP);
 
 /**
- * The Firn first-load moment: children marked [data-rise] surface with a
+ * Command-desk first-load moment: children marked [data-rise] enter with a
  * short staggered lift. Collapses to static under prefers-reduced-motion.
  */
 export function SurfaceReveal({
@@ -23,9 +23,9 @@ export function SurfaceReveal({
     () => {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       gsap.from(ref.current!.querySelectorAll("[data-rise]"), {
-        y: 14,
+        y: 10,
         opacity: 0,
-        duration: 0.55,
+        duration: 0.4,
         ease: "power2.out",
         stagger: 0.05,
         clearProps: "all",

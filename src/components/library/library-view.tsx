@@ -436,7 +436,7 @@ export function LibraryView({
           />
         )}
 
-        <div role="tablist" aria-label="Content type" className="mb-5 flex gap-1.5">
+        <div role="tablist" aria-label="Content type" className="mb-7 flex border-b border-ink">
           {TYPES.map((t) => {
             const active = type === t;
             const IconEl = t === "Recordings" ? RecordIcon : t === "Notes" ? NotePencil : null;
@@ -448,13 +448,13 @@ export function LibraryView({
                 role="tab"
                 aria-selected={active}
                 onClick={() => setType(t)}
-                className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-150 ${
-                  active ? "bg-melt text-white" : "bg-surface-2 text-ink-2 hover:bg-melt/10"
+                className={`flex h-11 cursor-pointer items-center gap-1.5 border-r border-line px-4 text-[13px] font-semibold transition-colors duration-150 ${
+                  active ? "bg-ink text-deep-ink" : "bg-transparent text-ink-2 hover:bg-surface-2"
                 }`}
               >
                 {IconEl && <IconEl size={13} />}
                 {t}
-                <span className={`font-mono text-[12px] tabular-nums ${active ? "text-white/80" : "text-ink-3"}`}>
+                <span className={`text-[12px] tabular-nums ${active ? "text-deep-ink/75" : "text-ink-3"}`}>
                   {count}
                 </span>
               </button>

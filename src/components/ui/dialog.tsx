@@ -65,7 +65,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="anim-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-ink/35 px-4 backdrop-blur-[2px]"
+      className="anim-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-ink/45 px-4"
       onPointerDown={onCancel}
     >
       <div
@@ -76,20 +76,20 @@ export function ConfirmDialog({
         onPointerDown={(e) => e.stopPropagation()}
         className="anim-palette-in surfaced-lg w-105 max-w-full p-6"
       >
-        <h2 className="text-[17px] font-semibold text-ink">{title}</h2>
-        <p className="mt-1.5 text-[14px] leading-relaxed text-ink-2">{body}</p>
-        <div className="mt-4 flex justify-end gap-2">
+        <h2 className="font-display text-[30px] font-semibold leading-none text-ink">{title}</h2>
+        <p className="mt-3 text-[14px] leading-relaxed text-ink-2">{body}</p>
+        <div className="mt-6 flex justify-end gap-2 border-t border-line pt-4">
           <button
             type="button"
             onClick={onCancel}
-            className="h-10 cursor-pointer rounded-[11px] px-4 text-[14px] font-semibold text-ink-2 hover:bg-surface-2 hover:text-ink"
+            className="h-10 cursor-pointer border border-transparent px-4 text-[14px] font-semibold text-ink-2 hover:border-line hover:bg-surface-2 hover:text-ink"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`h-10 cursor-pointer rounded-[11px] px-4 text-[14px] font-semibold text-white ${
+            className={`h-10 cursor-pointer px-4 text-[14px] font-semibold text-white ${
               destructive
                 ? "bg-danger hover:bg-[#b8462f]"
                 : "bg-melt hover:bg-melt-strong"

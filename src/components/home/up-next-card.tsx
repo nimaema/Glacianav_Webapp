@@ -9,8 +9,8 @@ import type { AttentionItem } from "@/lib/data/home";
 export function UpNextCard({ topItem }: { topItem: AttentionItem | undefined }) {
   if (!topItem) {
     return (
-      <section data-rise aria-label="Up next" className="surfaced risen atlas-route flex items-center gap-4 p-5 pl-7 lg:p-7 lg:pl-9">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-melt/10 text-melt">
+      <section data-rise aria-label="Up next" className="grid gap-5 border-y border-ink bg-signal p-5 sm:grid-cols-[150px_1fr_auto] sm:items-center lg:p-7">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-ink text-signal">
           <Sparkle size={18} weight="bold" />
         </span>
         <div className="min-w-0 flex-1">
@@ -19,7 +19,7 @@ export function UpNextCard({ topItem }: { topItem: AttentionItem | undefined }) 
         </div>
         <Link
           href="/record"
-          className="flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-[11px] bg-melt px-4 text-[14px] font-semibold text-white hover:bg-melt-strong"
+          className="flex h-11 shrink-0 cursor-pointer items-center gap-1.5 bg-ink px-4 text-[14px] font-semibold text-deep-ink hover:bg-deep-2"
         >
           <Record size={18} />
           Record
@@ -29,13 +29,13 @@ export function UpNextCard({ topItem }: { topItem: AttentionItem | undefined }) 
   }
 
   return (
-    <section data-rise aria-label="Up next" className="surfaced risen atlas-route relative overflow-hidden p-6 pl-8 lg:p-8 lg:pl-10">
+    <section data-rise aria-label="Up next" className="grid gap-6 border-y border-ink bg-signal p-5 sm:grid-cols-[150px_minmax(0,1fr)_auto] sm:items-center lg:p-7">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-2">
+        {topItem.kind === "review" ? "Ready to review" : "Open task"}
+      </p>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-melt">
-            {topItem.kind === "review" ? "Ready to review" : "Open task"}
-          </p>
-          <h2 className="mt-3 text-[clamp(1.65rem,3vw,2.8rem)] font-semibold leading-[1.04] tracking-[-0.04em] text-ink">
+          <h2 className="font-display text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-[.95] tracking-[-0.04em] text-ink">
             {topItem.title}
           </h2>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-2">{topItem.reason}</p>
@@ -45,16 +45,16 @@ export function UpNextCard({ topItem }: { topItem: AttentionItem | undefined }) 
         </span>
       </div>
 
-      <div className="mt-7 flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:flex-col sm:items-stretch">
         <Link
           href={topItem.href}
-          className="flex h-11 cursor-pointer items-center gap-1.5 rounded-[12px] bg-melt px-5 text-[14px] font-semibold text-white hover:bg-melt-strong"
+          className="flex h-11 cursor-pointer items-center justify-center gap-1.5 bg-ink px-5 text-[14px] font-semibold text-deep-ink hover:bg-deep-2"
         >
           Open
         </Link>
         <Link
           href="/record"
-          className="flex h-11 cursor-pointer items-center gap-1.5 rounded-[12px] border border-line bg-white px-4 text-[14px] font-semibold text-ink hover:border-ink/40 hover:bg-surface-2"
+          className="flex h-11 cursor-pointer items-center justify-center gap-1.5 border border-ink bg-transparent px-4 text-[14px] font-semibold text-ink hover:bg-surface"
         >
           <Record size={16} />
           Record

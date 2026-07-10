@@ -14,12 +14,12 @@ export function AttentionQueue({ items, skipId }: { items: AttentionItem[]; skip
   const rest = items.filter((i) => i.id !== skipId);
 
   return (
-    <section aria-label="Needs attention" className="flex flex-col gap-3">
+    <section aria-label="Needs attention" className="flex flex-col">
       <SectionHeader count={rest.length} className="mb-0.5">
         Needs attention
       </SectionHeader>
       {rest.length === 0 && (
-        <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">Nothing else needs attention.</p>
+        <p className="border-b border-line px-1 py-5 text-[14px] text-ink-2">Nothing else needs attention.</p>
       )}
       {rest.map((item) => {
         const meta = KIND_META[item.kind];
@@ -28,7 +28,7 @@ export function AttentionQueue({ items, skipId }: { items: AttentionItem[]; skip
             key={item.id}
             href={item.href}
             data-rise
-            className="surfaced rise-on-hover grid min-h-20 grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-4 sm:grid-cols-[auto_1fr_auto_auto]"
+            className="rise-on-hover grid min-h-20 grid-cols-[auto_1fr_auto] items-center gap-4 border-b border-line bg-transparent px-1 py-4 sm:grid-cols-[auto_1fr_auto_auto] sm:px-2"
           >
             <Pill tone={meta.tone}>{meta.label}</Pill>
             <div className="min-w-0 flex-1">

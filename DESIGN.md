@@ -1,82 +1,94 @@
-# GlaciaNav V2: Glacier Atlas
+# GlaciaNav V2: Editorial Command Desk
 
-Glacier Atlas is a light navigational design system for relationship intelligence. It treats every customer, conversation, and task as part of one connected route. The interface should feel precise, spacious, and quietly capable.
+GlaciaNav V2 is a structural redesign, not a restyled version of the previous workspace. The interface is organized like a working editorial desk: a global command dock, a narrow operating strip, open work zones, ruled lists, and strong typographic hierarchy.
 
-## Design intent
+## Product idea
 
-- Light theme only. Snow-white work surfaces sit on a cool blue-gray canvas.
-- Cobalt is the single brand accent. It marks active routes, primary actions, focus, and selection.
-- Status colors are semantic and appear only where meaning depends on them.
-- A continuous cobalt route line is the signature device. It anchors active navigation, priority cards, and key workflow moments.
-- Density is operational, not cramped. Important objects use surfaces; supporting information uses spacing and sparse dividers.
-- Motion is restrained to feedback and state transition.
+Customer work is rarely a set of isolated cards. It is a changing brief made of conversations, commitments, evidence, and next actions. V2 keeps those relationships visible by arranging information in continuous work zones rather than a dashboard full of containers.
+
+## Architecture
+
+- The old 260 px sidebar is removed.
+- Desktop navigation is a 68 px horizontal command dock. Every primary workspace is visible from every page.
+- A separate 54 px operating strip holds global search, creation, notifications, and account controls.
+- Mobile uses a fixed five-slot command bar with a full-width secondary desk sheet.
+- Page headers use an asymmetric two-column composition: identity and context on the left, live counts and actions on the right.
+- Home uses a full-width priority band followed by editorial work columns.
+- Repeated content uses ruled rows and open space. Raised cards are reserved for overlays and menus.
+
+## Visual language
+
+The direction combines editorial composition with industrial utility. It borrows the clarity of printed field manuals and the directness of control-room labels without imitating either literally.
+
+- Light theme only.
+- Warm mineral canvas and paper-white work surfaces.
+- Deep pine is the action color.
+- Acid chartreuse marks active navigation, priority work, selection, and focus.
+- Geometry is nearly square: 0 to 2 px for controls and work surfaces.
+- Pills remain only for compact status metadata and avatars.
+- Shadows appear only on overlays, menus, and the floating Nova trigger.
+- Fine vertical grid lines create continuity across long work canvases.
 
 ## Foundation tokens
 
-| Role | Token | Value |
-| --- | --- | --- |
-| Canvas | `--ice-0` | `#F4F7FB` |
-| Recessed canvas | `--ice-1` | `#EAF0F7` |
-| Primary surface | `--surface` | `#FFFFFF` |
-| Secondary surface | `--surface-2` | `#F0F4F9` |
-| Primary ink | `--ink` | `#14233A` |
-| Secondary ink | `--ink-2` | `#43536B` |
-| Quiet ink | `--ink-3` | `#6F7F95` |
-| Structural line | `--line` | `#CBD6E4` |
-| Soft structural line | `--line-2` | `#E2E9F2` |
-| Cobalt action | `--melt` | `#275EE7` |
-| Cobalt hover | `--melt-strong` | `#1848BD` |
-| Danger | `--danger` | `#BA493F` |
-
-Legacy token names remain as compatibility aliases while all components move to the V2 language.
+| Role | Value |
+| --- | --- |
+| Canvas | `#F1F0EA` |
+| Recessed canvas | `#E5E6DF` |
+| Work surface | `#FBFAF5` |
+| Recessed surface | `#E9EAE3` |
+| Primary ink | `#16221D` |
+| Secondary ink | `#46534D` |
+| Quiet ink | `#707A73` |
+| Structural line | `#C8CBC2` |
+| Action pine | `#1E5B4C` |
+| Active signal | `#D9EB4B` |
+| Danger | `#A63E32` |
 
 ## Typography
 
-- Space Grotesk is the interface and display family.
-- IBM Plex Mono is reserved for dates, counts, shortcuts, and compact system labels.
-- Interface body text starts at 14 px with a 1.4 to 1.5 line height.
-- Headings use close tracking and sentence case.
-- Uppercase is limited to short utility labels with 0.1 em tracking.
-- Numeric lists and tables use tabular lining figures.
+- Newsreader is used for page identity, priority titles, and editorial section headings.
+- Archivo is used for interface text, labels, controls, and data.
+- UI text is 14 to 16 px with a 1.42 to 1.5 line height.
+- Display type is compact and deliberately large only where it establishes page identity.
+- Uppercase is limited to short operating labels with 0.1 em tracking.
+- Numeric data uses tabular figures.
 
-## Geometry
+## Component grammar
 
-- Controls: 10 px radius.
-- Small containers: 12 to 14 px radius.
-- Panels and drawers: 16 to 20 px radius.
-- Pills are reserved for statuses, filters, avatars, and other genuinely compact metadata.
-- Cards use a soft border and blue-tinted shadow. Hard offset shadows are not part of V2.
+- Primary buttons use deep pine or near-black with light text.
+- Priority actions may use chartreuse with dark text.
+- Secondary actions use transparent backgrounds and ink borders.
+- Work surfaces use one structural border and no ambient shadow.
+- Lists use shared rules instead of individually boxed rows.
+- Empty states are integrated into the work zone and include one clear next action.
+- Dialogs and drawers use hard edges and a strong ink outline.
+- Nova is a small chartreuse instrument with a hard offset shadow.
 
-## Layout
+## Responsive behavior
 
-- Desktop uses a 260 px light navigation rail and a 72 px utility bar.
-- Main content is capped at 1600 to 1680 px with 20 px mobile, 28 px tablet, and 40 px desktop gutters.
-- Mobile uses a five-slot bottom navigation. Secondary destinations open in a full-width sheet.
-- Dense desktop tables may scroll horizontally, but primary actions and filters reflow before content is clipped.
-- Drawers preserve an 8 to 12 px viewport margin on every device.
+- Mobile gutters: 20 px.
+- Tablet gutters: 28 px.
+- Desktop gutters: 40 px.
+- Multi-column page headers become stacked compositions below 1024 px.
+- Dense tables either become labeled rows or use contained horizontal scrolling.
+- Touch targets are at least 44 px.
+- Mobile navigation respects the safe-area inset.
 
-## Components
+## Motion
 
-- Primary buttons: cobalt with white text.
-- High-contrast neutral actions: ink with white text.
-- Secondary controls: white or soft-gray surface with a structural border.
-- Active navigation: pale cobalt fill, cobalt icon and type, and the route-line anchor.
-- Cards: white surface, soft edge, and minimal elevation.
-- Inputs: visible labels, cool recessed fill, structural edge, and cobalt focus.
-- Empty states: short direction plus one relevant action.
-
-## Interaction
-
-- Hover transitions last 160 to 180 ms.
-- Pressed controls move down by 1 px.
-- Menus and dialogs enter in 150 to 220 ms with opacity and transform only.
-- Reduced-motion preferences collapse all nonessential animation.
-- Every pointer target is at least 44 px where the layout permits.
+- Hover feedback: 150 ms.
+- Menus: 250 ms.
+- Drawers: 300 ms.
+- Only opacity and transform animate.
+- Repeated work rows shift horizontally by 2 px on hover to signal direct manipulation.
+- Reduced-motion preferences remove all nonessential movement.
 
 ## Accessibility
 
-- Focus uses a 2 px cobalt outline with 3 px offset.
+- Focus uses a 3 px chartreuse outline with a 2 px offset.
 - Text and controls meet WCAG AA contrast.
 - Status is never communicated by color alone.
-- Navigation exposes `aria-current`; dialogs and drawers trap focus and close with Escape.
-- Mobile navigation respects the safe-area inset.
+- Navigation exposes `aria-current`.
+- Dialogs and drawers trap focus and close with Escape.
+- The primary work canvas has a stable `main-content` landmark.

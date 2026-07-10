@@ -10,11 +10,11 @@ function Kpi({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`flex min-w-0 flex-col gap-1.5 ${divider ? "border-l border-line-2 pl-4 sm:pl-6" : ""}`}>
-      <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+    <div className={`flex min-w-0 flex-col justify-between gap-6 p-4 sm:p-5 ${divider ? "border-l border-line" : ""}`}>
+      <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-ink-3">
         {label}
       </span>
-      <div className="flex items-center gap-2.5 text-[28px] text-ink [&>span]:!text-ink">{children}</div>
+      <div className="flex items-center gap-2.5 text-[30px] text-ink [&>span]:!text-ink">{children}</div>
     </div>
   );
 }
@@ -28,19 +28,17 @@ export function HeaderBand({ greetingName, stats }: { greetingName: string; stat
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
-    <header className="relative overflow-hidden border-b border-line-2 bg-[#edf3ff]">
-      <div aria-hidden className="absolute inset-y-0 left-0 w-1 bg-melt" />
-      <div aria-hidden className="absolute -right-20 -top-36 h-80 w-80 rounded-full border-[56px] border-white/55" />
-      <div className="relative mx-auto flex max-w-[1680px] flex-wrap items-end justify-between gap-9 px-5 py-9 sm:px-7 lg:px-10 lg:py-12">
-        <div className="min-w-0">
-          <p className="mb-4 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-melt">Workspace briefing, {todayLabel()}</p>
-          <h1 className="max-w-[820px] text-[clamp(2.35rem,4.7vw,4.8rem)] font-semibold leading-[.98] tracking-[-0.058em] text-ink">
+    <header className="border-b border-ink bg-surface">
+      <div className="mx-auto grid max-w-[1680px] lg:grid-cols-[minmax(0,1.35fr)_minmax(400px,.65fr)]">
+        <div className="min-w-0 px-5 py-10 sm:px-7 lg:px-10 lg:py-14">
+          <p className="mb-5 text-[10px] font-semibold uppercase tracking-[0.1em] text-melt">Daily briefing / {todayLabel()}</p>
+          <h1 className="max-w-[900px] font-display text-[clamp(3.3rem,7vw,7.4rem)] font-semibold leading-[.8] tracking-[-0.07em] text-ink">
             {greeting}, {greetingName}
           </h1>
-          <p className="mt-4 max-w-[52ch] text-[15px] leading-[1.5] text-ink-2">Your customer signals, follow-ups, and active work are mapped below.</p>
+          <p className="mt-7 max-w-[52ch] text-[15px] leading-[1.5] text-ink-2">Customer signals, follow-ups, and active work are arranged for today.</p>
         </div>
 
-        <dl className="surfaced grid min-w-0 grid-cols-3 gap-4 px-5 py-4 sm:min-w-[460px] sm:gap-6 sm:px-6">
+        <dl className="grid min-w-0 grid-cols-3 border-t border-line bg-ice-1 lg:border-l lg:border-t-0">
           <Kpi label="Open tasks">
             <span className="font-mono text-[20px] font-bold leading-none text-ink tabular-nums">
               {stats.openTasks}

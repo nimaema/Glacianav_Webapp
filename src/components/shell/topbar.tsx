@@ -68,33 +68,34 @@ export function TopBar({
   useOutsideClick(avatarRef, () => setAvatarOpen(false), avatarOpen);
 
   return (
-    <header className="flex h-[72px] shrink-0 items-center gap-2 border-b border-line-2 bg-white px-3 text-ink sm:gap-4 sm:px-5 lg:px-8">
-      <Link href="/" aria-label="GlaciaNav home" className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] bg-melt text-white md:hidden">
-        <Compass size={21} weight="fill" />
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b border-line bg-ice-1 px-3 text-ink sm:gap-3 sm:px-5 md:h-[54px] lg:px-6">
+      <Link href="/" aria-label="GlaciaNav home" className="grid h-10 w-10 shrink-0 place-items-center bg-ink text-signal md:hidden">
+        <Compass size={20} weight="fill" />
       </Link>
+      <span className="hidden shrink-0 border-r border-line pr-5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3 lg:block">Global desk</span>
       <button
         type="button"
         onClick={() => window.dispatchEvent(new CustomEvent(OPEN_PALETTE_EVENT))}
         aria-label="Search workspace"
-        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-[13px] border border-line-2 bg-surface-2 px-3 text-[14px] text-ink-2 hover:border-line hover:bg-white hover:text-ink sm:w-72 sm:justify-between sm:px-4"
+        className="flex h-10 w-11 cursor-pointer items-center justify-center border-b border-ink/40 bg-transparent px-2 text-[13px] text-ink-2 hover:border-ink hover:bg-surface/60 hover:text-ink sm:w-72 sm:justify-between sm:px-3 lg:w-80"
       >
         <span className="flex items-center gap-2">
           <MagnifyingGlass size={15} />
-          <span className="hidden sm:inline">Search workspace</span>
+          <span className="hidden sm:inline">Find anything</span>
         </span>
-        <kbd className="hidden rounded-md border border-line bg-white px-1.5 py-0.5 font-mono text-[10px] text-ink-3 sm:inline">
+        <kbd className="hidden border border-line bg-surface px-1.5 py-0.5 text-[10px] text-ink-3 sm:inline">
           ⌘K
         </kbd>
       </button>
 
-      <div className="ml-auto flex items-center gap-2 sm:gap-3">
+      <div className="ml-auto flex h-full items-center gap-0 border-l border-line">
         <div className="relative" ref={menuRef}>
           <button
             type="button"
             onClick={() => setNewOpen((v) => !v)}
             aria-expanded={newOpen}
             aria-haspopup="menu"
-            className="flex h-11 cursor-pointer items-center gap-2 rounded-[13px] bg-melt px-3.5 text-[14px] font-semibold text-white shadow-[0_7px_16px_rgba(39,94,231,.18)] hover:bg-melt-strong sm:px-4"
+            className="flex h-full min-h-11 cursor-pointer items-center gap-2 bg-signal px-4 text-[13px] font-semibold text-ink hover:bg-[#cddd37] sm:px-5"
           >
             <Plus size={16} weight="bold" />
             <span className="hidden sm:inline">New</span>
@@ -102,11 +103,11 @@ export function TopBar({
           {newOpen && (
             <div
               role="menu"
-              className="surfaced-lg absolute right-0 top-12 z-30 w-64 p-1.5"
+              className="surfaced-lg absolute right-0 top-[calc(100%+1px)] z-30 w-64 p-2"
             >
               {NEW_ITEMS.map(({ icon: IconEl, label, hint, href }) => {
                 const className =
-                  "flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left text-[14px] text-ink hover:bg-surface-2";
+                  "flex min-h-11 w-full cursor-pointer items-center gap-2.5 border-b border-line px-3 py-2.5 text-left text-[14px] text-ink last:border-b-0 hover:bg-surface-2";
                 const body = (
                   <>
                     <IconEl size={17} className="text-melt" />
@@ -151,7 +152,7 @@ export function TopBar({
             aria-expanded={notifOpen}
             aria-haspopup="menu"
             aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-            className="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-[13px] border border-line-2 bg-white text-ink-2 hover:border-line hover:bg-surface-2 hover:text-ink"
+            className="relative flex h-full min-h-11 w-12 cursor-pointer items-center justify-center border-l border-line bg-transparent text-ink-2 hover:bg-surface hover:text-ink"
           >
             <Bell size={17} />
             {unreadCount > 0 && (
@@ -162,7 +163,7 @@ export function TopBar({
             )}
           </button>
           {notifOpen && (
-            <div role="menu" className="surfaced-lg absolute right-0 top-12 z-30 w-80 p-1.5">
+            <div role="menu" className="surfaced-lg absolute right-0 top-[calc(100%+1px)] z-30 w-[min(22rem,calc(100vw-1rem))] p-2">
               <div className="flex items-center justify-between gap-3 px-2.5 py-2">
                 <span className="text-[14px] font-semibold text-ink">
                   Notifications
@@ -196,7 +197,7 @@ export function TopBar({
                       <span className="mt-1 block font-mono text-[11px] text-ink-3 tabular-nums">{n.when}</span>
                     </>
                   );
-                  const rowClass = "flex w-full cursor-pointer flex-col rounded-[10px] px-3 py-2.5 text-left hover:bg-surface-2";
+                  const rowClass = "flex w-full cursor-pointer flex-col border-b border-line px-3 py-2.5 text-left last:border-b-0 hover:bg-surface-2";
                   return n.href ? (
                     <Link
                       key={n.id}
@@ -236,12 +237,12 @@ export function TopBar({
             aria-expanded={avatarOpen}
             aria-haspopup="menu"
             aria-label="Account menu"
-            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-ink text-[12px] font-semibold text-white hover:bg-ink-2"
+            className="flex h-full min-h-11 w-12 cursor-pointer items-center justify-center border-l border-line bg-ink text-[11px] font-semibold text-deep-ink hover:bg-deep-2"
           >
             {profile?.initials ?? "?"}
           </button>
           {avatarOpen && (
-            <div role="menu" className="surfaced-lg absolute right-0 top-12 z-30 w-56 p-1.5">
+            <div role="menu" className="surfaced-lg absolute right-0 top-[calc(100%+1px)] z-30 w-56 p-2">
               <div className="border-b border-line-2 px-2.5 pb-2 pt-1">
                 <p className="truncate text-[14px] font-semibold text-ink">{profile?.name ?? "Not signed in"}</p>
                 <p className="truncate text-[12.5px] text-ink-2">{profile?.email}</p>
