@@ -11,8 +11,8 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
-import { contacts, customers, segments, stages } from "@/db/schema";
-import type { ContactChannel, CustomerKind, Priority } from "@/lib/fixtures";
+import { contacts, customers, segments, stages, validationNotes } from "@/db/schema";
+import type { CompatibilityLevel, ContactChannel, Customer, CustomerKind, Priority } from "@/lib/fixtures";
 
 const PATHS = ["/customers", "/validation-progress"] as const;
 function revalidateBoth() {
@@ -148,4 +148,49 @@ export async function updateContact(
     .where(eq(contacts.id, id));
   revalidatePath("/contacts");
   revalidateBoth();
+}
+
+export async function addValidationNote(input: {
+  customerId: string;
+  authorId: string;
+  body: string;
+  quote?: string;
+  conversationId?: string;
+}) {
+  const [row] = await db
+    .insert(validationNotes)
+    .values({
+      customerId: input.customerId,
+      authorId: input.authorId,
+      body: input.body,
+      quote: input.quote,
+      conversationId: input.conversationId,
+    })
+    .returning({ id: validationNotes.id });
+  revalidatePath(`/customers/${input.customerId}`);
+  return { id: row.id };
+}
+
+// Backs the Customer Room's inline overview edit — one round trip per
+// field group instead of per keystroke, called on blur/save like the rest
+// of the app's optimistic-then-persist pattern.
+export async function updateCustomerFields(
+  id: string,
+  patch: Partial<{
+    name: string;
+    segmentId: string;
+    ownerId: string;
+    priority: Priority | undefined;
+    compatibility: CompatibilityLevel | null;
+    website: string | undefined;
+    currentSolution: string | undefined;
+    nextStep: string | undefined;
+    stage: string;
+    followup: Customer["followup"];
+    problem: Customer["problem"];
+  }>,
+) {
+  await db.update(customers).set(patch).where(eq(customers.id, id));
+  revalidateBoth();
+  revalidatePath(`/customers/${id}`);
 }

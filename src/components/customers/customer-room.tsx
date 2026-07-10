@@ -39,9 +39,13 @@ import {
 } from "@/lib/fixtures";
 import { CompatibilityBadge } from "./compatibility-badge";
 import { ChannelBadge, FollowupPill, ProblemPill, StagePill } from "./status-pills";
-
-// Auth lands in the backend phase; until then the session user is fixed.
-const CURRENT_USER = "nima";
+import type { CustomerRoomTask } from "@/lib/data/customers";
+import {
+  addValidationNote,
+  updateContact as updateContactAction,
+  updateCustomerFields,
+} from "@/lib/data/customers-actions";
+import { createManualTask, setWorkTaskAssignees, toggleWorkTaskStatus } from "@/lib/data/work-actions";
 
 /** A pill-value picker: click the pill, choose from the option set. Backs
  * Stage/Follow-up/Problem editing directly on the customer page. */
@@ -161,12 +165,22 @@ export function CustomerRoom({
   segments,
   owners,
   contacts,
+  conversations,
+  validationNotes: initialValidationNotes,
+  tasks: initialTasks,
+  activity,
+  currentUserId,
 }: {
   customer: Customer | null;
   stages: Stage[];
   segments: Segment[];
   owners: Owner[];
   contacts: Contact[];
+  conversations: Conversation[];
+  validationNotes: ValidationNote[];
+  tasks: CustomerRoomTask[];
+  activity: { when: string; text: string; ownerId: string }[];
+  currentUserId: string;
 }) {
   if (!customer) {
     return (
@@ -185,7 +199,18 @@ export function CustomerRoom({
     );
   }
   return (
-    <CustomerRoomInner customer={customer} stages={stages} segments={segments} owners={owners} contacts={contacts} />
+    <CustomerRoomInner
+      customer={customer}
+      stages={stages}
+      segments={segments}
+      owners={owners}
+      contacts={contacts}
+      conversations={conversations}
+      validationNotes={initialValidationNotes}
+      tasks={initialTasks}
+      activity={activity}
+      currentUserId={currentUserId}
+    />
   );
 }
 
@@ -195,12 +220,22 @@ function CustomerRoomInner({
   segments,
   owners,
   contacts: contactsSeed,
+  conversations: initialConversations,
+  validationNotes: initialValidationNotes,
+  tasks: initialTasks,
+  activity,
+  currentUserId,
 }: {
   customer: Customer;
   stages: Stage[];
   segments: Segment[];
   owners: Owner[];
   contacts: Contact[];
+  conversations: Conversation[];
+  validationNotes: ValidationNote[];
+  tasks: CustomerRoomTask[];
+  activity: { when: string; text: string; ownerId: string }[];
+  currentUserId: string;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("Overview");
@@ -225,28 +260,23 @@ function CustomerRoomInner({
   const owner = ownerById(ownerId, owners);
   const associatedContacts = contactRows.filter((p) => p.customerId === c.id);
   const availableContacts = contactRows.filter((p) => p.customerId !== c.id);
-  // TODO: real per-customer conversations/activity/validation-notes/tasks
-  // once the Library cutover builds the conversation_participants join —
-  // customers table has zero real rows to join against right now anyway.
-  const convos: Conversation[] = [];
-  const activity: { when: string; text: string; ownerId: string }[] = [];
+  const convos = initialConversations;
 
-  const [notes, setNotes] = useState<ValidationNote[]>([]);
+  const [notes, setNotes] = useState<ValidationNote[]>(initialValidationNotes);
   const [noteDraft, setNoteDraft] = useState("");
   const [addingNote, setAddingNote] = useState(false);
 
-  const conversationTasks: {
-    id: string;
-    task: string;
-    assigneeIds: string[];
-    dueLabel?: string;
-    status: "open" | "done";
-    sourceMs?: number;
-    key: string;
-    conversationId?: string;
-    conversationTitle?: string;
-  }[] = [];
-  const [manualTasks, setManualTasks] = useState<ManualTask[]>([]);
+  // Conversation-sourced tasks are read-only here (owned by the
+  // Conversation Workspace); customer-sourced ("manual") tasks are the
+  // only ones this page can edit — same convention Work's own view uses.
+  const conversationTasks = initialTasks
+    .filter((t) => t.conversationId != null)
+    .map((t) => ({ ...t, key: t.id }));
+  const [manualTasks, setManualTasks] = useState<ManualTask[]>(
+    initialTasks
+      .filter((t) => t.conversationId == null)
+      .map((t) => ({ id: t.id, task: t.task, assigneeIds: t.assigneeIds, dueLabel: t.dueLabel, status: t.status })),
+  );
   const [taskDraft, setTaskDraft] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const tasks = [
@@ -265,28 +295,37 @@ function CustomerRoomInner({
   const addTask = () => {
     const task = taskDraft.trim();
     if (!task) return;
-    const id = `m${manualTasks.length + 1}-${Date.now()}`;
-    setManualTasks((ts) => [...ts, { id, task, assigneeIds: [], status: "open" }]);
-    setDone((d) => ({ ...d, [`manual-${id}`]: false }));
+    const tempId = `m-temp-${Date.now()}`;
+    setManualTasks((ts) => [...ts, { id: tempId, task, assigneeIds: [], status: "open" }]);
+    setDone((d) => ({ ...d, [`manual-${tempId}`]: false }));
     setTaskDraft("");
     setAddingTask(false);
+    void createManualTask({ customerId: c.id, task }).then(({ id }) => {
+      setManualTasks((ts) => ts.map((t) => (t.id === tempId ? { ...t, id } : t)));
+      setDone((d) => {
+        const { [`manual-${tempId}`]: was, ...rest } = d;
+        return { ...rest, [`manual-${id}`]: was ?? false };
+      });
+    });
   };
 
   const addNote = () => {
     const body = noteDraft.trim();
     if (!body) return;
-    setNotes((ns) => [
-      ...ns,
-      { id: `v${ns.length + 1}-${Date.now()}`, authorId: CURRENT_USER, when: "just now", body },
-    ]);
+    const tempId = `v-temp-${Date.now()}`;
+    setNotes((ns) => [...ns, { id: tempId, authorId: currentUserId, when: "just now", body }]);
     setNoteDraft("");
     setAddingNote(false);
+    void addValidationNote({ customerId: c.id, authorId: currentUserId, body }).then(({ id }) => {
+      setNotes((ns) => ns.map((n) => (n.id === tempId ? { ...n, id } : n)));
+    });
   };
 
   const openWorkspace = (id: string) => router.push(`/library/${id}`);
 
   const updateCustomer = (patch: Partial<Customer>) => {
     Object.assign(c, patch);
+    void updateCustomerFields(c.id, patch);
   };
 
   const updateContact = (id: string, patch: Partial<Contact>) => {
@@ -297,6 +336,18 @@ function CustomerRoomInner({
         return { ...contact };
       }),
     );
+    const contact = contactRows.find((row) => row.id === id);
+    if (!contact) return;
+    const merged = { ...contact, ...patch };
+    void updateContactAction(id, {
+      name: merged.name,
+      role: merged.role,
+      customerId: merged.customerId,
+      email: merged.email,
+      phone: merged.phone,
+      linkedin: merged.linkedin,
+      preferredChannel: merged.preferredChannel,
+    });
   };
 
   const addContact = () => {
@@ -976,7 +1027,11 @@ function CustomerRoomInner({
                   <input
                     type="checkbox"
                     checked={done[t.key] ?? false}
-                    onChange={() => setDone((d) => ({ ...d, [t.key]: !d[t.key] }))}
+                    onChange={() => {
+                      const next = !done[t.key];
+                      setDone((d) => ({ ...d, [t.key]: next }));
+                      void toggleWorkTaskStatus(t.id, next ? "done" : "open");
+                    }}
                     aria-label={`Mark "${t.task}" ${done[t.key] ? "open" : "done"}`}
                     className="h-4 w-4 shrink-0 cursor-pointer accent-[#0295ac]"
                   />
@@ -1003,20 +1058,15 @@ function CustomerRoomInner({
                   ) : (
                     <AssigneePicker
                       assigneeIds={t.assigneeIds}
-                      onToggle={(ownerId) =>
+                      onToggle={(ownerId) => {
+                        const nextAssignees = t.assigneeIds.includes(ownerId)
+                          ? t.assigneeIds.filter((id) => id !== ownerId)
+                          : [...t.assigneeIds, ownerId];
                         setManualTasks((ts) =>
-                          ts.map((x) =>
-                            `manual-${x.id}` === t.key
-                              ? {
-                                  ...x,
-                                  assigneeIds: x.assigneeIds.includes(ownerId)
-                                    ? x.assigneeIds.filter((id) => id !== ownerId)
-                                    : [...x.assigneeIds, ownerId],
-                                }
-                              : x,
-                          ),
-                        )
-                      }
+                          ts.map((x) => (x.id === t.id ? { ...x, assigneeIds: nextAssignees } : x)),
+                        );
+                        void setWorkTaskAssignees(t.id, nextAssignees);
+                      }}
                     />
                   )}
                   {t.conversationId ? (

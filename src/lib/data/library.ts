@@ -56,13 +56,13 @@ function toTopic(row: typeof topics.$inferSelect, memberIds: string[]): Topic {
   };
 }
 
-type ConversationCounts = {
+export type ConversationCounts = {
   openActionsCount: number;
   decisionsCount: number;
   chapterCount: number;
 };
 
-function toConversation(
+export function toConversation(
   row: typeof conversations.$inferSelect,
   counts: ConversationCounts,
   participantIds: string[],
