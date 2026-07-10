@@ -12,6 +12,8 @@ import {
   participantsFor,
   topicById,
   type Conversation,
+  type Customer,
+  type Owner,
   type Topic,
 } from "@/lib/fixtures";
 
@@ -46,6 +48,8 @@ export function RecordingCard({
   dragProps,
   dimmed,
   topic: topicOverride,
+  owners,
+  customers,
 }: {
   conversation: Conversation;
   onOpen: (id: string) => void;
@@ -54,15 +58,19 @@ export function RecordingCard({
   dragProps?: DragHandleProps;
   dimmed?: boolean;
   topic?: Topic;
+  owners?: Owner[];
+  customers?: Customer[];
 }) {
   const topic = topicOverride ?? topicById(c.topicId);
-  const participants = participantsFor(c);
-  const author = ownerById(c.authorId);
-  const d = detailsFor(c.id);
-
-  const openActions = d?.actionItems?.filter((a) => a.status === "open").length ?? 0;
-  const decisionCount = d?.decisions?.length ?? 0;
-  const chapterCount = d?.chapters?.length ?? 0;
+  const participants = participantsFor(c, customers);
+  const author = ownerById(c.authorId, owners);
+  // Real data precomputes these counts (openActionsCount etc.) so the list
+  // doesn't need the full transcript/details just for a badge; fixture data
+  // has no separate aggregate, so it falls back to detailsFor().
+  const d = c.openActionsCount == null ? detailsFor(c.id) : undefined;
+  const openActions = c.openActionsCount ?? d?.actionItems?.filter((a) => a.status === "open").length ?? 0;
+  const decisionCount = c.decisionsCount ?? d?.decisions?.length ?? 0;
+  const chapterCount = c.chapterCount ?? d?.chapters?.length ?? 0;
 
   return (
     <article
@@ -99,7 +107,9 @@ export function RecordingCard({
           />
           {topic.name}
           {showAuthor && <span>· {author.name}</span>}
-          {d && <span>· {d.source === "record" ? "recorded" : "uploaded"}</span>}
+          {(c.source ?? d?.source) && (
+            <span>· {(c.source ?? d?.source) === "record" ? "recorded" : "uploaded"}</span>
+          )}
           <span className="font-mono text-[13px] font-semibold tabular-nums">· {c.when}</span>
         </p>
 

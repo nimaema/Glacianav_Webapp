@@ -18,15 +18,15 @@ import { HeaderStat, PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
 import { useDnd } from "@/lib/dnd";
 import {
-  conversationDetails,
-  conversations as seed,
-  owners,
   ownerById,
-  topics as seedTopics,
+  type Contact,
   type Conversation,
+  type Customer,
+  type Owner,
   type Topic,
   type TopicVisibility,
 } from "@/lib/fixtures";
+import { moveConversationTopic, saveNote as saveNoteAction, createTopic as createTopicAction } from "@/lib/data/library-actions";
 import { NoteCard } from "./note-card";
 import { NoteComposer } from "./note-composer";
 import { RecordingCard } from "./recording-card";
@@ -39,9 +39,6 @@ type Lens = (typeof LENSES)[number];
 // entirely instead of just sub-grouping it — a real separation, not a label.
 const TYPES = ["All", "Recordings", "Notes"] as const;
 type ContentType = (typeof TYPES)[number];
-
-// Auth lands in the backend phase; until then the session user is fixed.
-const CURRENT_USER = "nima";
 
 const TOPIC_COLORS = ["#14b8ce", "#6e5be8", "#27b577", "#2f6fd0", "#f26d5f"];
 
@@ -62,6 +59,8 @@ function TypeGroup({
   dragProps,
   dragId,
   topicFor,
+  owners,
+  customers,
 }: {
   kind: "recordings" | "notes";
   items: Conversation[];
@@ -71,6 +70,8 @@ function TypeGroup({
   dragProps?: (id: string) => DragHandleProps;
   dragId?: string | null;
   topicFor: (id: string) => Topic;
+  owners: Owner[];
+  customers: Customer[];
 }) {
   if (items.length === 0) return null;
   const IconEl = kind === "recordings" ? RecordIcon : NotePencil;
@@ -93,6 +94,8 @@ function TypeGroup({
               dragProps={dragProps?.(c.id)}
               dimmed={dragId === c.id}
               topic={topicFor(c.topicId)}
+              owners={owners}
+              customers={customers}
             />
           ) : (
             <NoteCard
@@ -104,6 +107,8 @@ function TypeGroup({
               dragProps={dragProps?.(c.id)}
               dimmed={dragId === c.id}
               topic={topicFor(c.topicId)}
+              owners={owners}
+              customers={customers}
             />
           ),
         )}
@@ -113,21 +118,25 @@ function TypeGroup({
 }
 
 function TopicComposer({
+  owners,
+  currentUserId,
   onCreate,
   onCancel,
 }: {
+  owners: Owner[];
+  currentUserId: string;
   onCreate: (topic: Topic) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
   const [visibility, setVisibility] = useState<TopicVisibility>("private");
-  const [memberIds, setMemberIds] = useState<string[]>([CURRENT_USER]);
+  const [memberIds, setMemberIds] = useState<string[]>([currentUserId]);
   const [color, setColor] = useState(TOPIC_COLORS[0]);
 
   const toggleMember = (id: string) => {
     setMemberIds((ids) => {
       const next = ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
-      return next.includes(CURRENT_USER) ? next : [CURRENT_USER, ...next];
+      return next.includes(currentUserId) ? next : [currentUserId, ...next];
     });
   };
 
@@ -135,7 +144,7 @@ function TopicComposer({
     visibility === "all"
       ? owners.map((o) => o.id)
       : visibility === "private"
-        ? [CURRENT_USER]
+        ? [currentUserId]
         : memberIds;
   const canCreate = name.trim().length > 0;
 
@@ -274,11 +283,25 @@ function TopicComposer({
   );
 }
 
-export function LibraryView() {
+export function LibraryView({
+  conversations,
+  topics,
+  owners,
+  customers,
+  contacts,
+  currentUserId,
+}: {
+  conversations: Conversation[];
+  topics: Topic[];
+  owners: Owner[];
+  customers: Customer[];
+  contacts: Contact[];
+  currentUserId: string;
+}) {
   const [lens, setLens] = useState<Lens>("Topics");
   const [type, setType] = useState<ContentType>("All");
-  const [rows, setRows] = useState<Conversation[]>(() => [...seed]);
-  const [topicRows, setTopicRows] = useState<Topic[]>(() => [...seedTopics]);
+  const [rows, setRows] = useState<Conversation[]>(() => [...conversations]);
+  const [topicRows, setTopicRows] = useState<Topic[]>(() => [...topics]);
   const [creatingTopic, setCreatingTopic] = useState(false);
 
   const router = useRouter();
@@ -304,34 +327,39 @@ export function LibraryView() {
 
   const moveTopic = useCallback((id: string, topicId: string) => {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, topicId } : r)));
+    void moveConversationTopic(id, topicId);
   }, []);
   const { dragId, overKey, dragProps, dropProps } = useDnd(moveTopic);
 
   const saveNote = useCallback(
     (note: Conversation) => {
-      seed.unshift(note);
-      conversationDetails[note.id] = {
-        source: "upload",
-        language: "Written note",
-        durationMs: 0,
-        actionItems: [],
-        decisions: [],
-        followUps: [],
-        aiTags: [],
-        comments: [],
-      };
       setRows((rs) => [note, ...rs]);
       setComposingNote(false);
-      open(note.id);
+      void saveNoteAction({
+        title: note.title,
+        topicId: note.topicId,
+        authorId: currentUserId,
+        body: note.noteBody ?? "",
+        participantIds: note.participantIds,
+        contactIds: note.contactIds,
+      }).then(({ id }) => open(id));
     },
-    [open],
+    [open, currentUserId],
   );
 
-  const createTopic = useCallback((topic: Topic) => {
-    seedTopics.push(topic);
-    setTopicRows((ts) => [...ts, topic]);
-    setCreatingTopic(false);
-  }, []);
+  const createTopic = useCallback(
+    (topic: Topic) => {
+      setTopicRows((ts) => [...ts, topic]);
+      setCreatingTopic(false);
+      void createTopicAction({
+        name: topic.name,
+        color: topic.color,
+        visibility: topic.visibility,
+        memberIds: topic.memberIds,
+      });
+    },
+    [],
+  );
 
   return (
     <>
@@ -389,12 +417,20 @@ export function LibraryView() {
 
       <div className="mx-auto max-w-[1600px] px-7 py-6">
         {creatingTopic && (
-          <TopicComposer onCreate={createTopic} onCancel={() => setCreatingTopic(false)} />
+          <TopicComposer
+            owners={owners}
+            currentUserId={currentUserId}
+            onCreate={createTopic}
+            onCancel={() => setCreatingTopic(false)}
+          />
         )}
 
         {composingNote && (
           <NoteComposer
             topics={topicRows}
+            customers={customers}
+            contacts={contacts}
+            currentUserId={currentUserId}
             onSave={saveNote}
             onCancel={() => setComposingNote(false)}
           />
@@ -463,7 +499,7 @@ export function LibraryView() {
                         <span className="flex -space-x-1.5">
                           {topic.memberIds.map((id) => (
                             <span key={id} className="rounded-full ring-2 ring-white">
-                              <Avatar owner={ownerById(id)} size={22} />
+                              <Avatar owner={ownerById(id, owners)} size={22} />
                             </span>
                           ))}
                         </span>
@@ -482,6 +518,8 @@ export function LibraryView() {
                         dragProps={dragProps}
                         dragId={dragId}
                         topicFor={topicFor}
+                      owners={owners}
+                      customers={customers}
                       />
                     )}
                     {showNotes && (
@@ -493,6 +531,8 @@ export function LibraryView() {
                         dragProps={dragProps}
                         dragId={dragId}
                         topicFor={topicFor}
+                      owners={owners}
+                      customers={customers}
                       />
                     )}
                     {visibleCount === 0 && (
@@ -522,6 +562,8 @@ export function LibraryView() {
                 onOpen={open}
                 showAuthor
                 topicFor={topicFor}
+              owners={owners}
+              customers={customers}
               />
             )}
             {showNotes && (
@@ -531,6 +573,8 @@ export function LibraryView() {
                 onOpen={open}
                 showAuthor
                 topicFor={topicFor}
+              owners={owners}
+              customers={customers}
               />
             )}
           </div>
@@ -541,19 +585,23 @@ export function LibraryView() {
             {showRecordings && (
               <TypeGroup
                 kind="recordings"
-                items={rows.filter((c) => c.authorId === CURRENT_USER && !c.noteBody)}
+                items={rows.filter((c) => c.authorId === currentUserId && !c.noteBody)}
                 onOpen={open}
                 showVisibility
                 topicFor={topicFor}
+              owners={owners}
+              customers={customers}
               />
             )}
             {showNotes && (
               <TypeGroup
                 kind="notes"
-                items={rows.filter((c) => c.authorId === CURRENT_USER && c.noteBody)}
+                items={rows.filter((c) => c.authorId === currentUserId && c.noteBody)}
                 onOpen={open}
                 showVisibility
                 topicFor={topicFor}
+              owners={owners}
+              customers={customers}
               />
             )}
           </div>

@@ -35,7 +35,20 @@ function getDb(): DrizzleDb {
   // pgbouncer) is transaction-mode, so `prepare: false` is required — direct
   // (5432) connections can drop this if you switch DATABASE_URL to the
   // non-pooled string for migrations.
-  const client = postgres(connectionString, { prepare: false });
+  //
+  // max/idle_timeout keep this process from hoarding pooler slots across
+  // dev-mode hot reloads and stacked concurrent requests — Supavisor's own
+  // per-project connection limit is finite and shared with anything else
+  // Supabase runs (e.g. its own postgres_exporter), so a runaway client here
+  // can starve unrelated queries. connect_timeout makes a starved pool fail
+  // fast (surfaces as a clear error) instead of hanging a request for
+  // minutes waiting on a slot.
+  const client = postgres(connectionString, {
+    prepare: false,
+    max: 5,
+    idle_timeout: 20,
+    connect_timeout: 10,
+  });
   cached = drizzle(client, { schema });
   return cached;
 }

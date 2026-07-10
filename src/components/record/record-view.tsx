@@ -16,7 +16,7 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Pill } from "@/components/ui/pill";
-import { customerById, customers, ownerById, topicById } from "@/lib/fixtures";
+import { customerById, ownerById, type Customer, type Owner, type Topic } from "@/lib/fixtures";
 import { fmtElapsed, useRecording } from "./recording-provider";
 
 // Simulated live captions until AssemblyAI realtime lands with the pipeline.
@@ -40,10 +40,14 @@ function ParticipantPicker({
   participantIds,
   onAdd,
   onRemove,
+  customers,
+  owners,
 }: {
   participantIds: string[];
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
+  customers: Customer[];
+  owners: Owner[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -61,7 +65,7 @@ function ParticipantPicker({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {participantIds.map((id) => {
-        const c = customerById(id);
+        const c = customerById(id, customers);
         if (!c) return null;
         return (
           <span
@@ -105,7 +109,7 @@ function ParticipantPicker({
                   }}
                   className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-left text-[14px] text-ink transition-colors duration-150 hover:bg-surface-2"
                 >
-                  <Avatar owner={ownerById(c.ownerId)} size={18} />
+                  <Avatar owner={ownerById(c.ownerId, owners)} size={18} />
                   {c.name}
                 </button>
               ))}
@@ -117,21 +121,35 @@ function ParticipantPicker({
   );
 }
 
-export function RecordView() {
+export function RecordView({
+  customers,
+  topics,
+  owners,
+  currentUserId,
+}: {
+  customers: Customer[];
+  topics: Topic[];
+  owners: Owner[];
+  currentUserId: string;
+}) {
   const rec = useRecording();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [discardOpen, setDiscardOpen] = useState(false);
   const [captionIdx, setCaptionIdx] = useState(1);
+  void currentUserId; // used indirectly — recording-provider posts as the signed-in profile
 
   const fromUrl = searchParams.getAll("c");
   const [draftParticipantIds, setDraftParticipantIds] = useState<string[]>(fromUrl);
 
   const participantIds = rec.active ? rec.participantIds : draftParticipantIds;
   const participants = participantIds
-    .map((id) => customerById(id))
+    .map((id) => customerById(id, customers))
     .filter((c): c is NonNullable<typeof c> => c != null);
-  const topic = topicById(participants.length > 0 ? "interviews" : "weekly");
+  // No topic picker on Record yet — the recording lands untopiced and gets
+  // dragged into a topic from Library, so this is display-only, matching
+  // whichever topic exists (real topics don't share the fixture-era ids).
+  const topic = topics[0];
   const title =
     participants.length === 0
       ? "New recording"
@@ -156,14 +174,16 @@ export function RecordView() {
   return (
     <div className="mx-auto flex max-w-[860px] flex-col gap-5 px-7 py-8">
       <div className="flex flex-wrap items-center gap-2.5">
-        <Pill tone="gray">
-          <span
-            aria-hidden
-            className="mr-1.5 h-1.5 w-1.5 rounded-[2px]"
-            style={{ background: topic.color }}
-          />
-          {topic.name}
-        </Pill>
+        {topic && (
+          <Pill tone="gray">
+            <span
+              aria-hidden
+              className="mr-1.5 h-1.5 w-1.5 rounded-[2px]"
+              style={{ background: topic.color }}
+            />
+            {topic.name}
+          </Pill>
+        )}
         <Pill tone="gray">Language · auto</Pill>
       </div>
 
@@ -180,6 +200,8 @@ export function RecordView() {
             participantIds={rec.participantIds}
             onAdd={rec.addParticipant}
             onRemove={rec.removeParticipant}
+            customers={customers}
+            owners={owners}
           />
         ) : (
           <ParticipantPicker
@@ -188,6 +210,8 @@ export function RecordView() {
             onRemove={(id) =>
               setDraftParticipantIds((ids) => ids.filter((x) => x !== id))
             }
+            customers={customers}
+            owners={owners}
           />
         )}
       </div>
@@ -269,7 +293,7 @@ export function RecordView() {
               </button>
               <button
                 type="button"
-                onClick={rec.stopAndProcess}
+                onClick={() => rec.stopAndProcess(title)}
                 className="flex h-10 cursor-pointer items-center gap-2 rounded-md bg-melt px-5 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
               >
                 <Stop size={16} weight="fill" />

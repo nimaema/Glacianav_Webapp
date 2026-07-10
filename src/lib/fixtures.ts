@@ -663,6 +663,14 @@ export type Conversation = {
   // still use the full workspace page for links, actions, follow-ups, tags,
   // and comments.
   noteBody?: string;
+  // Precomputed list-display counts for real data, so list cards (Library,
+  // ConversationRow) don't need the full ConversationDetails (transcript,
+  // etc.) just to show a badge. Falls back to detailsFor()-derived counts
+  // for fixture data, which has no separate aggregate.
+  openActionsCount?: number;
+  decisionsCount?: number;
+  chapterCount?: number;
+  source?: "record" | "upload";
 };
 
 export const topics: Topic[] = [
@@ -1185,30 +1193,30 @@ export const customerActivity: Record<string, ActivityEvent[]> = {
   ],
 };
 
-export function topicById(id: string): Topic {
-  return topics.find((t) => t.id === id) ?? topics[0];
+export function topicById(id: string, from: Topic[] = topics): Topic {
+  return from.find((t) => t.id === id) ?? from[0];
 }
 
-export function customerById(id: string): Customer | undefined {
-  return customers.find((c) => c.id === id);
+export function customerById(id: string, from: Customer[] = customers): Customer | undefined {
+  return from.find((c) => c.id === id);
 }
 
-export function conversationsForCustomer(customerId: string): Conversation[] {
-  return conversations.filter((c) => c.participantIds.includes(customerId));
+export function conversationsForCustomer(customerId: string, from: Conversation[] = conversations): Conversation[] {
+  return from.filter((c) => c.participantIds.includes(customerId));
 }
 
-export function participantsFor(c: Conversation): Customer[] {
+export function participantsFor(c: Conversation, from: Customer[] = customers): Customer[] {
   return c.participantIds
-    .map((id) => customerById(id))
+    .map((id) => customerById(id, from))
     .filter((x): x is Customer => x != null);
 }
 
-export function contactById(id: string): Contact | undefined {
-  return contacts.find((p) => p.id === id);
+export function contactById(id: string, from: Contact[] = contacts): Contact | undefined {
+  return from.find((p) => p.id === id);
 }
 
-export function linkedContactsFor(c: Conversation): Contact[] {
+export function linkedContactsFor(c: Conversation, from: Contact[] = contacts): Contact[] {
   return c.contactIds
-    .map((id) => contactById(id))
+    .map((id) => contactById(id, from))
     .filter((x): x is Contact => x != null);
 }

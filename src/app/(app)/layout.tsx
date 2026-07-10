@@ -1,9 +1,11 @@
 import { AppShell } from "@/components/shell/app-shell";
+import { getCurrentProfile } from "@/lib/data/current-user";
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AppShell>{children}</AppShell>;
+  const profile = await getCurrentProfile();
+  return <AppShell currentUserId={profile?.id ?? ""}>{children}</AppShell>;
 }

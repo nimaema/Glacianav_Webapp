@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowsOutSimple, Flag, Stop } from "@phosphor-icons/react";
+import { createConversationFromRecording } from "@/lib/data/library-actions";
 
 export type RecordingState = {
   active: boolean;
@@ -29,7 +30,7 @@ type RecordingApi = RecordingState & {
   togglePause: () => void;
   flagMoment: () => void;
   /** Stop and process: hands off to the pipeline and lands in Library. */
-  stopAndProcess: () => void;
+  stopAndProcess: (title?: string) => void;
   discard: () => void;
 };
 
@@ -47,7 +48,13 @@ export function fmtElapsed(s: number) {
     .padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
-export function RecordingProvider({ children }: { children: React.ReactNode }) {
+export function RecordingProvider({
+  children,
+  currentUserId,
+}: {
+  children: React.ReactNode;
+  currentUserId: string;
+}) {
   const [state, setState] = useState<RecordingState>({
     active: false,
     paused: false,
@@ -108,10 +115,23 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const stopAndProcess = useCallback(() => {
-    setState({ active: false, paused: false, elapsed: 0, flags: [], participantIds: [] });
-    router.push("/library");
-  }, [router]);
+  const stopAndProcess = useCallback(
+    (title?: string) => {
+      const { elapsed, participantIds } = state;
+      if (currentUserId) {
+        void createConversationFromRecording({
+          title: title?.trim() || "New recording",
+          authorId: currentUserId,
+          topicId: null,
+          participantIds,
+          durationMs: elapsed * 1000,
+        });
+      }
+      setState({ active: false, paused: false, elapsed: 0, flags: [], participantIds: [] });
+      router.push("/library");
+    },
+    [router, state, currentUserId],
+  );
 
   const discard = useCallback(() => {
     setState({ active: false, paused: false, elapsed: 0, flags: [], participantIds: [] });
@@ -172,7 +192,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           </Link>
           <button
             type="button"
-            onClick={stopAndProcess}
+            onClick={() => stopAndProcess()}
             className="flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-melt px-3.5 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
           >
             <Stop size={14} weight="fill" />

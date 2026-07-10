@@ -4,9 +4,15 @@ import { CassDock } from "./cass-dock";
 import { CommandPalette } from "./command-palette";
 import { RecordingProvider } from "@/components/record/recording-provider";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  currentUserId,
+}: {
+  children: React.ReactNode;
+  currentUserId: string;
+}) {
   return (
-    <RecordingProvider>
+    <RecordingProvider currentUserId={currentUserId}>
       <div className="flex min-h-dvh overflow-hidden bg-deep">
         <Rail />
         <div className="flex min-w-0 flex-1 flex-col">

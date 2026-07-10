@@ -2,20 +2,23 @@
 
 import { useState } from "react";
 import { NotePencil, X } from "@phosphor-icons/react";
-import { contacts, customers, type Conversation, type Topic } from "@/lib/fixtures";
-
-// Auth lands in the backend phase; until then the session user is fixed.
-const CURRENT_USER = "nima";
+import type { Contact, Conversation, Customer, Topic } from "@/lib/fixtures";
 
 /** Creates a standalone note — no recording behind it. Shows up in Library
  * exactly like a conversation (grouped by Topic, filterable, shareable),
  * since Topics/participants were never meant to require a recording. */
 export function NoteComposer({
   topics,
+  customers,
+  contacts,
+  currentUserId,
   onSave,
   onCancel,
 }: {
   topics: Topic[];
+  customers: Customer[];
+  contacts: Contact[];
+  currentUserId: string;
   onSave: (note: Conversation) => void;
   onCancel: () => void;
 }) {
@@ -46,7 +49,7 @@ export function NoteComposer({
       topicId,
       participantIds,
       contactIds,
-      authorId: CURRENT_USER,
+      authorId: currentUserId,
       when: "just now",
       duration: "",
       status: "ready",

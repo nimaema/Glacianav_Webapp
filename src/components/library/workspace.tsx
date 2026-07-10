@@ -28,19 +28,25 @@ import { Pill } from "@/components/ui/pill";
 import { SectionHeader } from "@/components/ui/section-header";
 import { RelationshipLinkPanel } from "./linked-section";
 import {
-  contacts as allContacts,
-  customers as allCustomers,
   contactById,
   customerById,
   ownerById,
   topicById,
+  type Contact,
   type Conversation,
   type ConversationDetails,
+  type Customer,
+  type Owner,
   type QaMessage,
+  type Topic,
 } from "@/lib/fixtures";
-
-// Auth lands in the backend phase; until then the session user is fixed.
-const CURRENT_USER = "nima";
+import {
+  postConversationComment,
+  toggleActionItemStatus,
+  toggleConversationShare,
+  updateConversationContacts,
+  updateConversationParticipants,
+} from "@/lib/data/library-actions";
 
 function fmtMs(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -316,12 +322,22 @@ function QaPanel({
 export function ConversationWorkspace({
   conversation: c,
   details: d,
+  topics,
+  owners,
+  customers,
+  contacts,
+  currentUserId,
 }: {
   conversation: Conversation;
   details: ConversationDetails;
+  topics: Topic[];
+  owners: Owner[];
+  customers: Customer[];
+  contacts: Contact[];
+  currentUserId: string;
 }) {
-  const topic = topicById(c.topicId);
-  const author = ownerById(c.authorId);
+  const topic = topicById(c.topicId, topics);
+  const author = ownerById(c.authorId, owners);
   const isNote = Boolean(c.noteBody);
 
   const [playheadMs, setPlayheadMs] = useState(0);
@@ -331,16 +347,15 @@ export function ConversationWorkspace({
   const [commentDraft, setCommentDraft] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [shared, setShared] = useState(c.shared);
 
-  // Local to this page view — same non-persistence caveat as `actions` and
-  // `comments` above; a real save syncs back once the backend phase lands.
   const [participantIds, setParticipantIds] = useState(c.participantIds);
   const [contactIds, setContactIds] = useState(c.contactIds);
   const participants = participantIds
-    .map((id) => customerById(id))
+    .map((id) => customerById(id, customers))
     .filter((x): x is NonNullable<typeof x> => x != null);
   const linkedContacts = contactIds
-    .map((id) => contactById(id))
+    .map((id) => contactById(id, contacts))
     .filter((x): x is NonNullable<typeof x> => x != null);
 
   // No audio source until the capture pipeline lands; simulate the transport
@@ -370,11 +385,10 @@ export function ConversationWorkspace({
   const postComment = () => {
     const body = commentDraft.trim();
     if (!body) return;
-    setComments((cs) => [
-      ...cs,
-      { authorId: CURRENT_USER, body, atMs: isNote ? undefined : playheadMs, when: "just now" },
-    ]);
+    const atMs = isNote ? undefined : playheadMs;
+    setComments((cs) => [...cs, { authorId: currentUserId, body, atMs, when: "just now" }]);
     setCommentDraft("");
+    void postConversationComment({ conversationId: c.id, authorId: currentUserId, body, atMs });
   };
 
   const speakerName = (label: string) =>
@@ -452,7 +466,17 @@ export function ConversationWorkspace({
             </p>
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Pill tone="gray">{c.shared ? "Shared with team" : "Private"}</Pill>
+            <button
+              type="button"
+              onClick={() => {
+                const next = !shared;
+                setShared(next);
+                void toggleConversationShare(c.id, next);
+              }}
+              className="cursor-pointer"
+            >
+              <Pill tone="gray">{shared ? "Shared with team" : "Private"}</Pill>
+            </button>
             <button
               type="button"
               onClick={copyShareLink}
@@ -532,10 +556,19 @@ export function ConversationWorkspace({
                       label: p.name,
                       href: `/customers/${p.id}`,
                     })),
-                    options: allCustomers.map((cu) => ({ id: cu.id, label: cu.name })),
+                    options: customers.map((cu) => ({ id: cu.id, label: cu.name })),
                     onAdd: (id) =>
-                      setParticipantIds((ids) => (ids.includes(id) ? ids : [...ids, id])),
-                    onRemove: (id) => setParticipantIds((ids) => ids.filter((x) => x !== id)),
+                      setParticipantIds((ids) => {
+                        const next = ids.includes(id) ? ids : [...ids, id];
+                        void updateConversationParticipants(c.id, next);
+                        return next;
+                      }),
+                    onRemove: (id) =>
+                      setParticipantIds((ids) => {
+                        const next = ids.filter((x) => x !== id);
+                        void updateConversationParticipants(c.id, next);
+                        return next;
+                      }),
                   }}
                   contacts={{
                     linked: linkedContacts.map((p) => ({
@@ -544,9 +577,19 @@ export function ConversationWorkspace({
                       sub: p.role,
                       href: p.customerId ? `/customers/${p.customerId}` : undefined,
                     })),
-                    options: allContacts.map((p) => ({ id: p.id, label: p.name, sub: p.role })),
-                    onAdd: (id) => setContactIds((ids) => (ids.includes(id) ? ids : [...ids, id])),
-                    onRemove: (id) => setContactIds((ids) => ids.filter((x) => x !== id)),
+                    options: contacts.map((p) => ({ id: p.id, label: p.name, sub: p.role })),
+                    onAdd: (id) =>
+                      setContactIds((ids) => {
+                        const next = ids.includes(id) ? ids : [...ids, id];
+                        void updateConversationContacts(c.id, next);
+                        return next;
+                      }),
+                    onRemove: (id) =>
+                      setContactIds((ids) => {
+                        const next = ids.filter((x) => x !== id);
+                        void updateConversationContacts(c.id, next);
+                        return next;
+                      }),
                   }}
                 />
 
@@ -592,7 +635,7 @@ export function ConversationWorkspace({
                         d.editedBy ? (
                           <span className="flex items-center gap-1 text-[12.5px] font-semibold text-ink-2">
                             <PencilLine size={13} />
-                            Edited by {ownerById(d.editedBy).name}
+                            Edited by {ownerById(d.editedBy, owners).name}
                           </span>
                         ) : undefined
                       }
@@ -614,7 +657,7 @@ export function ConversationWorkspace({
                         d.editedBy ? (
                           <span className="flex items-center gap-1 text-[12.5px] font-semibold text-ink-2">
                             <PencilLine size={13} />
-                            Edited by {ownerById(d.editedBy).name}
+                            Edited by {ownerById(d.editedBy, owners).name}
                           </span>
                         ) : undefined
                       }
@@ -645,15 +688,11 @@ export function ConversationWorkspace({
                           <input
                             type="checkbox"
                             checked={a.status === "done"}
-                            onChange={() =>
-                              setActions((rs) =>
-                                rs.map((x) =>
-                                  x.id === a.id
-                                    ? { ...x, status: x.status === "done" ? "open" : "done" }
-                                    : x,
-                                ),
-                              )
-                            }
+                            onChange={() => {
+                              const nextStatus = a.status === "done" ? "open" : "done";
+                              setActions((rs) => rs.map((x) => (x.id === a.id ? { ...x, status: nextStatus } : x)));
+                              void toggleActionItemStatus(a.id, c.id, nextStatus);
+                            }}
                             aria-label={`Mark "${a.task}" ${a.status === "done" ? "open" : "done"}`}
                             className="h-4 w-4 shrink-0 cursor-pointer accent-[#0295ac]"
                           />
@@ -823,7 +862,7 @@ export function ConversationWorkspace({
                   {comments.length > 0 && (
                     <div className="flex flex-col gap-3.5">
                       {comments.map((cm, i) => {
-                        const who = ownerById(cm.authorId);
+                        const who = ownerById(cm.authorId, owners);
                         return (
                           <div key={i} className="flex items-start gap-3">
                             <Avatar owner={who} size={24} />
@@ -841,7 +880,7 @@ export function ConversationWorkspace({
                     </div>
                   )}
                   <div className={`flex items-start gap-3 ${comments.length > 0 ? "mt-4 border-t border-line-2 pt-4" : ""}`}>
-                    <Avatar owner={ownerById(CURRENT_USER)} size={24} />
+                    <Avatar owner={ownerById(currentUserId, owners)} size={24} />
                     <div className="min-w-0 flex-1">
                       <textarea
                         value={commentDraft}

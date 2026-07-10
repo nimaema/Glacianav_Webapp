@@ -1,5 +1,5 @@
 import { statusChips } from "@/lib/conversation-status";
-import type { Conversation } from "@/lib/fixtures";
+import type { Conversation, Customer, Owner, Topic } from "@/lib/fixtures";
 import { NoteCard } from "./note-card";
 import { RecordingCard, Wave } from "./recording-card";
 
@@ -22,6 +22,9 @@ export function ConversationRow(props: {
   showVisibility?: boolean;
   dragProps?: DragHandleProps;
   dimmed?: boolean;
+  topic?: Topic;
+  owners?: Owner[];
+  customers?: Customer[];
 }) {
   if (props.conversation.noteBody) return <NoteCard {...props} />;
   return <RecordingCard {...props} />;

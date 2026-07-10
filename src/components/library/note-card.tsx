@@ -4,7 +4,15 @@ import { NotePencil } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/pill";
 import { rowOpenHandlers } from "@/components/customers/row-open";
-import { ownerById, participantsFor, topicById, type Conversation, type Topic } from "@/lib/fixtures";
+import {
+  ownerById,
+  participantsFor,
+  topicById,
+  type Conversation,
+  type Customer,
+  type Owner,
+  type Topic,
+} from "@/lib/fixtures";
 
 function readingTime(body: string): string {
   const words = body.trim().split(/\s+/).filter(Boolean).length;
@@ -28,6 +36,8 @@ export function NoteCard({
   dragProps,
   dimmed,
   topic: topicOverride,
+  owners,
+  customers,
 }: {
   conversation: Conversation;
   onOpen: (id: string) => void;
@@ -36,10 +46,12 @@ export function NoteCard({
   dragProps?: DragHandleProps;
   dimmed?: boolean;
   topic?: Topic;
+  owners?: Owner[];
+  customers?: Customer[];
 }) {
   const topic = topicOverride ?? topicById(c.topicId);
-  const participants = participantsFor(c);
-  const author = ownerById(c.authorId);
+  const participants = participantsFor(c, customers);
+  const author = ownerById(c.authorId, owners);
   const body = c.noteBody ?? "";
 
   return (
