@@ -45,7 +45,7 @@ function getDb(): DrizzleDb {
   // minutes waiting on a slot.
   const client = postgres(connectionString, {
     prepare: false,
-    max: 5,
+    max: 20,
     idle_timeout: 20,
     connect_timeout: 10,
   });
