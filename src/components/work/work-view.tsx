@@ -4,48 +4,19 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Buildings,
-  CalendarCheck,
   ChatCircleText,
-  ClockCounterClockwise,
   ListChecks,
   MagnifyingGlass,
   Plus,
-  WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
 import { AssigneePicker } from "@/components/ui/assignee-picker";
 import { HeaderStat, PageHeader } from "@/components/ui/page-header";
 import { SectionHeader } from "@/components/ui/section-header";
-import {
-  conversationDetails,
-  conversations,
-  customers,
-  customerTasks as customerTasksSeed,
-  ownerById,
-  queue,
-  type ActionItem,
-  type ManualTask,
-  type QueueItem,
-  type QueueKind,
-} from "@/lib/fixtures";
-
-// Auth lands in the backend phase; until then the session user is fixed.
-const CURRENT_USER = "nima";
-
-type Source =
-  | { type: "conversation"; id: string; label: string }
-  | { type: "customer"; id: string; label: string };
-
-type WorkTask = {
-  key: string;
-  task: string;
-  assigneeIds: string[];
-  dueLabel?: string;
-  status: "open" | "done";
-  source: Source;
-  editable: boolean;
-};
+import { ownerById, type Customer, type Owner } from "@/lib/fixtures";
+import type { ReviewQueueItem, WorkTask } from "@/lib/data/work";
+import { createManualTask, setWorkTaskAssignees, toggleWorkTaskStatus } from "@/lib/data/work-actions";
 
 type Bucket = "Overdue" | "Today" | "This week" | "Later" | "No due date";
 
@@ -75,22 +46,6 @@ const TASK_VIEWS: { id: ViewId; label: string }[] = [
   { id: "done", label: "Done" },
 ];
 
-const QUEUE_ICON: Record<QueueKind, { icon: React.ElementType; color: string }> = {
-  interview: { icon: CalendarCheck, color: "#14b8ce" },
-  review: { icon: ChatCircleText, color: "#6e5be8" },
-  followup: { icon: ClockCounterClockwise, color: "#f26d5f" },
-  task: { icon: ListChecks, color: "#27b577" },
-  stale: { icon: WarningCircle, color: "#8a939a" },
-};
-
-const QUEUE_HREF: Record<QueueKind, (item: QueueItem) => string> = {
-  interview: () => "/calendar",
-  review: () => "/library",
-  followup: () => "/customers",
-  task: () => "/work",
-  stale: () => "/customers",
-};
-
 // Task table: single-line grid rows, one shared header — same fixed-column
 // technique the Board uses, so a row never wraps or stacks into a card.
 const CHECK_W = 26;
@@ -99,43 +54,39 @@ const SOURCE_W = 180;
 const ASSIGNEE_W = 72;
 const TASK_GRID = `${CHECK_W}px minmax(0,1fr) ${DUE_W}px ${SOURCE_W}px ${ASSIGNEE_W}px`;
 
-// Only genuinely distinct attention types belong here — kind "task" is
-// just a regular action item and already lives in the table below, so
-// showing it again here read as an unexplained duplicate.
-const alertItems = queue.filter((item) => item.kind !== "task");
-
-function AlertStrip() {
-  if (alertItems.length === 0) return null;
+// The real equivalent of fixtures.ts's multi-kind attention queue is just
+// "ready for review" conversations — interview/follow-up kinds need real
+// calendar and follow-up-status data that doesn't exist yet (same honest
+// gap noted on Home), and "stale" already has its own dedicated view below.
+function AlertStrip({ items }: { items: ReviewQueueItem[] }) {
+  if (items.length === 0) return null;
   return (
     <section className="flex flex-col gap-2.5">
-      <SectionHeader count={alertItems.length}>Needs attention</SectionHeader>
+      <SectionHeader count={items.length}>Needs attention</SectionHeader>
       <div className="flex flex-wrap gap-2">
-        {alertItems.map((item) => {
-          const { icon: IconEl, color } = QUEUE_ICON[item.kind];
-          return (
-            <Link
-              key={item.id}
-              href={QUEUE_HREF[item.kind](item)}
-              className="surfaced rise-on-hover flex items-center gap-2.5 rounded-full py-2 pl-2.5 pr-3.5"
-              data-rise
+        {items.map((item) => (
+          <Link
+            key={item.id}
+            href={`/library/${item.id}`}
+            className="surfaced rise-on-hover flex items-center gap-2.5 rounded-full py-2 pl-2.5 pr-3.5"
+            data-rise
+          >
+            <span
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+              style={{ background: "#6e5be822", color: "#6e5be8" }}
             >
-              <span
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-                style={{ background: `${color}22`, color }}
-              >
-                <IconEl size={13} weight="bold" />
-              </span>
-              <span className="text-[13px] font-semibold text-ink">{item.title}</span>
-              <span className="font-mono text-[12px] text-ink-3 tabular-nums">{item.when}</span>
-            </Link>
-          );
-        })}
+              <ChatCircleText size={13} weight="bold" />
+            </span>
+            <span className="text-[13px] font-semibold text-ink">{item.title}</span>
+            <span className="font-mono text-[12px] text-ink-3 tabular-nums">{item.when}</span>
+          </Link>
+        ))}
       </div>
     </section>
   );
 }
 
-function SourceChip({ source }: { source: Source }) {
+function SourceChip({ source }: { source: WorkTask["source"] }) {
   if (source.type === "conversation") {
     return (
       <Link
@@ -163,9 +114,11 @@ function SourceChip({ source }: { source: Source }) {
 }
 
 function AddTaskComposer({
+  customers,
   onAdd,
   onCancel,
 }: {
+  customers: Customer[];
   onAdd: (customerId: string, task: string, dueLabel: string) => void;
   onCancel: () => void;
 }) {
@@ -231,49 +184,27 @@ function AddTaskComposer({
   );
 }
 
-export function WorkView() {
+export function WorkView({
+  tasks,
+  customers,
+  owners,
+  reviewQueue,
+  currentUserId,
+}: {
+  tasks: WorkTask[];
+  customers: Customer[];
+  owners: Owner[];
+  reviewQueue: ReviewQueueItem[];
+  currentUserId: string;
+}) {
   const [scope, setScope] = useState<"Everyone" | "Mine">("Everyone");
   const [sourceFilter, setSourceFilter] = useState<"All" | "Conversations" | "Manual">("All");
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [view, setView] = useState<ViewId>("all");
+  const [rows, setRows] = useState<WorkTask[]>(tasks);
 
-  // Manual (customer-page) tasks are the only ones this page can edit —
-  // conversation action items are owned by the Conversation Workspace, so
-  // they render read-only here, same convention as the Customer Room.
-  const [manualTasks, setManualTasks] = useState<Record<string, ManualTask[]>>(customerTasksSeed);
-  const [conversationDone, setConversationDone] = useState<Record<string, boolean>>({});
-
-  const conversationTasks: WorkTask[] = conversations.flatMap((cv) =>
-    (conversationDetails[cv.id]?.actionItems ?? []).map((a: ActionItem) => {
-      const key = `${cv.id}-${a.id}`;
-      return {
-        key,
-        task: a.task,
-        assigneeIds: a.assigneeIds,
-        dueLabel: a.dueLabel,
-        status: conversationDone[key] === undefined ? a.status : conversationDone[key] ? "done" : "open",
-        source: { type: "conversation", id: cv.id, label: cv.title },
-        editable: false,
-      };
-    }),
-  );
-
-  const manualWorkTasks: WorkTask[] = customers.flatMap((c) =>
-    (manualTasks[c.id] ?? []).map((t) => ({
-      key: `manual-${c.id}-${t.id}`,
-      task: t.task,
-      assigneeIds: t.assigneeIds,
-      dueLabel: t.dueLabel,
-      status: t.status,
-      source: { type: "customer", id: c.id, label: c.name },
-      editable: true,
-    })),
-  );
-
-  const scoped = [...conversationTasks, ...manualWorkTasks].filter(
-    (t) => scope === "Everyone" || t.assigneeIds.includes(CURRENT_USER),
-  );
+  const scoped = rows.filter((t) => scope === "Everyone" || t.assigneeIds.includes(currentUserId));
 
   const viewCounts = useMemo(() => {
     const counts: Record<ViewId, number> = {
@@ -316,51 +247,41 @@ export function WorkView() {
     return true;
   });
 
-  const canComplete = (t: WorkTask) => t.assigneeIds.length === 0 || t.assigneeIds.includes(CURRENT_USER);
+  const canComplete = (t: WorkTask) => t.assigneeIds.length === 0 || t.assigneeIds.includes(currentUserId);
 
   const toggleTask = (t: WorkTask) => {
-    if (t.editable) {
-      const [, customerId, taskId] = t.key.split("-");
-      setManualTasks((prev) => ({
-        ...prev,
-        [customerId]: (prev[customerId] ?? []).map((x) =>
-          x.id === taskId ? { ...x, status: x.status === "open" ? "done" : "open" } : x,
-        ),
-      }));
-    } else {
-      setConversationDone((d) => ({ ...d, [t.key]: t.status === "open" }));
-    }
+    const nextStatus = t.status === "open" ? "done" : "open";
+    setRows((rs) => rs.map((x) => (x.id === t.id ? { ...x, status: nextStatus } : x)));
+    void toggleWorkTaskStatus(t.id, nextStatus);
   };
 
   const toggleAssignee = (t: WorkTask, ownerId: string) => {
     if (!t.editable) return;
-    const [, customerId, taskId] = t.key.split("-");
-    setManualTasks((prev) => ({
-      ...prev,
-      [customerId]: (prev[customerId] ?? []).map((x) =>
-        x.id === taskId
-          ? {
-              ...x,
-              assigneeIds: x.assigneeIds.includes(ownerId)
-                ? x.assigneeIds.filter((id) => id !== ownerId)
-                : [...x.assigneeIds, ownerId],
-            }
-          : x,
-      ),
-    }));
+    const nextAssignees = t.assigneeIds.includes(ownerId)
+      ? t.assigneeIds.filter((id) => id !== ownerId)
+      : [...t.assigneeIds, ownerId];
+    setRows((rs) => rs.map((x) => (x.id === t.id ? { ...x, assigneeIds: nextAssignees } : x)));
+    void setWorkTaskAssignees(t.id, nextAssignees);
   };
 
   const addTask = (customerId: string, task: string, dueLabel: string) => {
-    const id = `w${(manualTasks[customerId]?.length ?? 0) + 1}-${customerId}-${Object.keys(manualTasks).length}`;
-    setManualTasks((prev) => ({
-      ...prev,
-      [customerId]: [
-        ...(prev[customerId] ?? []),
-        { id, task, assigneeIds: [], dueLabel: dueLabel || undefined, status: "open" },
-      ],
-    }));
+    const customer = customers.find((c) => c.id === customerId);
     setAdding(false);
     setView(dueLabel ? bucketFor(dueLabel) : "No due date");
+    void createManualTask({ customerId, task, dueLabel: dueLabel || undefined }).then(({ id }) => {
+      setRows((rs) => [
+        ...rs,
+        {
+          id,
+          task,
+          assigneeIds: [],
+          dueLabel: dueLabel || undefined,
+          status: "open",
+          source: { type: "customer", id: customerId, label: customer?.name ?? "Account" },
+          editable: true,
+        },
+      ]);
+    });
   };
 
   return (
@@ -379,7 +300,7 @@ export function WorkView() {
       />
 
       <div className="mx-auto flex max-w-[1600px] flex-col gap-6 px-7 py-6">
-        <AlertStrip />
+        <AlertStrip items={reviewQueue} />
 
         <div className="flex gap-6">
           <aside className="flex w-[208px] shrink-0 flex-col gap-4">
@@ -444,7 +365,7 @@ export function WorkView() {
                       <span className="truncate text-[13px] text-ink-2">{c.stage}</span>
                       <span className="font-mono text-[13px] font-semibold text-[#b23c2e] tabular-nums">{c.idleDays}d</span>
                       <span className="flex justify-end">
-                        <Avatar owner={ownerById(c.ownerId)} size={26} />
+                        <Avatar owner={ownerById(c.ownerId, owners)} size={26} />
                       </span>
                     </Link>
                   ))}
@@ -516,7 +437,7 @@ export function WorkView() {
 
                 {adding && (
                   <div className="mb-3">
-                    <AddTaskComposer onAdd={addTask} onCancel={() => setAdding(false)} />
+                    <AddTaskComposer customers={customers} onAdd={addTask} onCancel={() => setAdding(false)} />
                   </div>
                 )}
 
@@ -533,7 +454,7 @@ export function WorkView() {
                       const completableRow = canComplete(t);
                       return (
                         <div
-                          key={t.key}
+                          key={t.id}
                           style={{ gridTemplateColumns: TASK_GRID }}
                           className="grid items-center gap-3 rounded-md py-2.5 transition-colors duration-150 hover:bg-surface-2"
                         >
@@ -569,7 +490,7 @@ export function WorkView() {
                               <span className="flex -space-x-1.5">
                                 {t.assigneeIds.map((id) => (
                                   <span key={id} className="rounded-full ring-2 ring-white">
-                                    <Avatar owner={ownerById(id)} size={22} />
+                                    <Avatar owner={ownerById(id, owners)} size={22} />
                                   </span>
                                 ))}
                               </span>
