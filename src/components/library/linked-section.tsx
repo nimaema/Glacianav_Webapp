@@ -32,7 +32,7 @@ function LinkBucket({
   return (
     <div className="recessed flex min-w-0 flex-col gap-2.5 p-3">
       <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/70 text-melt ring-1 ring-line-2">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/70 text-accent ring-1 ring-line-2">
           {icon}
         </span>
         <div className="min-w-0">
@@ -50,7 +50,7 @@ function LinkBucket({
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               aria-haspopup="menu"
-              className="flex h-7 cursor-pointer items-center gap-1 rounded-md bg-white/80 px-2.5 text-[12.5px] font-bold text-melt ring-1 ring-melt/25 transition-colors duration-150 hover:bg-melt/10"
+              className="flex h-7 cursor-pointer items-center gap-1 rounded-md bg-white/80 px-2.5 text-[12.5px] font-bold text-accent ring-1 ring-accent/25 transition-colors duration-150 hover:bg-accent/10"
             >
               <Plus size={12} weight="bold" />
               Add
@@ -180,7 +180,7 @@ export function RelationshipLinkPanel({
   );
 }
 
-/** A labeled, editable set of linked records — customers or contacts on a
+/** A labeled, editable set of linked records - customers or contacts on a
  * conversation. Each linked chip removes on click of its own ×; an "Add"
  * ghost chip opens a picker of everything not yet linked. */
 export function LinkedSection({
@@ -218,14 +218,14 @@ export function LinkedSection({
             onRemove(l.id);
           }}
           aria-label={`Unlink ${l.label}`}
-          className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-ink-3 transition-colors duration-150 hover:bg-[rgba(11,61,77,0.15)] hover:text-ink"
+          className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-ink-3 transition-colors duration-150 hover:bg-[rgba(23,32,43,0.15)] hover:text-ink"
         >
           <X size={10} weight="bold" />
         </button>
       </>
     );
     const className =
-      "flex items-center gap-1.5 rounded-full bg-[rgba(11,61,77,0.06)] py-1 pl-3 pr-1.5 text-[13px] font-semibold text-ink-2 transition-colors duration-150 hover:bg-melt/10 hover:text-melt";
+      "flex items-center gap-1.5 rounded-full bg-[rgba(23,32,43,0.06)] py-1 pl-3 pr-1.5 text-[13px] font-semibold text-ink-2 transition-colors duration-150 hover:bg-accent/10 hover:text-accent";
     return l.href ? (
       <Link href={l.href} className={className}>
         {inner}
@@ -255,7 +255,7 @@ export function LinkedSection({
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               aria-haspopup="menu"
-              className="flex h-7 cursor-pointer items-center gap-1 rounded-full border border-dashed border-line px-2.5 text-[12.5px] font-bold text-ink-3 transition-colors duration-150 hover:border-melt/60 hover:text-melt"
+              className="flex h-7 cursor-pointer items-center gap-1 rounded-full border border-dashed border-line px-2.5 text-[12.5px] font-bold text-ink-3 transition-colors duration-150 hover:border-accent/60 hover:text-accent"
             >
               <Plus size={12} weight="bold" />
               Add

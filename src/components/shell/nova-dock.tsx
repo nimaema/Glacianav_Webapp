@@ -123,10 +123,10 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
         >
           <div className="flex shrink-0 items-center justify-between border-b border-line-2 px-5 pb-3 pt-4">
             <span className="flex items-center gap-2 text-[15px] font-semibold">
-              <Sparkle size={17} className="text-melt" />
+              <Sparkle size={17} className="text-accent" />
               Nova
               {scopeCustomer && (
-                <span className="rounded-full bg-melt/10 px-2 py-0.5 text-[12px] font-medium text-melt">{scopeCustomer.name}</span>
+                <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[12px] font-medium text-accent">{scopeCustomer.name}</span>
               )}
             </span>
             <button
@@ -150,8 +150,8 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[88%] border px-3.5 py-2.5 text-[14px] leading-relaxed ${
-                    m.role === "user" ? "border-melt bg-melt text-white" : "border-line bg-surface-2 text-ink"
+                  className={`rounded-control max-w-[88%] border px-3.5 py-2.5 text-[14px] leading-relaxed ${
+                    m.role === "user" ? "border-accent bg-accent text-white" : "border-line bg-surface-2 text-ink"
                   }`}
                 >
                   {m.pendingFileName && (
@@ -167,18 +167,18 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                         <p
                           key={ai}
                           className={`flex items-center gap-1.5 text-[12.5px] font-medium ${
-                            a.ok ? (m.role === "user" ? "text-white/85" : "text-melt") : "text-danger"
+                            a.ok ? (m.role === "user" ? "text-white/85" : "text-accent") : "text-danger"
                           }`}
                         >
                           <span
                             className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                              a.ok ? "bg-melt/15 text-melt" : "bg-danger/15 text-danger"
+                              a.ok ? "bg-accent-soft text-accent" : "bg-danger/15 text-danger"
                             }`}
                           >
                             {a.ok ? "✓" : "✕"}
                           </span>
                           {a.label}
-                          {a.detail ? <span className="text-ink-3">— {a.detail}</span> : null}
+                          {a.detail ? <span className="text-ink-3"> - {a.detail}</span> : null}
                         </p>
                       ))}
                     </div>
@@ -190,9 +190,9 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                           key={fi}
                           type="button"
                           onClick={() => downloadFile(f)}
-                          className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-[13px] font-semibold text-ink shadow-sm transition-colors duration-150 hover:bg-ice-0"
+                          className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-[13px] font-semibold text-ink shadow-sm transition-colors duration-150 hover:bg-page"
                         >
-                          <DownloadSimple size={15} className="shrink-0 text-melt" />
+                          <DownloadSimple size={15} className="shrink-0 text-accent" />
                           <span className="min-w-0 flex-1 truncate">
                             {f.filename}.{f.format === "markdown" ? "md" : f.format}
                           </span>
@@ -255,14 +255,14 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                 }}
                 placeholder="Ask Nova, or attach a file…"
                 rows={1}
-                className="h-9 max-h-24 w-full resize-none rounded-lg bg-surface-2 px-3 py-2 text-[14px] text-ink outline-none placeholder:text-ink-3 focus:bg-ice-0"
+                className="h-9 max-h-24 w-full resize-none rounded-lg bg-surface-2 px-3 py-2 text-[14px] text-ink outline-none placeholder:text-ink-3 focus:bg-page"
               />
               <button
                 type="button"
                 onClick={() => void send()}
                 disabled={sending || (!draft.trim() && !pendingFile)}
                 aria-label="Send"
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-melt text-white transition-colors duration-150 hover:bg-melt-strong disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-accent text-white transition-colors duration-150 hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <PaperPlaneTilt size={15} weight="bold" />
               </button>
@@ -276,9 +276,10 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label="Open Nova"
-        className="flex h-12 w-12 cursor-pointer items-center justify-center gap-2 border border-ink bg-signal px-0 text-[14px] font-semibold text-ink shadow-[5px_5px_0_var(--ink)] hover:bg-[#cddd37] sm:w-auto sm:px-5"
+        style={{ backgroundImage: "linear-gradient(135deg, var(--aurora-1), var(--aurora-2) 55%, var(--aurora-3))" }}
+        className="rounded-pill flex h-12 w-12 cursor-pointer items-center justify-center gap-2 px-0 text-[14px] font-semibold text-white shadow-[0_14px_28px_-14px_rgba(23,32,43,0.4)] transition-shadow duration-150 hover:shadow-[0_18px_34px_-14px_rgba(23,32,43,0.5)] sm:w-auto sm:px-5"
       >
-        <Sparkle size={17} />
+        <Sparkle size={17} weight="fill" />
         <span className="hidden sm:inline">Nova</span>
       </button>
     </div>

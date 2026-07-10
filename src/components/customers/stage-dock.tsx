@@ -36,7 +36,7 @@ export function StageDock({
               onClick={() => onSelect(active ? null : s.key)}
               aria-pressed={active}
               className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150 ${
-                active ? "bg-melt text-white" : "text-ink-2 hover:bg-surface-2"
+                active ? "bg-accent text-white" : "text-ink-2 hover:bg-surface-2"
               }`}
             >
               <span
@@ -54,7 +54,7 @@ export function StageDock({
                 {ownerIds.map((id) => (
                   <span
                     key={id}
-                    className={`rounded-full ring-2 ${active ? "ring-melt" : "ring-white"}`}
+                    className={`rounded-full ring-2 ${active ? "ring-accent" : "ring-white"}`}
                   >
                     <Avatar owner={ownerById(id, owners)} size={20} />
                   </span>

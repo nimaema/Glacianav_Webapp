@@ -35,7 +35,7 @@ export async function setCustomerArchived(id: string, archived: boolean) {
   revalidateBoth();
 }
 
-const SEGMENT_COLOR_ROTATION = ["#2f6fd0", "#14b8ce", "#27b577", "#6e5be8", "#f26d5f"];
+const SEGMENT_COLOR_ROTATION = ["#3d6fa6", "#1f95a8", "#2f9e63", "#6f5fb0", "#d1614a"];
 const STAGE_TONE_ROTATION = ["blue", "cyan", "green", "violet", "coral", "gray"] as const;
 
 function slugify(s: string) {

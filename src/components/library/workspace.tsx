@@ -59,7 +59,7 @@ function TraceChip({ ms, onSeek }: { ms: number; onSeek: (ms: number) => void })
     <button
       type="button"
       onClick={() => onSeek(ms)}
-      className="shrink-0 cursor-pointer rounded-full bg-melt/10 px-2.5 py-1 font-mono text-[13px] font-bold text-melt tabular-nums transition-colors duration-150 hover:bg-melt/20"
+      className="shrink-0 cursor-pointer rounded-full bg-accent/10 px-2.5 py-1 font-mono text-[13px] font-bold text-accent tabular-nums transition-colors duration-150 hover:bg-accent/20"
     >
       {fmtMs(ms)}
     </button>
@@ -67,7 +67,7 @@ function TraceChip({ ms, onSeek }: { ms: number; onSeek: (ms: number) => void })
 }
 
 // Waveform bars stretched/repeated from the conversation's stored wave to
-// fill the track, with a melt-accent layer clip-revealed by progress —
+// fill the track, with a accent-accent layer clip-revealed by progress —
 // the same reveal-on-play language the recording screen's live bars use.
 function waveBars(wave: number[], count: number) {
   return Array.from({ length: count }, (_, i) => wave[i % wave.length]);
@@ -113,7 +113,7 @@ function AudioPlayer({
         type="button"
         onClick={onTogglePlay}
         aria-label={playing ? "Pause" : "Play"}
-        className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-melt text-white shadow-[0_10px_20px_-10px_rgba(2,149,172,0.7)] transition-transform duration-150 hover:-translate-y-px active:translate-y-0"
+        className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_20px_-10px_rgba(61,111,166,0.6)] transition-transform duration-150 hover:-translate-y-px active:translate-y-0"
       >
         {playing ? <Pause size={20} weight="fill" /> : <Play size={20} weight="fill" />}
       </button>
@@ -143,7 +143,7 @@ function AudioPlayer({
             <span
               key={i}
               aria-hidden
-              className="flex-1 rounded-full bg-[rgba(11,61,77,0.16)]"
+              className="flex-1 rounded-full bg-[rgba(23,32,43,0.16)]"
               style={{ height: `${h}%` }}
             />
           ))}
@@ -155,7 +155,7 @@ function AudioPlayer({
             {barHeights.map((h, i) => (
               <span
                 key={i}
-                className={`flex-1 rounded-full bg-melt ${playing ? "wave-bar" : ""}`}
+                className={`flex-1 rounded-full bg-accent ${playing ? "wave-bar" : ""}`}
                 style={{
                   height: `${h}%`,
                   animationDuration: playing ? `${0.6 + (i % 5) / 10}s` : undefined,
@@ -167,7 +167,7 @@ function AudioPlayer({
             <span
               key={`ch-${ms}`}
               aria-hidden
-              className="pointer-events-none absolute -top-1 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[rgba(11,61,77,0.5)]"
+              className="pointer-events-none absolute -top-1 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[rgba(23,32,43,0.5)]"
               style={{ left: pct(ms) }}
             />
           ))}
@@ -175,7 +175,7 @@ function AudioPlayer({
             <span
               key={`m-${i}`}
               aria-hidden
-              className="pointer-events-none absolute -bottom-1 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-melt"
+              className="pointer-events-none absolute -bottom-1 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-accent"
               style={{ left: pct(ms) }}
             />
           ))}
@@ -212,7 +212,7 @@ function ProcessingView({ title }: { title: string }) {
                 s.state === "done"
                   ? "bg-data-green"
                   : s.state === "active"
-                    ? "animate-pulse bg-melt"
+                    ? "animate-pulse bg-accent"
                     : "bg-line"
               }`}
             />
@@ -266,7 +266,7 @@ function QaPanel({
           m.role === "user" ? (
             <p
               key={i}
-              className="self-end rounded-firn bg-melt/10 px-3 py-2 text-[14px] font-semibold text-ink"
+              className="self-end rounded-card bg-accent/10 px-3 py-2 text-[14px] font-semibold text-ink"
             >
               {m.content}
             </p>
@@ -278,9 +278,9 @@ function QaPanel({
                   key={c.startMs}
                   type="button"
                   onClick={() => onSeek(c.startMs)}
-                  className="recessed flex cursor-pointer items-baseline gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-[rgba(11,61,77,0.10)]"
+                  className="recessed flex cursor-pointer items-baseline gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-[rgba(23,32,43,0.10)]"
                 >
-                  <span className="font-mono text-[12px] font-bold text-melt tabular-nums">
+                  <span className="font-mono text-[12px] font-bold text-accent tabular-nums">
                     {fmtMs(c.startMs)}
                   </span>
                   <span className="text-[13.5px] leading-snug text-ink-2">
@@ -310,7 +310,7 @@ function QaPanel({
           type="button"
           onClick={send}
           aria-label="Send question"
-          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-melt text-white transition-colors duration-150 hover:bg-melt-strong"
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-accent text-white transition-colors duration-150 hover:bg-accent-strong"
         >
           <PaperPlaneTilt size={16} />
         </button>
@@ -394,7 +394,7 @@ export function ConversationWorkspace({
   const speakerName = (label: string) =>
     d.speakers?.find((s) => s.label === label)?.name ?? `Speaker ${label}`;
   const speakerColor = (label: string) =>
-    d.speakers?.find((s) => s.label === label)?.color ?? "#54717e";
+    d.speakers?.find((s) => s.label === label)?.color ?? "#4b5566";
 
   const markers = useMemo(
     () =>
@@ -431,7 +431,7 @@ export function ConversationWorkspace({
 
   return (
     <>
-      <header className="bg-[linear-gradient(180deg,#ffffff,#fbfdfe)] shadow-[0_1px_0_rgba(11,61,77,0.10),0_12px_24px_-18px_rgba(6,80,96,0.5)]">
+      <header className="bg-[linear-gradient(180deg,#ffffff,#fbfdfe)] shadow-[0_1px_0_rgba(23,32,43,0.10),0_12px_24px_-18px_rgba(23,32,43,0.35)]">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-3 px-7 py-4">
           <Link
             href="/library"
@@ -442,7 +442,7 @@ export function ConversationWorkspace({
           </Link>
           <span
             aria-hidden
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-melt/10 text-melt"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent"
           >
             {isNote ? <NotePencil size={20} /> : <Microphone size={20} />}
           </span>
@@ -480,7 +480,7 @@ export function ConversationWorkspace({
             <button
               type="button"
               onClick={copyShareLink}
-              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3.5 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-accent/60 px-3.5 text-[13px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
             >
               <LinkSimple size={16} />
               {linkCopied ? "Link copied" : "Share link"}
@@ -491,7 +491,7 @@ export function ConversationWorkspace({
                 onClick={() => setExportOpen((v) => !v)}
                 aria-expanded={exportOpen}
                 aria-haspopup="menu"
-                className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3.5 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+                className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-accent/60 px-3.5 text-[13px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
               >
                 Export
                 <CaretDown size={14} />
@@ -606,7 +606,7 @@ export function ConversationWorkspace({
                             onClick={() => seekAndPlay(ch.startMs)}
                             className="flex w-full cursor-pointer items-start gap-3 rounded-md px-2 py-2 text-left transition-colors duration-150 hover:bg-surface-2"
                           >
-                            <span className="mt-0.5 shrink-0 rounded-full bg-melt/10 px-2.5 py-1 font-mono text-[13px] font-bold text-melt tabular-nums">
+                            <span className="mt-0.5 shrink-0 rounded-full bg-accent/10 px-2.5 py-1 font-mono text-[13px] font-bold text-accent tabular-nums">
                               {fmtMs(ch.startMs)}
                             </span>
                             <span className="min-w-0">
@@ -694,7 +694,7 @@ export function ConversationWorkspace({
                               void toggleActionItemStatus(a.id, c.id, nextStatus);
                             }}
                             aria-label={`Mark "${a.task}" ${a.status === "done" ? "open" : "done"}`}
-                            className="h-4 w-4 shrink-0 cursor-pointer accent-[#0295ac]"
+                            className="h-4 w-4 shrink-0 cursor-pointer accent-[#3d6fa6]"
                           />
                           <span
                             className={`min-w-0 flex-1 text-[14.5px] ${
@@ -833,7 +833,7 @@ export function ConversationWorkspace({
                               {u.text}
                               {u.lowConfidence && (
                                 <span
-                                  className="ml-1.5 inline-flex items-center gap-0.5 align-middle text-[12.5px] font-semibold text-[#b23c2e]"
+                                  className="ml-1.5 inline-flex items-center gap-0.5 align-middle text-[12.5px] font-semibold text-danger"
                                   title="Low transcription confidence"
                                 >
                                   <Warning size={12} />
@@ -914,7 +914,7 @@ export function ConversationWorkspace({
                           type="button"
                           onClick={postComment}
                           disabled={!commentDraft.trim()}
-                          className="h-7 cursor-pointer rounded-md bg-melt px-3 text-[12.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong disabled:cursor-not-allowed disabled:opacity-40"
+                          className="h-7 cursor-pointer rounded-md bg-accent px-3 text-[12.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Comment
                         </button>

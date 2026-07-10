@@ -21,7 +21,7 @@ import { createManualTask, setWorkTaskAssignees, toggleWorkTaskStatus } from "@/
 type Bucket = "Overdue" | "Today" | "This week" | "Later" | "No due date";
 
 // Fixture due labels are free text ("Fri", "next week", "2d overdue"), not
-// real dates — this is a heuristic reading of that text, same way a person
+// real dates - this is a heuristic reading of that text, same way a person
 // would triage a due-label column, not a date parser.
 function bucketFor(dueLabel?: string): Bucket {
   if (!dueLabel) return "No due date";
@@ -46,7 +46,7 @@ const TASK_VIEWS: { id: ViewId; label: string }[] = [
   { id: "done", label: "Done" },
 ];
 
-// Task table: single-line grid rows, one shared header — same fixed-column
+// Task table: single-line grid rows, one shared header - same fixed-column
 // technique the Board uses, so a row never wraps or stacks into a card.
 const CHECK_W = 26;
 const DUE_W = 100;
@@ -55,7 +55,7 @@ const ASSIGNEE_W = 72;
 const TASK_GRID = `${CHECK_W}px minmax(0,1fr) ${DUE_W}px ${SOURCE_W}px ${ASSIGNEE_W}px`;
 
 // The real equivalent of fixtures.ts's multi-kind attention queue is just
-// "ready for review" conversations — interview/follow-up kinds need real
+// "ready for review" conversations - interview/follow-up kinds need real
 // calendar and follow-up-status data that doesn't exist yet (same honest
 // gap noted on Home), and "stale" already has its own dedicated view below.
 function AlertStrip({ items }: { items: ReviewQueueItem[] }) {
@@ -73,7 +73,7 @@ function AlertStrip({ items }: { items: ReviewQueueItem[] }) {
           >
             <span
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-              style={{ background: "#6e5be822", color: "#6e5be8" }}
+              style={{ background: "#6f5fb022", color: "#6f5fb0" }}
             >
               <ChatCircleText size={13} weight="bold" />
             </span>
@@ -91,7 +91,7 @@ function SourceChip({ source }: { source: WorkTask["source"] }) {
     return (
       <Link
         href={`/library/${source.id}`}
-        className="flex min-w-0 shrink-0 items-center gap-1 rounded-full bg-melt/10 px-2.5 py-1 text-[12px] font-bold text-melt transition-colors duration-150 hover:bg-melt/20"
+        className="flex min-w-0 shrink-0 items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-[12px] font-bold text-accent transition-colors duration-150 hover:bg-accent/20"
       >
         <ChatCircleText size={12} className="shrink-0" />
         <span className="min-w-0 truncate" title={source.label}>
@@ -103,7 +103,7 @@ function SourceChip({ source }: { source: WorkTask["source"] }) {
   return (
     <Link
       href={`/customers/${source.id}`}
-      className="flex min-w-0 shrink-0 items-center gap-1 rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-1 text-[12px] font-bold text-ink-2 transition-colors duration-150 hover:bg-[rgba(11,61,77,0.13)] hover:text-ink"
+      className="flex min-w-0 shrink-0 items-center gap-1 rounded-full bg-[rgba(23,32,43,0.07)] px-2.5 py-1 text-[12px] font-bold text-ink-2 transition-colors duration-150 hover:bg-[rgba(23,32,43,0.13)] hover:text-ink"
     >
       <Buildings size={12} className="shrink-0" />
       <span className="min-w-0 truncate" title={source.label}>
@@ -150,7 +150,7 @@ function AddTaskComposer({
         <input
           value={dueLabel}
           onChange={(e) => setDueLabel(e.target.value)}
-          placeholder="Due (optional — e.g. Fri, Today)"
+          placeholder="Due (optional - e.g. Fri, Today)"
           aria-label="Due label"
           className="recessed h-9 w-[220px] px-2.5 text-[13.5px] text-ink outline-none placeholder:text-ink-3"
         />
@@ -168,7 +168,7 @@ function AddTaskComposer({
         <button
           type="button"
           onClick={save}
-          className="h-9 cursor-pointer rounded-md bg-melt px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+          className="h-9 cursor-pointer rounded-md bg-accent px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
         >
           Add task
         </button>
@@ -289,12 +289,12 @@ export function WorkView({
       <PageHeader
         title="Work"
         icon={ListChecks}
-        meta="One task center — action items from every conversation, follow-ups, interviews, and stale accounts, all in one place."
+        meta="One task center - action items from every conversation, follow-ups, interviews, and stale accounts, all in one place."
         actions={
           <>
             <HeaderStat label="Open" value={viewCounts.all} />
-            <HeaderStat label="Overdue" value={overdueCount} divider tone={overdueCount > 0 ? "text-[#b23c2e]" : "text-ink"} />
-            <HeaderStat label="Going stale" value={staleCustomers.length} divider tone={staleCustomers.length > 0 ? "text-[#b23c2e]" : "text-ink"} />
+            <HeaderStat label="Overdue" value={overdueCount} divider tone={overdueCount > 0 ? "text-danger" : "text-ink"} />
+            <HeaderStat label="Going stale" value={staleCustomers.length} divider tone={staleCustomers.length > 0 ? "text-danger" : "text-ink"} />
           </>
         }
       />
@@ -314,11 +314,11 @@ export function WorkView({
                     onClick={() => setView(v.id)}
                     aria-current={view === v.id ? "page" : undefined}
                     className={`relative flex h-8 items-center gap-2 rounded-md px-2.5 text-[13.5px] transition-colors duration-150 ${
-                      view === v.id ? "bg-melt/10 font-semibold text-melt" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                      view === v.id ? "bg-accent/10 font-semibold text-accent" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                     }`}
                   >
                     <span className="min-w-0 flex-1 truncate text-left">{v.label}</span>
-                    <span className={`font-mono text-[12px] tabular-nums ${view === v.id ? "text-melt" : "text-ink-3"}`}>
+                    <span className={`font-mono text-[12px] tabular-nums ${view === v.id ? "text-accent" : "text-ink-3"}`}>
                       {v.id === "done" ? viewCounts.done : v.id === "all" ? viewCounts.all : viewCounts[v.id as Bucket]}
                     </span>
                   </button>
@@ -330,11 +330,11 @@ export function WorkView({
                 onClick={() => setView("stale")}
                 aria-current={view === "stale" ? "page" : undefined}
                 className={`relative flex h-8 items-center gap-2 rounded-md px-2.5 text-[13.5px] transition-colors duration-150 ${
-                  view === "stale" ? "bg-melt/10 font-semibold text-melt" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+                  view === "stale" ? "bg-accent/10 font-semibold text-accent" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
                 }`}
               >
                 <span className="min-w-0 flex-1 truncate text-left">Stale accounts</span>
-                <span className={`font-mono text-[12px] tabular-nums ${view === "stale" ? "text-melt" : "text-ink-3"}`}>
+                <span className={`font-mono text-[12px] tabular-nums ${view === "stale" ? "text-accent" : "text-ink-3"}`}>
                   {staleCustomers.length}
                 </span>
               </button>
@@ -363,7 +363,7 @@ export function WorkView({
                     >
                       <span className="truncate text-[14px] font-semibold text-ink">{c.name}</span>
                       <span className="truncate text-[13px] text-ink-2">{c.stage}</span>
-                      <span className="font-mono text-[13px] font-semibold text-[#b23c2e] tabular-nums">{c.idleDays}d</span>
+                      <span className="font-mono text-[13px] font-semibold text-danger tabular-nums">{c.idleDays}d</span>
                       <span className="flex justify-end">
                         <Avatar owner={ownerById(c.ownerId, owners)} size={26} />
                       </span>
@@ -371,7 +371,7 @@ export function WorkView({
                   ))}
                   {staleCustomers.length === 0 && (
                     <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">
-                      Nothing has gone quiet — every account has been touched in the last week.
+                      Nothing has gone quiet - every account has been touched in the last week.
                     </p>
                   )}
                 </div>
@@ -428,7 +428,7 @@ export function WorkView({
                   <button
                     type="button"
                     onClick={() => setAdding((v2) => !v2)}
-                    className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-melt px-3.5 text-[12.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+                    className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-3.5 text-[12.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
                   >
                     <Plus size={14} weight="bold" />
                     Add task
@@ -465,7 +465,7 @@ export function WorkView({
                             disabled={!completableRow}
                             aria-label={`Mark "${t.task}" ${t.status === "done" ? "open" : "done"}`}
                             title={completableRow ? undefined : "Only an assignee can mark this task done"}
-                            className="h-4 w-4 cursor-pointer accent-[#0295ac] disabled:cursor-not-allowed disabled:opacity-35"
+                            className="h-4 w-4 cursor-pointer accent-[#3d6fa6] disabled:cursor-not-allowed disabled:opacity-35"
                           />
                           <span
                             className={`min-w-0 truncate text-[14px] ${
@@ -477,10 +477,10 @@ export function WorkView({
                           </span>
                           <span
                             className={`truncate font-mono text-[12.5px] font-semibold tabular-nums ${
-                              bucketFor(t.dueLabel) === "Overdue" && t.status === "open" ? "text-[#b23c2e]" : "text-ink-2"
+                              bucketFor(t.dueLabel) === "Overdue" && t.status === "open" ? "text-danger" : "text-ink-2"
                             }`}
                           >
-                            {t.dueLabel ?? "—"}
+                            {t.dueLabel ?? "-"}
                           </span>
                           <SourceChip source={t.source} />
                           <div className="flex justify-end">
@@ -495,7 +495,7 @@ export function WorkView({
                                 ))}
                               </span>
                             ) : (
-                              <span className="text-[12px] text-ink-3">—</span>
+                              <span className="text-[12px] text-ink-3">-</span>
                             )}
                           </div>
                         </div>
@@ -503,7 +503,7 @@ export function WorkView({
                     })}
                     {filtered.length === 0 && (
                       <p className="py-4 text-[14px] text-ink-2">
-                        {search || sourceFilter !== "All" ? "No tasks match that filter." : "Nothing here — you're caught up."}
+                        {search || sourceFilter !== "All" ? "No tasks match that filter." : "Nothing here - you're caught up."}
                       </p>
                     )}
                   </div>

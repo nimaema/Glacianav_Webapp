@@ -25,7 +25,7 @@ type DragHandleProps = {
   onDragEnd?: () => void;
 };
 
-/** A written note — no recording behind it. Deliberately distinct from
+/** A written note - no recording behind it. Deliberately distinct from
  * RecordingCard: a topic-colored edge and a note icon instead of a
  * waveform, and a body preview instead of a pipeline-derived summary. */
 export function NoteCard({
@@ -68,8 +68,8 @@ export function NoteCard({
         className="absolute inset-y-0 left-0 w-[3px]"
         style={{ background: topic.color }}
       />
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-melt/10">
-        <NotePencil size={18} className="text-melt" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10">
+        <NotePencil size={18} className="text-accent" />
       </div>
 
       <div className="min-w-0 flex-1">

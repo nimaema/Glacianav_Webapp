@@ -36,11 +36,11 @@ type Lens = (typeof LENSES)[number];
 
 // Orthogonal to the lens above: which content type is visible. "All" keeps
 // the labeled Recordings/Notes subsections; picking one hides the other
-// entirely instead of just sub-grouping it — a real separation, not a label.
+// entirely instead of just sub-grouping it - a real separation, not a label.
 const TYPES = ["All", "Recordings", "Notes"] as const;
 type ContentType = (typeof TYPES)[number];
 
-const TOPIC_COLORS = ["#14b8ce", "#6e5be8", "#27b577", "#2f6fd0", "#f26d5f"];
+const TOPIC_COLORS = ["#1f95a8", "#6f5fb0", "#2f9e63", "#3d6fa6", "#d1614a"];
 
 type DragHandleProps = {
   draggable?: boolean;
@@ -48,7 +48,7 @@ type DragHandleProps = {
   onDragEnd?: () => void;
 };
 
-/** Recordings and notes are two different content types — always rendered
+/** Recordings and notes are two different content types - always rendered
  * as clearly separate, labeled groups, never intermixed in one list. */
 function TypeGroup({
   kind,
@@ -208,7 +208,7 @@ function TopicComposer({
               aria-label={`Use topic color ${swatch}`}
               aria-pressed={color === swatch}
               className={`h-10 w-10 cursor-pointer rounded-md ring-offset-2 ring-offset-white transition-transform duration-150 hover:-translate-y-px ${
-                color === swatch ? "ring-2 ring-melt" : "ring-1 ring-line-2"
+                color === swatch ? "ring-2 ring-accent" : "ring-1 ring-line-2"
               }`}
               style={{ background: swatch }}
             />
@@ -227,8 +227,8 @@ function TopicComposer({
               aria-pressed={active}
               className={`flex h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[13px] font-bold transition-colors duration-150 ${
                 active
-                  ? "bg-melt text-white"
-                  : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                  ? "bg-accent text-white"
+                  : "bg-[rgba(23,32,43,0.06)] text-ink-2 hover:bg-[rgba(23,32,43,0.1)]"
               }`}
             >
               {option.icon}
@@ -250,8 +250,8 @@ function TopicComposer({
                 aria-pressed={active}
                 className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-semibold transition-colors duration-150 ${
                   active
-                    ? "bg-melt/15 text-melt"
-                    : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                    ? "bg-accent/15 text-accent"
+                    : "bg-[rgba(23,32,43,0.06)] text-ink-2 hover:bg-[rgba(23,32,43,0.1)]"
                 }`}
               >
                 <Avatar owner={owner} size={18} />
@@ -267,7 +267,7 @@ function TopicComposer({
           type="button"
           onClick={create}
           disabled={!canCreate}
-          className="h-9 cursor-pointer rounded-md bg-melt px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-9 cursor-pointer rounded-md bg-accent px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
         >
           Create topic
         </button>
@@ -375,7 +375,7 @@ export function LibraryView({
             <button
               type="button"
               onClick={() => setCreatingTopic(true)}
-              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3.5 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-accent/60 px-3.5 text-[13px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
             >
               <Plus size={16} />
               New topic
@@ -383,14 +383,14 @@ export function LibraryView({
             <button
               type="button"
               onClick={() => setComposingNote(true)}
-              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3.5 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-accent/60 px-3.5 text-[13px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
             >
               <NotePencil size={16} />
               New note
             </button>
             <button
               type="button"
-              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3.5 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-accent/60 px-3.5 text-[13px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
             >
               <Microphone size={16} />
               Record
@@ -449,7 +449,7 @@ export function LibraryView({
                 aria-selected={active}
                 onClick={() => setType(t)}
                 className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-150 ${
-                  active ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                  active ? "bg-accent text-white" : "bg-[rgba(23,32,43,0.06)] text-ink-2 hover:bg-[rgba(23,32,43,0.1)]"
                 }`}
               >
                 {IconEl && <IconEl size={13} />}
@@ -479,8 +479,8 @@ export function LibraryView({
                   key={topic.id}
                   aria-label={topic.name}
                   {...dropProps(topic.id)}
-                  className={`rounded-firn ${
-                    isOver ? "outline-2 outline-dashed outline-melt/60 -outline-offset-2" : ""
+                  className={`rounded-card ${
+                    isOver ? "outline-2 outline-dashed outline-accent/60 -outline-offset-2" : ""
                   }`}
                 >
                   <SectionHeader
@@ -489,7 +489,7 @@ export function LibraryView({
                     className="mb-3"
                     action={
                       <span className="flex items-center gap-2">
-                        <span className="rounded-full bg-[rgba(11,61,77,0.06)] px-2 py-0.5 text-[11.5px] font-bold uppercase tracking-[0.08em] text-ink-3">
+                        <span className="rounded-full bg-[rgba(23,32,43,0.06)] px-2 py-0.5 text-[11.5px] font-bold uppercase tracking-[0.08em] text-ink-3">
                           {topic.visibility === "all"
                             ? "All users"
                             : topic.visibility === "private"

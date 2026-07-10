@@ -120,7 +120,7 @@ const inputClass =
   "recessed h-10 w-full px-3 text-[14px] text-ink outline-none placeholder:text-ink-3";
 
 const readClass =
-  "min-h-10 rounded-md bg-[rgba(11,61,77,0.045)] px-3 py-2 text-[14px] font-semibold text-ink";
+  "min-h-10 rounded-md bg-[rgba(23,32,43,0.045)] px-3 py-2 text-[14px] font-semibold text-ink";
 
 function EditableField({
   label,
@@ -151,7 +151,7 @@ function ReadField({
       <span className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.12em] text-ink-3">
         {label}
       </span>
-      <div className={readClass}>{children || <span className="text-ink-3">—</span>}</div>
+      <div className={readClass}>{children || <span className="text-ink-3">-</span>}</div>
     </div>
   );
 }
@@ -191,7 +191,7 @@ export function CustomerRoom({
         </p>
         <Link
           href="/customers"
-          className="mt-4 inline-block text-[14px] font-bold text-melt transition-colors duration-150 hover:text-melt-strong"
+          className="mt-4 inline-block text-[14px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
         >
           Back to customers
         </Link>
@@ -268,7 +268,7 @@ function CustomerRoomInner({
 
   // Conversation-sourced tasks are read-only here (owned by the
   // Conversation Workspace); customer-sourced ("manual") tasks are the
-  // only ones this page can edit — same convention Work's own view uses.
+  // only ones this page can edit - same convention Work's own view uses.
   const conversationTasks = initialTasks
     .filter((t) => t.conversationId != null)
     .map((t) => ({ ...t, key: t.id }));
@@ -443,7 +443,7 @@ function CustomerRoomInner({
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-4">
             {c.archived && (
-              <span className="flex items-center gap-1.5 rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-1 text-[12.5px] font-bold text-ink-2">
+              <span className="flex items-center gap-1.5 rounded-full bg-[rgba(23,32,43,0.07)] px-2.5 py-1 text-[12.5px] font-bold text-ink-2">
                 <Archive size={13} />
                 Archived
               </span>
@@ -453,13 +453,13 @@ function CustomerRoomInner({
             <button
               type="button"
               onClick={() => setEditingOverview((v) => !v)}
-              className="flex h-9 cursor-pointer items-center rounded-md border border-melt/60 px-3.5 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+              className="flex h-9 cursor-pointer items-center rounded-md border border-accent/60 px-3.5 text-[13px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
             >
               {editingOverview ? "Done" : "Edit"}
             </button>
             <Link
               href={`/record?c=${c.id}`}
-              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-melt px-4 text-[13px] font-bold leading-9 text-white transition-colors duration-150 hover:bg-melt-strong"
+              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-4 text-[13px] font-bold leading-9 text-white transition-colors duration-150 hover:bg-accent-strong"
             >
               <Record size={16} />
               Record
@@ -484,7 +484,7 @@ function CustomerRoomInner({
               >
                 {t}
                 {counts[t] !== undefined && counts[t]! > 0 && (
-                  <span className="rounded-full bg-[rgba(11,61,77,0.08)] px-1.5 font-mono text-[11.5px] text-ink-3 tabular-nums">
+                  <span className="rounded-full bg-[rgba(23,32,43,0.08)] px-1.5 font-mono text-[11.5px] text-ink-3 tabular-nums">
                     {counts[t]}
                   </span>
                 )}
@@ -505,7 +505,7 @@ function CustomerRoomInner({
                     <button
                       type="button"
                       onClick={() => setEditingOverview((v) => !v)}
-                      className="cursor-pointer text-[13.5px] font-bold text-melt transition-colors duration-150 hover:text-melt-strong"
+                      className="cursor-pointer text-[13.5px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
                     >
                       {editingOverview ? "Done editing" : "Edit details"}
                     </button>
@@ -643,7 +643,7 @@ function CustomerRoomInner({
                       </span>
                     </ReadField>
                     <ReadField label="Priority">
-                      {priority ? priority[0].toUpperCase() + priority.slice(1) : "—"}
+                      {priority ? priority[0].toUpperCase() + priority.slice(1) : "-"}
                     </ReadField>
                     <ReadField label="Compatibility">
                       <CompatibilityBadge compatibility={compatibility || null} />
@@ -654,17 +654,17 @@ function CustomerRoomInner({
                           href={website.startsWith("http") ? website : `https://${website}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-melt transition-colors duration-150 hover:text-melt-strong"
+                          className="inline-flex items-center gap-1.5 text-accent transition-colors duration-150 hover:text-accent-strong"
                         >
                           <GlobeHemisphereWest size={14} />
                           {website.replace(/^https?:\/\//, "")}
                         </a>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </ReadField>
-                    <ReadField label="Current solution">{currentSolution || "—"}</ReadField>
-                    <ReadField label="Next step">{nextStep || "—"}</ReadField>
+                    <ReadField label="Current solution">{currentSolution || "-"}</ReadField>
+                    <ReadField label="Next step">{nextStep || "-"}</ReadField>
                   </div>
                 )}
               </section>
@@ -677,7 +677,7 @@ function CustomerRoomInner({
                     <button
                       type="button"
                       onClick={() => setEditingOverview((v) => !v)}
-                      className="cursor-pointer text-[13.5px] font-bold text-melt transition-colors duration-150 hover:text-melt-strong"
+                      className="cursor-pointer text-[13.5px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
                     >
                       {editingOverview ? "Done editing" : "Edit contacts"}
                     </button>
@@ -689,7 +689,7 @@ function CustomerRoomInner({
                   {associatedContacts.map((contact) => (
                     <article key={contact.id} className="recessed px-3 py-3">
                       <div className="mb-3 flex items-center gap-2">
-                        <IdentificationCard size={16} className="text-melt" />
+                        <IdentificationCard size={16} className="text-accent" />
                         <span className="font-semibold text-ink">{contact.name}</span>
                         <div className="ml-auto flex items-center gap-2">
                           <ChannelBadge channel={contact.preferredChannel} />
@@ -783,20 +783,20 @@ function CustomerRoomInner({
                         </div>
                       ) : (
                         <div className="grid gap-3 md:grid-cols-2">
-                          <ReadField label="Role">{contact.role ?? "—"}</ReadField>
+                          <ReadField label="Role">{contact.role ?? "-"}</ReadField>
                           <ReadField label="Email">
                             {contact.email ? (
                               <a
                                 href={`mailto:${contact.email}`}
-                                className="text-melt transition-colors duration-150 hover:text-melt-strong"
+                                className="text-accent transition-colors duration-150 hover:text-accent-strong"
                               >
                                 {contact.email}
                               </a>
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </ReadField>
-                          <ReadField label="Phone">{contact.phone ?? "—"}</ReadField>
+                          <ReadField label="Phone">{contact.phone ?? "-"}</ReadField>
                           <ReadField label="LinkedIn">
                             {contact.linkedin ? (
                               <a
@@ -807,12 +807,12 @@ function CustomerRoomInner({
                                 }
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-melt transition-colors duration-150 hover:text-melt-strong"
+                                className="text-accent transition-colors duration-150 hover:text-accent-strong"
                               >
                                 LinkedIn
                               </a>
                             ) : (
-                              "—"
+                              "-"
                             )}
                           </ReadField>
                         </div>
@@ -844,7 +844,7 @@ function CustomerRoomInner({
                         type="button"
                         onClick={addContact}
                         disabled={!contactToAdd}
-                        className="flex h-10 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3.5 text-[13.5px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex h-10 cursor-pointer items-center gap-1.5 rounded-md border border-accent/60 px-3.5 text-[13.5px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Plus size={15} weight="bold" />
                         Add contact
@@ -870,7 +870,7 @@ function CustomerRoomInner({
                       <button
                         type="button"
                         onClick={() => setTab("Conversations")}
-                        className="cursor-pointer text-[13.5px] font-bold text-melt transition-colors duration-150 hover:text-melt-strong"
+                        className="cursor-pointer text-[13.5px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
                       >
                         View all
                       </button>
@@ -897,7 +897,7 @@ function CustomerRoomInner({
                   <button
                     type="button"
                     onClick={() => setTab("Validation notes")}
-                    className="mt-2.5 cursor-pointer text-[13.5px] font-bold text-melt transition-colors duration-150 hover:text-melt-strong"
+                    className="mt-2.5 cursor-pointer text-[13.5px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
                   >
                     All validation notes
                   </button>
@@ -951,14 +951,14 @@ function CustomerRoomInner({
                   </p>
                   <p className="mt-2 text-[14.5px] leading-relaxed text-ink-2">{n.body}</p>
                   {n.quote && (
-                    <blockquote className="mt-2.5 border-l-2 border-melt/50 pl-3 text-[14px] leading-relaxed text-ink-2">
+                    <blockquote className="mt-2.5 border-l-2 border-accent/50 pl-3 text-[14px] leading-relaxed text-ink-2">
                       &ldquo;{n.quote}&rdquo;
                     </blockquote>
                   )}
                   {n.conversationId && (
                     <Link
                       href={`/library/${n.conversationId}`}
-                      className="mt-2.5 inline-block text-[13.5px] font-bold text-melt transition-colors duration-150 hover:text-melt-strong"
+                      className="mt-2.5 inline-block text-[13.5px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
                     >
                       From the conversation
                     </Link>
@@ -987,7 +987,7 @@ function CustomerRoomInner({
                   <button
                     type="button"
                     onClick={addNote}
-                    className="h-9 cursor-pointer rounded-md bg-melt px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+                    className="h-9 cursor-pointer rounded-md bg-accent px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
                   >
                     Add note
                   </button>
@@ -1007,7 +1007,7 @@ function CustomerRoomInner({
               <button
                 type="button"
                 onClick={() => setAddingNote(true)}
-                className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line text-[13.5px] font-bold text-ink-3 transition-colors duration-150 hover:border-melt/60 hover:text-melt"
+                className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-control border border-dashed border-line text-[13.5px] font-bold text-ink-3 transition-colors duration-150 hover:border-accent/60 hover:text-accent"
               >
                 <Plus size={15} weight="bold" />
                 Add validation note
@@ -1033,7 +1033,7 @@ function CustomerRoomInner({
                       void toggleWorkTaskStatus(t.id, next ? "done" : "open");
                     }}
                     aria-label={`Mark "${t.task}" ${done[t.key] ? "open" : "done"}`}
-                    className="h-4 w-4 shrink-0 cursor-pointer accent-[#0295ac]"
+                    className="h-4 w-4 shrink-0 cursor-pointer accent-[#3d6fa6]"
                   />
                   <span
                     className={`min-w-0 flex-1 text-[14.5px] ${
@@ -1072,7 +1072,7 @@ function CustomerRoomInner({
                   {t.conversationId ? (
                     <Link
                       href={`/library/${t.conversationId}`}
-                      className="shrink-0 text-[12.5px] font-bold text-melt transition-colors duration-150 hover:text-melt-strong"
+                      className="shrink-0 text-[12.5px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
                     >
                       {t.conversationTitle}
                     </Link>
@@ -1083,7 +1083,7 @@ function CustomerRoomInner({
               ))}
               {tasks.length === 0 && (
                 <p className="recessed px-4 py-3.5 text-[14px] text-ink-2">
-                  No tasks yet — they come from conversations, or add one directly below.
+                  No tasks yet - they come from conversations, or add one directly below.
                 </p>
               )}
             </div>
@@ -1103,7 +1103,7 @@ function CustomerRoomInner({
                   <button
                     type="button"
                     onClick={addTask}
-                    className="h-9 cursor-pointer rounded-md bg-melt px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+                    className="h-9 cursor-pointer rounded-md bg-accent px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
                   >
                     Add task
                   </button>
@@ -1123,7 +1123,7 @@ function CustomerRoomInner({
               <button
                 type="button"
                 onClick={() => setAddingTask(true)}
-                className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line text-[13.5px] font-bold text-ink-3 transition-colors duration-150 hover:border-melt/60 hover:text-melt"
+                className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-control border border-dashed border-line text-[13.5px] font-bold text-ink-3 transition-colors duration-150 hover:border-accent/60 hover:text-accent"
               >
                 <Plus size={15} weight="bold" />
                 Add task
@@ -1139,7 +1139,7 @@ function CustomerRoomInner({
                 <li key={a.text} className="relative">
                   <span
                     aria-hidden
-                    className="absolute -left-[26.5px] top-1.5 h-2.5 w-2.5 rounded-full bg-melt/60 ring-4 ring-[#eef7fa]"
+                    className="absolute -left-[26.5px] top-1.5 h-2.5 w-2.5 rounded-full bg-accent/60 ring-4 ring-[#eef1f7]"
                   />
                   <p className="flex items-center gap-2.5 text-[14px] text-ink">
                     <Avatar owner={ownerById(a.ownerId, owners)} size={22} />

@@ -70,7 +70,7 @@ export function CustomerDrawer({
   const owner = ownerById(customer.ownerId, owners);
   const contact = primaryContactFor(customer.id, contacts);
   // TODO: real per-customer conversations/validation notes/tasks, once the
-  // Library cutover (conversation_participants join) lands — customers
+  // Library cutover (conversation_participants join) lands - customers
   // table has zero real rows right now anyway, so this drawer has nothing
   // real to join against yet.
   const conversations: { id: string; title: string; when: string; duration: string; wave: number[] }[] = [];
@@ -140,7 +140,7 @@ export function CustomerDrawer({
             {contact.email && (
               <a
                 href={`mailto:${contact.email}`}
-                className="truncate text-[13.5px] text-ink-2 transition-colors duration-150 hover:text-melt"
+                className="truncate text-[13.5px] text-ink-2 transition-colors duration-150 hover:text-accent"
               >
                 {contact.email}
               </a>
@@ -158,7 +158,7 @@ export function CustomerDrawer({
             href={customer.website}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink-2 transition-colors duration-150 hover:text-melt"
+            className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink-2 transition-colors duration-150 hover:text-accent"
           >
             <GlobeHemisphereWest size={14} />
             {customer.website.replace(/^https?:\/\//, "")}
@@ -233,7 +233,7 @@ export function CustomerDrawer({
                     {c.wave.slice(0, 9).map((v, i) => (
                       <span
                         key={i}
-                        className="w-[2.5px] rounded-full bg-melt/70"
+                        className="w-[2.5px] rounded-full bg-accent/70"
                         style={{ height: `${Math.round(v * 0.8)}px` }}
                       />
                     ))}
@@ -257,7 +257,7 @@ export function CustomerDrawer({
         <div className="mt-auto pt-2">
           <Link
             href={`/customers/${customer.id}`}
-            className="flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-md bg-melt px-4 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+            className="flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-md bg-accent px-4 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
           >
             <ArrowSquareOut size={16} />
             Open customer page

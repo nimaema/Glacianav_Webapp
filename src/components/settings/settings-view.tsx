@@ -13,7 +13,7 @@ import type { NotificationPrefs, SettingsPageData } from "@/lib/data/settings";
 import { updateMyProfile } from "@/lib/data/settings-actions";
 
 // Data-palette swatches, same set DESIGN.md reserves for owners/tags/calendar.
-const AVATAR_COLORS = ["#0295ac", "#14b8ce", "#27b577", "#6e5be8", "#f26d5f", "#2f6fd0"];
+const AVATAR_COLORS = ["#3d6fa6", "#1f95a8", "#2f9e63", "#6f5fb0", "#d1614a", "#3d6fa6"];
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -70,7 +70,7 @@ export function SettingsView({
                     <p className="text-[15.5px] font-semibold text-ink">{me.name}</p>
                     <p className="text-[13px] text-ink-2">{me.email}</p>
                   </div>
-                  <span className="ml-auto rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.06em] text-ink-2">
+                  <span className="ml-auto rounded-full bg-[rgba(23,32,43,0.07)] px-2.5 py-1 text-[12px] font-bold uppercase tracking-[0.06em] text-ink-2">
                     {me.role}
                   </span>
                   <button
@@ -129,7 +129,7 @@ export function SettingsView({
           <SectionHeader
             count={team.length}
             action={
-              <Link href="/admin" className="flex items-center gap-1 text-[12.5px] font-bold text-melt hover:text-melt-strong">
+              <Link href="/admin" className="flex items-center gap-1 text-[12.5px] font-bold text-accent hover:text-accent-strong">
                 <ShieldCheck size={13} />
                 Manage in Admin
               </Link>
@@ -145,11 +145,11 @@ export function SettingsView({
                   <p className="truncate text-[14.5px] font-semibold text-ink">{o.name}</p>
                   <p className="truncate text-[12.5px] text-ink-2">{o.email}</p>
                 </div>
-                <span className="shrink-0 rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-0.5 text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-2">
+                <span className="shrink-0 rounded-full bg-[rgba(23,32,43,0.07)] px-2.5 py-0.5 text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-2">
                   {o.role}
                 </span>
                 <span
-                  className={`shrink-0 text-[12px] font-semibold ${o.active ? "text-[#157a4e]" : "text-ink-3"}`}
+                  className={`shrink-0 text-[12px] font-semibold ${o.active ? "text-[#1f6b43]" : "text-ink-3"}`}
                 >
                   {o.active ? "Active" : "Inactive"}
                 </span>

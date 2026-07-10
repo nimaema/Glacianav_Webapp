@@ -78,7 +78,7 @@ async function ensureInternalFeed(profileId: string): Promise<typeof calendarFee
 
   const [created] = await db
     .insert(calendarFeeds)
-    .values({ ownerId: profileId, label: "GlaciaNav", color: "#0295ac", visibility: "details", internal: true })
+    .values({ ownerId: profileId, label: "GlaciaNav", color: "#3d6fa6", visibility: "details", internal: true })
     .returning();
   return created;
 }

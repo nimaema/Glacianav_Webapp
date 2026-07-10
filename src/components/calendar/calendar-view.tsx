@@ -39,9 +39,9 @@ const GAP = 2; // px gutter between side-by-side overlapping events
 
 const KIND_META: Record<CalendarEventKind, { label: string; style: string; dot: string; icon: Icon }> = {
   interview: { label: "Interview", style: "border-data-cyan bg-data-cyan/20 text-ink", dot: "bg-data-cyan", icon: CalendarCheck },
-  recording: { label: "Recording", style: "border-[#6e5be8] bg-[rgba(110,91,232,0.16)] text-ink", dot: "bg-[#6e5be8]", icon: Microphone },
-  busy: { label: "Busy", style: "border-transparent bg-[#d4e4ea] text-ink-2", dot: "bg-[#9cb8c1]", icon: CircleDashed },
-  hold: { label: "Hold", style: "border-dashed border-melt/55 bg-transparent text-melt", dot: "bg-melt", icon: BookmarkSimple },
+  recording: { label: "Recording", style: "border-[#6f5fb0] bg-[rgba(111,95,176,0.16)] text-ink", dot: "bg-[#6f5fb0]", icon: Microphone },
+  busy: { label: "Busy", style: "border-transparent bg-surface-2 text-ink-2", dot: "bg-[#9aa4b5]", icon: CircleDashed },
+  hold: { label: "Hold", style: "border-dashed border-accent/55 bg-transparent text-accent", dot: "bg-accent", icon: BookmarkSimple },
 };
 
 // Monday of the week containing `d`.
@@ -84,10 +84,10 @@ function syncLabel(f: CalendarFeed) {
 }
 
 function syncDotColor(f: CalendarFeed) {
-  if (f.internal) return "#27b577";
-  if (f.syncStatus === "error") return "#cf5040";
+  if (f.internal) return "#2f9e63";
+  if (f.syncStatus === "error") return "#c0463a";
   if (f.syncStatus === "syncing") return "#d9b23c";
-  return "#27b577";
+  return "#2f9e63";
 }
 
 // Simple greedy lane packing so overlapping events sit side by side instead
@@ -140,7 +140,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 
   return (
     <div
-      className="anim-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,46,56,0.55)] px-4"
+      className="anim-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-[rgba(23,32,43,0.45)] px-4"
       onPointerDown={onClose}
     >
       <div
@@ -204,7 +204,7 @@ function EventDetail({
         {customer && (
           <Link
             href={`/customers/${customer.id}`}
-            className="recessed flex items-center justify-between px-3 py-2.5 text-[13.5px] font-semibold text-melt transition-colors duration-150 hover:bg-[rgba(11,61,77,0.10)]"
+            className="recessed flex items-center justify-between px-3 py-2.5 text-[13.5px] font-semibold text-accent transition-colors duration-150 hover:bg-[rgba(23,32,43,0.10)]"
           >
             Open {customer.name}
             <CaretRight size={13} />
@@ -215,14 +215,14 @@ function EventDetail({
         <button
           type="button"
           onClick={onDelete}
-          className="h-9 cursor-pointer rounded-md px-3.5 text-[14px] font-bold text-[#b23c2e] transition-colors duration-150 hover:bg-[rgba(207,80,64,0.10)]"
+          className="h-9 cursor-pointer rounded-md px-3.5 text-[14px] font-bold text-danger transition-colors duration-150 hover:bg-danger/10"
         >
           Delete
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="h-9 cursor-pointer rounded-md bg-melt px-4 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+          className="h-9 cursor-pointer rounded-md bg-accent px-4 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
         >
           Done
         </button>
@@ -301,7 +301,7 @@ function AddEventForm({
           </select>
         </div>
         <label className="flex cursor-pointer items-center gap-2 text-[13px] font-semibold text-ink-2">
-          <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} className="h-3.5 w-3.5 cursor-pointer accent-[#0295ac]" />
+          <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} className="h-3.5 w-3.5 cursor-pointer accent-[#3d6fa6]" />
           All day
         </label>
         {!allDay && (
@@ -354,7 +354,7 @@ function AddEventForm({
         <button type="button" onClick={onClose} className="h-9 cursor-pointer rounded-md px-3.5 text-[14px] font-bold text-ink-2 transition-colors duration-150 hover:bg-surface-2">
           Cancel
         </button>
-        <button type="button" onClick={save} className="h-9 cursor-pointer rounded-md bg-melt px-4 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong">
+        <button type="button" onClick={save} className="h-9 cursor-pointer rounded-md bg-accent px-4 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong">
           Add event
         </button>
       </div>
@@ -401,9 +401,9 @@ function MiniMonth({
               onClick={() => onPick(d)}
               className={`mx-auto flex h-6 w-6 cursor-pointer items-center justify-center rounded-full font-mono text-[11.5px] tabular-nums transition-colors duration-150 ${
                 isToday
-                  ? "bg-melt font-bold text-white"
+                  ? "bg-accent font-bold text-white"
                   : inWeek
-                    ? "bg-melt/15 font-semibold text-ink"
+                    ? "bg-accent/15 font-semibold text-ink"
                     : inMonth
                       ? "text-ink-2 hover:bg-surface-2"
                       : "text-ink-3/40 hover:bg-surface-2"
@@ -444,7 +444,7 @@ function AgendaView({
             <div className="mb-2 flex items-center gap-2">
               <span
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[12.5px] font-bold tabular-nums ${
-                  i === todayIndex ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.07)] text-ink-2"
+                  i === todayIndex ? "bg-accent text-white" : "bg-[rgba(23,32,43,0.07)] text-ink-2"
                 }`}
               >
                 {date.getDate()}
@@ -453,7 +453,7 @@ function AgendaView({
                 {date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
               </span>
               {i === todayIndex && (
-                <span className="rounded-full bg-melt/10 px-2 py-0.5 text-[11px] font-bold text-melt">Today</span>
+                <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-bold text-accent">Today</span>
               )}
               <span className="ml-auto font-mono text-[12px] text-ink-3 tabular-nums">{dayEvents.length}</span>
             </div>
@@ -476,7 +476,7 @@ function AgendaView({
                     >
                       <span
                         className="flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full"
-                        style={{ background: `${feed?.color ?? "#0295ac"}22`, color: feed?.color ?? "#0295ac" }}
+                        style={{ background: `${feed?.color ?? "#3d6fa6"}22`, color: feed?.color ?? "#3d6fa6" }}
                       >
                         <IconEl size={11} weight="bold" />
                       </span>
@@ -487,7 +487,7 @@ function AgendaView({
                         {e.title}
                       </span>
                       {customer ? (
-                        <span className="truncate text-[12.5px] font-bold text-melt">{customer.name}</span>
+                        <span className="truncate text-[12.5px] font-bold text-accent">{customer.name}</span>
                       ) : (
                         <span className="truncate text-[12.5px] text-ink-3">{feed?.label}</span>
                       )}
@@ -615,7 +615,7 @@ export function CalendarView({
     if (!url) return;
     setNewFeedUrl("");
     void addCalendarFeed({ ownerId: currentUserId, label: "New calendar", url }).then(({ id }) => {
-      const feed: CalendarFeed = { id, ownerId: currentUserId, label: "New calendar", color: "#f26d5f", visibility: "busy_only", syncStatus: "syncing", lastSyncedMinutes: 0 };
+      const feed: CalendarFeed = { id, ownerId: currentUserId, label: "New calendar", color: "#d1614a", visibility: "busy_only", syncStatus: "syncing", lastSyncedMinutes: 0 };
       setFeeds((fs) => [...fs, feed]);
       setVisibleFeedIds((prev) => new Set(prev).add(id));
     });
@@ -721,7 +721,7 @@ export function CalendarView({
                     checked={visibleFeedIds.has(f.id)}
                     onChange={() => toggleFeed(f.id)}
                     aria-label={`Toggle ${f.label}`}
-                    className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-[#0295ac]"
+                    className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-[#3d6fa6]"
                   />
                   <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: f.color }} />
                   <div className="min-w-0 flex-1">
@@ -738,7 +738,7 @@ export function CalendarView({
                       type="button"
                       onClick={() => removeFeed(f.id)}
                       aria-label={`Remove ${f.label}`}
-                      className="shrink-0 cursor-pointer text-ink-3 opacity-0 transition-opacity duration-150 hover:text-[#b23c2e] group-hover:opacity-100"
+                      className="shrink-0 cursor-pointer text-ink-3 opacity-0 transition-opacity duration-150 hover:text-danger group-hover:opacity-100"
                     >
                       <Trash size={13} />
                     </button>
@@ -760,7 +760,7 @@ export function CalendarView({
                 type="button"
                 onClick={addFeed}
                 aria-label="Add feed"
-                className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-melt hover:bg-melt/10"
+                className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-accent hover:bg-accent/10"
               >
                 <Plus size={14} weight="bold" />
               </button>
@@ -797,7 +797,7 @@ export function CalendarView({
                       type="checkbox"
                       checked={availabilityWith.has(o.id)}
                       onChange={() => toggleAvailability(o.id)}
-                      className="h-3.5 w-3.5 cursor-pointer accent-[#0295ac]"
+                      className="h-3.5 w-3.5 cursor-pointer accent-[#3d6fa6]"
                     />
                     <Avatar owner={o} size={20} />
                     <span>{o.name}</span>
@@ -823,7 +823,7 @@ export function CalendarView({
                         <span>
                           {w.day} · {fmtHour(w.startHour)} – {fmtHour(w.endHour)}
                         </span>
-                        <Plus size={13} className="shrink-0 text-melt" weight="bold" />
+                        <Plus size={13} className="shrink-0 text-accent" weight="bold" />
                       </button>
                     ))}
                   </div>
@@ -885,7 +885,7 @@ export function CalendarView({
               <button
                 type="button"
                 onClick={() => setAddDraft({ day: weekDates[todayIndex >= 0 ? todayIndex : 0].day, hour: CALENDAR_HOURS[0] })}
-                className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-melt px-3 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+                className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-3 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
               >
                 <Plus size={14} weight="bold" />
                 New event
@@ -902,10 +902,10 @@ export function CalendarView({
                   <div />
                   {weekDates.map(({ day, date }, i) => (
                     <div key={day} className="pb-3 text-center">
-                      <div className={`text-[13px] font-bold uppercase tracking-[0.08em] ${i === todayIndex ? "text-melt" : "text-ink-2"}`}>{day}</div>
+                      <div className={`text-[13px] font-bold uppercase tracking-[0.08em] ${i === todayIndex ? "text-accent" : "text-ink-2"}`}>{day}</div>
                       <div
                         className={`mx-auto mt-1.5 flex h-7 w-7 items-center justify-center rounded-full font-mono text-[13px] font-bold tabular-nums ${
-                          i === todayIndex ? "bg-melt text-white" : "text-ink-3"
+                          i === todayIndex ? "bg-accent text-white" : "text-ink-3"
                         }`}
                       >
                         {fmtDay(date)}
@@ -926,8 +926,8 @@ export function CalendarView({
                               type="button"
                               onClick={() => setSelectedEvent(e)}
                               title={e.title}
-                              className="cursor-pointer truncate rounded px-1.5 py-1 text-left text-[11px] font-bold transition-shadow duration-150 hover:shadow-[0_2px_6px_rgba(11,61,77,0.2)]"
-                              style={{ background: `${feed?.color ?? "#0295ac"}22`, color: feed?.color ?? "#0295ac" }}
+                              className="cursor-pointer truncate rounded px-1.5 py-1 text-left text-[11px] font-bold transition-shadow duration-150 hover:shadow-[0_2px_6px_rgba(23,32,43,0.2)]"
+                              style={{ background: `${feed?.color ?? "#3d6fa6"}22`, color: feed?.color ?? "#3d6fa6" }}
                             >
                               {e.title}
                             </button>
@@ -949,7 +949,7 @@ export function CalendarView({
                     const dayEvents = shownEvents.filter((e) => e.day === day && !e.allDay);
                     const laid = layoutDay(dayEvents);
                     return (
-                      <div key={day} className={`relative border-l border-line-2 ${i === todayIndex ? "bg-melt/[0.05]" : ""}`}>
+                      <div key={day} className={`relative border-l border-line-2 ${i === todayIndex ? "bg-accent/[0.05]" : ""}`}>
                         {CALENDAR_HOURS.map((h, hi) => (
                           <button
                             key={h}
@@ -957,11 +957,11 @@ export function CalendarView({
                             onClick={() => setAddDraft({ day, hour: h })}
                             aria-label={`Add event, ${day} ${fmtHour(h)}`}
                             style={{ height: ROW_H }}
-                            className={`block w-full cursor-pointer border-t border-line-2 transition-colors duration-150 hover:bg-melt/[0.08] ${
+                            className={`block w-full cursor-pointer border-t border-line-2 transition-colors duration-150 hover:bg-accent/[0.08] ${
                               freeSlots?.[day][CALENDAR_HOURS.indexOf(h)]
                                 ? "bg-[rgba(39,181,119,0.10)]"
                                 : hi % 2 === 1
-                                  ? "bg-[rgba(11,61,77,0.015)]"
+                                  ? "bg-[rgba(23,32,43,0.015)]"
                                   : ""
                             }`}
                           />
@@ -969,8 +969,8 @@ export function CalendarView({
 
                         {i === todayIndex && nowTop != null && nowTop >= 0 && nowTop <= CALENDAR_HOURS.length * ROW_H && (
                           <div className="pointer-events-none absolute left-0 right-0 z-10 flex items-center gap-1" style={{ top: nowTop }}>
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#cf5040]" />
-                            <span className="h-px flex-1 bg-[#cf5040]" />
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c0463a]" />
+                            <span className="h-px flex-1 bg-[#c0463a]" />
                           </div>
                         )}
 
@@ -996,10 +996,10 @@ export function CalendarView({
                                 height,
                                 left: `calc(${lane * widthPct}% + ${GAP / 2}px)`,
                                 width: `calc(${widthPct}% - ${GAP}px)`,
-                                borderLeftColor: feed?.color ?? "#0295ac",
+                                borderLeftColor: feed?.color ?? "#3d6fa6",
                                 borderLeftWidth: 3,
                               }}
-                              className={`absolute cursor-pointer overflow-hidden rounded border px-1.5 py-1 text-left text-[11.5px] font-semibold leading-tight transition-shadow duration-150 hover:shadow-[0_2px_8px_rgba(11,61,77,0.25)] ${meta.style}`}
+                              className={`absolute cursor-pointer overflow-hidden rounded border px-1.5 py-1 text-left text-[11.5px] font-semibold leading-tight transition-shadow duration-150 hover:shadow-[0_2px_8px_rgba(23,32,43,0.25)] ${meta.style}`}
                             >
                               <span className="flex items-center gap-1">
                                 <IconEl size={10} weight="bold" className="shrink-0" />

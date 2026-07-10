@@ -60,7 +60,7 @@ export function AssigneePicker({
               >
                 <Avatar owner={o} size={22} />
                 {o.name}
-                {checked && <Check size={14} weight="bold" className="ml-auto text-melt" />}
+                {checked && <Check size={14} weight="bold" className="ml-auto text-accent" />}
               </button>
             );
           })}

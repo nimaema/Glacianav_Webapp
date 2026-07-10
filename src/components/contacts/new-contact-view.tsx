@@ -153,8 +153,8 @@ export function NewContactView({ customers }: { customers: Customer[] }) {
                   aria-pressed={preferredChannel === channel.key}
                   className={`h-8 cursor-pointer rounded-md px-3 text-[13px] font-semibold transition-colors duration-150 ${
                     preferredChannel === channel.key
-                      ? "bg-melt/15 text-melt"
-                      : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                      ? "bg-accent/15 text-accent"
+                      : "bg-[rgba(23,32,43,0.06)] text-ink-2 hover:bg-[rgba(23,32,43,0.1)]"
                   }`}
                 >
                   {channel.label}
@@ -168,7 +168,7 @@ export function NewContactView({ customers }: { customers: Customer[] }) {
               type="button"
               onClick={save}
               disabled={!canSave}
-              className="h-10 cursor-pointer rounded-md bg-melt px-5 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong disabled:cursor-not-allowed disabled:opacity-40"
+              className="h-10 cursor-pointer rounded-md bg-accent px-5 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
             >
               Create contact
             </button>

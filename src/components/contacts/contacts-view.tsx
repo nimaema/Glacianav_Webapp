@@ -83,7 +83,7 @@ export function ContactsView({
             <HeaderStat label="Contacts" value={rows.length} />
             <Link
               href="/contacts/new"
-              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3.5 text-[14px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-accent/60 px-3.5 text-[14px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
             >
               <UserPlus size={16} />
               New contact
@@ -141,7 +141,7 @@ export function ContactsView({
                           className={inputClass}
                         />
                       ) : (
-                        p.role ?? "—"
+                        p.role ?? "-"
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-ink-2">
@@ -156,12 +156,12 @@ export function ContactsView({
                       ) : p.email ? (
                         <a
                           href={`mailto:${p.email}`}
-                          className="transition-colors duration-150 hover:text-melt"
+                          className="transition-colors duration-150 hover:text-accent"
                         >
                           {p.email}
                         </a>
                       ) : (
-                        <span className="text-ink-3">—</span>
+                        <span className="text-ink-3">-</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5 font-mono text-[13.5px] text-ink-2 tabular-nums">
@@ -174,7 +174,7 @@ export function ContactsView({
                           className={inputClass}
                         />
                       ) : (
-                        p.phone ?? <span className="font-sans text-ink-3">—</span>
+                        p.phone ?? <span className="font-sans text-ink-3">-</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5">
@@ -189,12 +189,12 @@ export function ContactsView({
                       ) : p.linkedin ? (
                         <a
                           href={p.linkedin.startsWith("http") ? p.linkedin : `https://${p.linkedin}`}
-                          className="text-ink-2 transition-colors duration-150 hover:text-melt"
+                          className="text-ink-2 transition-colors duration-150 hover:text-accent"
                         >
                           LinkedIn
                         </a>
                       ) : (
-                        <span className="text-ink-3">—</span>
+                        <span className="text-ink-3">-</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5">
@@ -235,7 +235,7 @@ export function ContactsView({
                       ) : customer && segment ? (
                         <Link
                           href={`/customers/${customer.id}`}
-                          className="flex items-center gap-1.5 text-ink-2 transition-colors duration-150 hover:text-melt"
+                          className="flex items-center gap-1.5 text-ink-2 transition-colors duration-150 hover:text-accent"
                         >
                           <span
                             aria-hidden
@@ -257,7 +257,7 @@ export function ContactsView({
                               type="button"
                               onClick={saveDraft}
                               aria-label={`Save ${p.name}`}
-                              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md bg-melt text-white transition-colors duration-150 hover:bg-melt-strong"
+                              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md bg-accent text-white transition-colors duration-150 hover:bg-accent-strong"
                             >
                               <Check size={15} weight="bold" />
                             </button>
@@ -275,7 +275,7 @@ export function ContactsView({
                             type="button"
                             onClick={() => startEdit(p)}
                             aria-label={`Edit ${p.name}`}
-                            className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+                            className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
                           >
                             <PencilSimple size={14} />
                             Edit

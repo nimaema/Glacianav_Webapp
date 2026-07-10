@@ -70,14 +70,14 @@ function ParticipantPicker({
         return (
           <span
             key={id}
-            className="flex items-center gap-1.5 rounded-full bg-[rgba(20,184,206,0.14)] py-0.5 pl-2.5 pr-1.5 text-[13px] font-semibold text-[#0a7280]"
+            className="flex items-center gap-1.5 rounded-full bg-[rgba(31,149,168,0.14)] py-0.5 pl-2.5 pr-1.5 text-[13px] font-semibold text-[#13657a]"
           >
             {c.name}
             <button
               type="button"
               onClick={() => onRemove(id)}
               aria-label={`Remove ${c.name} as a participant`}
-              className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition-colors duration-150 hover:bg-[#0a7280]/15"
+              className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition-colors duration-150 hover:bg-[#13657a]/15"
             >
               <X size={11} weight="bold" />
             </button>
@@ -91,7 +91,7 @@ function ParticipantPicker({
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-haspopup="menu"
-            className="flex h-7 cursor-pointer items-center gap-1 rounded-full border border-dashed border-line px-2.5 text-[12.5px] font-bold text-ink-2 transition-colors duration-150 hover:border-melt/60 hover:text-melt"
+            className="flex h-7 cursor-pointer items-center gap-1 rounded-full border border-dashed border-line px-2.5 text-[12.5px] font-bold text-ink-2 transition-colors duration-150 hover:border-accent/60 hover:text-accent"
           >
             <Plus size={13} weight="bold" />
             Add participant
@@ -228,7 +228,7 @@ export function RecordView({
           <button
             type="button"
             onClick={() => rec.start(draftParticipantIds)}
-            className="flex h-11 cursor-pointer items-center gap-2 rounded-md bg-melt px-6 text-[15px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+            className="flex h-11 cursor-pointer items-center gap-2 rounded-md bg-accent px-6 text-[15px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
           >
             <Record size={18} />
             Start recording
@@ -260,7 +260,7 @@ export function RecordView({
               {BARS.map((b, i) => (
                 <span
                   key={i}
-                  className="wave-bar w-[4px] rounded-full bg-melt/80"
+                  className="wave-bar w-[4px] rounded-full bg-accent/80"
                   style={{
                     height: `${b.height}px`,
                     animationDuration: `${b.duration}s`,
@@ -284,7 +284,7 @@ export function RecordView({
               <button
                 type="button"
                 onClick={rec.flagMoment}
-                className="flex h-10 cursor-pointer items-center gap-2 rounded-md border border-melt/60 px-4 text-[14px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+                className="flex h-10 cursor-pointer items-center gap-2 rounded-md border border-accent/60 px-4 text-[14px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
               >
                 <Flag size={16} />
                 Flag moment
@@ -300,7 +300,7 @@ export function RecordView({
               <button
                 type="button"
                 onClick={() => rec.stopAndProcess(title)}
-                className="flex h-10 cursor-pointer items-center gap-2 rounded-md bg-melt px-5 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+                className="flex h-10 cursor-pointer items-center gap-2 rounded-md bg-accent px-5 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
               >
                 <Stop size={16} weight="fill" />
                 Stop and process
@@ -333,7 +333,7 @@ export function RecordView({
                 {rec.flags.map((f, i) => (
                   <span
                     key={i}
-                    className="rounded-full bg-melt/10 px-2.5 py-1 font-mono text-[12.5px] font-bold text-melt tabular-nums"
+                    className="rounded-full bg-accent/10 px-2.5 py-1 font-mono text-[12.5px] font-bold text-accent tabular-nums"
                   >
                     <Flag size={12} className="mr-1 inline" />
                     {fmtElapsed(f)}

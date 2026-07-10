@@ -4,7 +4,7 @@ import { useState } from "react";
 import { NotePencil, X } from "@phosphor-icons/react";
 import type { Contact, Conversation, Customer, Topic } from "@/lib/fixtures";
 
-/** Creates a standalone note — no recording behind it. Shows up in Library
+/** Creates a standalone note - no recording behind it. Shows up in Library
  * exactly like a conversation (grouped by Topic, filterable, shareable),
  * since Topics/participants were never meant to require a recording. */
 export function NoteComposer({
@@ -64,7 +64,7 @@ export function NoteComposer({
     <div className="surfaced mb-6 flex flex-col gap-3 px-5 py-4">
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-1.5 text-[12.5px] font-bold uppercase tracking-[0.11em] text-ink-2">
-          <NotePencil size={15} className="text-melt" />
+          <NotePencil size={15} className="text-accent" />
           New note
         </h2>
         <button
@@ -101,8 +101,8 @@ export function NoteComposer({
                 aria-pressed={active}
                 className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold transition-colors duration-150 ${
                   active
-                    ? "bg-melt text-white"
-                    : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                    ? "bg-accent text-white"
+                    : "bg-[rgba(23,32,43,0.06)] text-ink-2 hover:bg-[rgba(23,32,43,0.1)]"
                 }`}
               >
                 <span
@@ -132,8 +132,8 @@ export function NoteComposer({
                 aria-pressed={active}
                 className={`rounded-full px-2.5 py-1 text-[12.5px] font-semibold transition-colors duration-150 ${
                   active
-                    ? "bg-melt/15 text-melt"
-                    : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                    ? "bg-accent/15 text-accent"
+                    : "bg-[rgba(23,32,43,0.06)] text-ink-2 hover:bg-[rgba(23,32,43,0.1)]"
                 }`}
               >
                 {c.name}
@@ -142,7 +142,7 @@ export function NoteComposer({
           })}
         </div>
         <span className="text-[12.5px] text-ink-3">
-          optional — leave empty for a standalone note
+          optional - leave empty for a standalone note
         </span>
       </div>
 
@@ -161,8 +161,8 @@ export function NoteComposer({
                 aria-pressed={active}
                 className={`rounded-full px-2.5 py-1 text-[12.5px] font-semibold transition-colors duration-150 ${
                   active
-                    ? "bg-melt/15 text-melt"
-                    : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                    ? "bg-accent/15 text-accent"
+                    : "bg-[rgba(23,32,43,0.06)] text-ink-2 hover:bg-[rgba(23,32,43,0.1)]"
                 }`}
               >
                 {contact.name}
@@ -187,7 +187,7 @@ export function NoteComposer({
           type="button"
           onClick={save}
           disabled={!canSave}
-          className="h-9 cursor-pointer rounded-md bg-melt px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-9 cursor-pointer rounded-md bg-accent px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
         >
           Save note
         </button>

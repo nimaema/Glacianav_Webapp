@@ -14,7 +14,7 @@ export type Profile = typeof profiles.$inferSelect;
 // Same data-palette rotation the app already uses for owner/segment colors
 // (fixtures.ts's SEGMENT_COLOR_ROTATION) — new profiles cycle through it so
 // auto-provisioning never needs a color picker.
-const COLOR_ROTATION = ["#0295ac", "#14b8ce", "#27b577", "#6e5be8", "#f26d5f", "#2f6fd0"];
+const COLOR_ROTATION = ["#3d6fa6", "#1f95a8", "#2f9e63", "#6f5fb0", "#d1614a", "#3d6fa6"];
 
 function initialsFor(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);

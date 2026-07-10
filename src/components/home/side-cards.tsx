@@ -29,7 +29,7 @@ export function TodayCard() {
       </p>
       <Link
         href="/calendar"
-        className="mt-2 inline-flex text-[13px] font-bold text-melt transition-colors duration-150 hover:text-melt-strong"
+        className="mt-2 inline-flex text-[13px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
       >
         Connect a calendar
       </Link>
@@ -56,7 +56,7 @@ export function PipelineCard({ cadence, hasAnyCustomers }: { cadence: HomeData["
           className="recessed mb-3 flex items-center justify-between px-3 py-2.5 text-[13px] font-semibold text-ink-2 transition-colors duration-150 hover:text-ink"
         >
           No customer accounts yet
-          <span className="font-bold text-melt">Add one</span>
+          <span className="font-bold text-accent">Add one</span>
         </Link>
       )}
       <div className="mt-1">
@@ -70,8 +70,8 @@ export function PipelineCard({ cadence, hasAnyCustomers }: { cadence: HomeData["
           role="img"
           aria-label={`Recordings per week over the last ${points.length} weeks, currently ${last}`}
         >
-          <path d={path} fill="none" stroke="var(--melt)" strokeWidth="2" strokeLinecap="round" />
-          <circle cx={(points.length - 1) * step} cy={y(last)} r="3.4" fill="var(--melt)" />
+          <path d={path} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
+          <circle cx={(points.length - 1) * step} cy={y(last)} r="3.4" fill="var(--accent)" />
         </svg>
       </div>
     </section>

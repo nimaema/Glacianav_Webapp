@@ -10,7 +10,7 @@ function Wave({ points }: { points: number[] }) {
   // a plain mic glyph reads better than an empty/flat bar chart.
   if (points.length === 0) {
     return (
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-melt/10 text-melt" aria-hidden>
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent" aria-hidden>
         <Microphone size={13} weight="bold" />
       </span>
     );
@@ -18,7 +18,7 @@ function Wave({ points }: { points: number[] }) {
   return (
     <span className="flex h-6 shrink-0 items-end gap-[2.5px]" aria-hidden>
       {points.map((v, i) => (
-        <span key={i} className="w-[3px] rounded-full bg-melt/70" style={{ height: `${v}px` }} />
+        <span key={i} className="w-[3px] rounded-full bg-accent/70" style={{ height: `${v}px` }} />
       ))}
     </span>
   );
@@ -33,7 +33,7 @@ export function RecentConversations({ items }: { items: RecentConversation[] }) 
         action={
           <Link
             href="/library"
-            className="flex items-center gap-1 text-[13.5px] font-bold text-melt transition-colors duration-150 hover:text-melt-strong"
+            className="flex items-center gap-1 text-[13.5px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
           >
             Open library
             <ArrowRight size={14} />

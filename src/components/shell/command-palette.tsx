@@ -148,7 +148,7 @@ export function CommandPalette() {
 
   return (
     <div
-      className="anim-overlay-in fixed inset-0 z-50 bg-[rgba(10,46,56,0.55)] pt-[16vh]"
+      className="anim-overlay-in fixed inset-0 z-50 bg-[rgba(23,32,43,0.45)] pt-[16vh]"
       onPointerDown={close}
     >
       <div
@@ -211,13 +211,13 @@ export function CommandPalette() {
                   onClick={() => run(item)}
                   className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[14.5px] transition-colors duration-150 ${
                     i === active
-                      ? "bg-[var(--melt-soft)] font-semibold text-ink"
+                      ? "bg-[var(--accent-soft)] font-semibold text-ink"
                       : "text-ink-2"
                   }`}
                 >
                   <IconEl
                     size={17}
-                    className={i === active ? "text-melt" : "text-ink-3"}
+                    className={i === active ? "text-accent" : "text-ink-3"}
                   />
                   <span className="truncate">{item.label}</span>
                   {item.sub && (

@@ -6,9 +6,9 @@ const FOCUSABLE =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /**
- * Confirm dialog per DESIGN.md §8: Firn card over the petrol scrim, focus
- * trapped, Esc/outside-click cancel, exactly one primary action. Destructive
- * confirms wear alpenglow red, never the brand accent.
+ * Confirm dialog per DESIGN.md §6: surfaced card over a neutral ink scrim,
+ * focus trapped, Esc/outside-click cancel, exactly one primary action.
+ * Destructive confirms wear --danger, never the brand accent.
  */
 export function ConfirmDialog({
   open,
@@ -66,7 +66,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="anim-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,46,56,0.55)] px-4"
+      className="anim-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-[rgba(23,32,43,0.45)] px-4"
       onPointerDown={onCancel}
     >
       <div
@@ -92,8 +92,8 @@ export function ConfirmDialog({
             onClick={onConfirm}
             className={`h-9 cursor-pointer rounded-md px-4 text-[14px] font-bold text-white transition-colors duration-150 ${
               destructive
-                ? "bg-danger hover:bg-[#b8462f]"
-                : "bg-melt hover:bg-melt-strong"
+                ? "bg-danger hover:bg-[#a53a2f]"
+                : "bg-accent hover:bg-accent-strong"
             }`}
           >
             {confirmLabel}

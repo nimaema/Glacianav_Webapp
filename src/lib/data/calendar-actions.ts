@@ -16,7 +16,7 @@ export async function addCalendarFeed(input: { ownerId: string; label: string; u
     .values({
       ownerId: input.ownerId,
       label: input.label,
-      color: "#f26d5f",
+      color: "#d1614a",
       visibility: "busy_only",
       internal: false,
       url: input.url,

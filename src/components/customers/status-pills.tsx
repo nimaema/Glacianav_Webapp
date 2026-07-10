@@ -1,5 +1,6 @@
 import { EnvelopeSimple, LinkedinLogo, Phone } from "@phosphor-icons/react";
 import { Pill } from "@/components/ui/pill";
+import { FrontBadge } from "@/components/ui/front-badge";
 import {
   stageByKey,
   stages as defaultStages,
@@ -17,7 +18,12 @@ export function StagePill({
   stages?: Stage[];
 }) {
   const s = stageByKey(stage, stages);
-  return <Pill tone={s.tone}>{s.label}</Pill>;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <FrontBadge tone={s.tone} />
+      <Pill tone={s.tone}>{s.label}</Pill>
+    </span>
+  );
 }
 
 export function FollowupPill({ followup }: { followup: Customer["followup"] }) {
@@ -49,7 +55,7 @@ const CHANNEL_META: Record<
 };
 
 export function ChannelBadge({ channel }: { channel: ContactChannel | undefined }) {
-  if (!channel) return <span className="text-[13px] text-ink-3">—</span>;
+  if (!channel) return <span className="text-[13px] text-ink-3">-</span>;
   const { icon: IconEl, label } = CHANNEL_META[channel];
   return (
     <span className="flex items-center gap-1.5 text-[13px] text-ink-2">

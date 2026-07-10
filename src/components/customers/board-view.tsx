@@ -110,7 +110,7 @@ function cellContent(
   contacts: Contact[],
   notesCount: number,
 ): React.ReactNode {
-  const dash = <span className="text-[13px] text-ink-3">—</span>;
+  const dash = <span className="text-[13px] text-ink-3">-</span>;
   switch (id) {
     case "stage":
       return <StagePill stage={c.stage} stages={stages} />;
@@ -252,7 +252,7 @@ function AddGroupRow({ onAdd }: { onAdd: (name: string) => void }) {
         <button
           type="button"
           onClick={commit}
-          className="h-9 cursor-pointer rounded-md bg-melt px-3.5 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+          className="h-9 cursor-pointer rounded-md bg-accent px-3.5 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
         >
           Add
         </button>
@@ -274,7 +274,7 @@ function AddGroupRow({ onAdd }: { onAdd: (name: string) => void }) {
     <button
       type="button"
       onClick={() => setAdding(true)}
-      className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line text-[13.5px] font-bold text-ink-3 transition-colors duration-150 hover:border-melt/60 hover:text-melt"
+      className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-control border border-dashed border-line text-[13.5px] font-bold text-ink-3 transition-colors duration-150 hover:border-accent/60 hover:text-accent"
     >
       <Plus size={15} weight="bold" />
       Add group
@@ -329,8 +329,8 @@ export function BoardView({
               aria-label={segment.name}
               {...dropProps(segment.id)}
               style={{ minWidth: totalWidth(visible) }}
-              className={`rounded-firn ${
-                isOver ? "outline-2 outline-dashed outline-melt/60 -outline-offset-2" : ""
+              className={`rounded-card ${
+                isOver ? "outline-2 outline-dashed outline-accent/60 -outline-offset-2" : ""
               }`}
             >
               <SectionHeader

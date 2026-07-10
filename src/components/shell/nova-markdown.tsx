@@ -6,12 +6,12 @@ import remarkGfm from "remark-gfm";
 /**
  * Renders Nova's replies as real formatted text instead of raw markdown
  * characters ("**bold**", "- item") showing up literally in the chat
- * bubble. Styled against the app's Firn tokens (globals.css) rather than
- * Tailwind's typography plugin, since the chat bubble is small and dense —
- * default prose spacing reads too loose here.
+ * bubble. Styled against the app's Aurora Chart tokens (globals.css) rather
+ * than Tailwind's typography plugin, since the chat bubble is small and
+ * dense - default prose spacing reads too loose here.
  */
 export function NovaMarkdown({ content, tone }: { content: string; tone: "user" | "assistant" }) {
-  const link = tone === "user" ? "text-white underline underline-offset-2" : "text-melt underline underline-offset-2 hover:text-melt-strong";
+  const link = tone === "user" ? "text-white underline underline-offset-2" : "text-accent underline underline-offset-2 hover:text-accent-strong";
   const code =
     tone === "user"
       ? "rounded bg-white/15 px-1 py-0.5 font-mono text-[12.5px]"

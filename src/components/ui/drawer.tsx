@@ -61,7 +61,7 @@ export function Drawer({
 
   return (
     <div
-      className="anim-overlay-in fixed inset-0 z-40 bg-[rgba(10,46,56,0.35)]"
+      className="anim-overlay-in fixed inset-0 z-40 bg-[rgba(23,32,43,0.35)]"
       onPointerDown={onClose}
     >
       <div

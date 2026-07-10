@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { Schibsted_Grotesk, Spline_Sans_Mono } from "next/font/google";
+import { Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const schibsted = Schibsted_Grotesk({
-  variable: "--font-schibsted",
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
   subsets: ["latin"],
 });
 
-const splineMono = Spline_Sans_Mono({
-  variable: "--font-spline-mono",
+const jetbrains = JetBrains_Mono({
+  variable: "--font-jetbrains",
   subsets: ["latin"],
 });
 
@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${schibsted.variable} ${splineMono.variable} h-full antialiased`}
+      className={`${bricolage.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="min-h-full font-sans">{children}</body>
     </html>

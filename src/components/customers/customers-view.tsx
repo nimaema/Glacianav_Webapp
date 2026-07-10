@@ -26,7 +26,7 @@ import {
 import { primaryContactFor, type Contact, type Customer, type Owner, type Segment, type Stage } from "@/lib/fixtures";
 import { addSegment as addSegmentAction, moveCustomerSegment } from "@/lib/data/customers-actions";
 
-const SEGMENT_COLOR_ROTATION = ["#2f6fd0", "#14b8ce", "#27b577", "#6e5be8", "#f26d5f"];
+const SEGMENT_COLOR_ROTATION = ["#3d6fa6", "#1f95a8", "#2f9e63", "#6f5fb0", "#d1614a"];
 
 function OwnerFilterMenu({
   ownerId,
@@ -67,7 +67,7 @@ function OwnerFilterMenu({
             className="flex w-full cursor-pointer items-center rounded-md px-2.5 py-2 text-left text-[14px] text-ink transition-colors duration-150 hover:bg-surface-2"
           >
             Everyone
-            {ownerId === null && <Check size={14} weight="bold" className="ml-auto text-melt" />}
+            {ownerId === null && <Check size={14} weight="bold" className="ml-auto text-accent" />}
           </button>
           {owners.map((o) => (
             <button
@@ -82,7 +82,7 @@ function OwnerFilterMenu({
             >
               <Avatar owner={o} size={18} />
               {o.name}
-              {ownerId === o.id && <Check size={14} weight="bold" className="ml-auto text-melt" />}
+              {ownerId === o.id && <Check size={14} weight="bold" className="ml-auto text-accent" />}
             </button>
           ))}
         </div>
@@ -115,7 +115,7 @@ function ColumnsMenu({
         <Rows size={15} />
         Columns
         {hiddenCount > 0 && (
-          <span className="rounded-full bg-[rgba(11,61,77,0.08)] px-1.5 font-mono text-[11px] text-ink-3 tabular-nums">
+          <span className="rounded-full bg-[rgba(23,32,43,0.08)] px-1.5 font-mono text-[11px] text-ink-3 tabular-nums">
             {hiddenCount} hidden
           </span>
         )}
@@ -134,7 +134,7 @@ function ColumnsMenu({
                 className="flex w-full cursor-pointer items-center rounded-md px-2.5 py-2 text-left text-[14px] text-ink transition-colors duration-150 hover:bg-surface-2"
               >
                 {col.label}
-                {checked && <Check size={14} weight="bold" className="ml-auto text-melt" />}
+                {checked && <Check size={14} weight="bold" className="ml-auto text-accent" />}
               </button>
             );
           })}
@@ -243,11 +243,11 @@ export function CustomersView({
               label="Overdue"
               value={overdue}
               divider
-              tone={overdue > 0 ? "text-[#b23c2e]" : "text-ink"}
+              tone={overdue > 0 ? "text-danger" : "text-ink"}
             />
             <Link
               href="/customers/new"
-              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-melt/60 px-3.5 text-[14px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+              className="flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-accent/60 px-3.5 text-[14px] font-bold text-accent transition-colors duration-150 hover:bg-accent-soft"
             >
               <UserPlus size={16} />
               New customer
@@ -283,7 +283,7 @@ export function CustomersView({
             </div>
             <Link
               href="/customers/new"
-              className="mt-1 flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-melt px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+              className="mt-1 flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
             >
               <UserPlus size={15} />
               New customer

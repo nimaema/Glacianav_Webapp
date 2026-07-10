@@ -20,7 +20,7 @@ import { getObjectBuffer } from "@/lib/storage";
 import { transcribeAudioBuffer } from "@/lib/ai/transcribe";
 import { analyzeTranscript } from "@/lib/ai/analyze-transcript";
 
-const SPEAKER_COLORS = ["#0295ac", "#14b8ce", "#27b577", "#6e5be8", "#f26d5f", "#2f6fd0"];
+const SPEAKER_COLORS = ["#3d6fa6", "#1f95a8", "#2f9e63", "#6f5fb0", "#d1614a", "#3d6fa6"];
 
 // Anchors a quote to the first utterance that contains it (case-insensitive
 // substring match) — a simplified stand-in for glacianav-notes' fuzzy

@@ -63,19 +63,13 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
-      className={`group relative mx-3 flex min-h-11 items-center gap-3 border-l-2 px-3 text-[14px] transition-colors duration-150 ${
+      className={`rounded-pill mx-3 flex min-h-11 items-center gap-3 px-3.5 text-[14px] transition-colors duration-150 ${
         active
-          ? "border-signal bg-white/[0.07] font-semibold text-white"
-          : "border-transparent text-deep-ink-2 hover:border-white/20 hover:bg-white/[0.04] hover:text-white"
+          ? "bg-accent font-semibold text-white"
+          : "text-ink-2 hover:bg-surface-2 hover:text-ink"
       }`}
     >
-      {active && (
-        <span
-          aria-hidden
-          className="absolute right-3 h-1.5 w-1.5 bg-signal"
-        />
-      )}
-      <IconEl size={18} className={active ? "text-signal" : "text-deep-ink-2"} />
+      <IconEl size={18} className={active ? "text-white" : "text-ink-3"} />
       <span className="min-w-0 flex-1 truncate" title={item.label}>
         {item.label}
       </span>
@@ -94,18 +88,26 @@ export function Rail({ profile }: { profile: Profile | null }) {
   return (
     <nav
       aria-label="Primary"
-      className="hidden h-full w-[248px] shrink-0 flex-col bg-deep text-deep-ink md:flex"
+      className="hidden h-full w-[248px] shrink-0 flex-col border-r border-line bg-shell text-shell-ink md:flex"
     >
-      <div className="flex h-20 shrink-0 items-center gap-3 border-b border-white/10 px-6">
-        <span className="grid h-8 w-8 place-items-center bg-signal font-mono text-[13px] font-bold text-deep">GN</span>
-        <div><p className="text-[15px] font-semibold tracking-[-0.01em]">GlaciaNav</p><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-deep-ink-2">Field workspace</p></div>
+      <div className="flex h-20 shrink-0 items-center gap-3 border-b border-line px-6">
+        <svg className="h-8 w-8 shrink-0" viewBox="0 0 32 32" fill="none" aria-hidden>
+          <circle cx="16" cy="16" r="13.5" stroke="var(--accent)" strokeWidth="1.4" opacity="0.35" />
+          <circle cx="16" cy="16" r="9.5" stroke="var(--accent)" strokeWidth="1.4" opacity="0.6" />
+          <circle cx="16" cy="16" r="5.5" stroke="var(--accent)" strokeWidth="1.6" opacity="0.85" />
+          <circle cx="16" cy="16" r="2" fill="var(--accent-strong)" />
+        </svg>
+        <div>
+          <p className="text-[15px] font-semibold tracking-[-0.01em]">GlaciaNav</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">Aurora Chart</p>
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-1 overflow-y-auto py-4">
         {SECTIONS.map((section) => (
           <div key={section.label ?? "top"} className="flex flex-col gap-px">
             {section.label && (
-              <div className="px-6 pb-1 pt-5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-deep-ink-2">
+              <div className="px-6 pb-1 pt-5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-3">
                 {section.label}
               </div>
             )}
@@ -116,25 +118,25 @@ export function Rail({ profile }: { profile: Profile | null }) {
         ))}
       </div>
 
-      <div className="shrink-0 border-t border-white/10 py-3">
+      <div className="shrink-0 border-t border-line py-3">
         {FOOT.map((item) => (
           <RailLink key={item.href} item={item} active={isActive(item.href)} />
         ))}
-        <div ref={menuRef} className="relative mx-3 mt-3 border-t border-white/10 pt-4">
+        <div ref={menuRef} className="relative mx-3 mt-3 border-t border-line pt-4">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
-            className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-1.5 text-left transition-colors duration-150 hover:bg-white/[0.05]"
+            className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-1.5 text-left transition-colors duration-150 hover:bg-surface-2"
           >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-[12px] font-bold text-signal">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[12px] font-bold text-accent">
               {profile?.initials ?? "?"}
             </span>
-            <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight text-white">
+            <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight text-ink">
               <span className="block truncate">{profile?.name ?? "Not signed in"}</span>
-              <span className="block font-mono text-[10px] font-normal uppercase tracking-[0.12em] text-deep-ink-2">
-                {profile?.role ?? "—"}
+              <span className="block font-mono text-[10px] font-normal uppercase tracking-[0.12em] text-ink-3">
+                {profile?.role ?? "-"}
               </span>
             </span>
           </button>

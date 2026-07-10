@@ -23,7 +23,7 @@ export function Wave({ points, dim }: { points: number[]; dim?: boolean }) {
       {points.map((v, i) => (
         <span
           key={i}
-          className={`w-[3px] rounded-full ${dim ? "bg-[rgba(11,61,77,0.18)]" : "bg-melt/70"}`}
+          className={`w-[3px] rounded-full ${dim ? "bg-[rgba(23,32,43,0.18)]" : "bg-accent/70"}`}
           style={{ height: `${v}px` }}
         />
       ))}
@@ -37,7 +37,7 @@ type DragHandleProps = {
   onDragEnd?: () => void;
 };
 
-/** An audio recording — waveform-led, with the notes-pipeline detail row
+/** An audio recording - waveform-led, with the notes-pipeline detail row
  * (open actions / decisions / chapters). Distinct from NoteCard so the two
  * content types never blur into each other in a list. */
 export function RecordingCard({

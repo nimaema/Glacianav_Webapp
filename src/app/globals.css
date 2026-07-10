@@ -1,82 +1,127 @@
 @import "tailwindcss";
 
-/* Northstar: an editorial field console for customer intelligence. */
+/* Aurora Chart: validation work rendered as a synoptic instrument — light,
+   precise, luminous, calm. Full spec in DESIGN.md. */
 :root {
-  --ice-0: #e5e7df;
-  --ice-1: #d8dbd1;
-  --surface: #f6f7f1;
-  --surface-2: #eceee6;
-  --ink: #172019;
-  --ink-2: #4a554c;
-  --ink-3: #6b766d;
-  --line: #c8cec4;
-  --line-2: #d9ddd5;
-  --melt: #355c32;
-  --melt-strong: #244421;
-  --melt-soft: rgba(53, 92, 50, 0.12);
-  --signal: #d7f35b;
-  --deep: #111813;
-  --deep-2: #1c261e;
-  --deep-ink: #f3f5ed;
-  --deep-ink-2: #b8c2b8;
-  --c-cyan: #268f98;
-  --c-green: #3e854d;
-  --c-violet: #6f67a8;
-  --c-coral: #c96750;
-  --c-blue: #4d7399;
-  --danger: #b94d3f;
+  --page: #f7f9fc;
+  --page-2: #eef1f7;
+  --surface: #ffffff;
+  --surface-2: #f2f4f9;
+
+  --ink: #17202b;
+  --ink-2: #4b5566;
+  --ink-3: #647282;
+
+  --line: #dde3ee;
+  --line-2: #e8ecf4;
+
+  --accent: #3d6fa6;
+  --accent-strong: #2c527e;
+  --accent-soft: rgba(61, 111, 166, 0.12);
+
+  --shell: #ffffff;
+  --shell-2: #f5f7fb;
+  --shell-ink: #17202b;
+  --shell-ink-2: #647282;
+
+  --aurora-1: #14b8a6;
+  --aurora-2: #6366a8;
+  --aurora-3: #c77da0;
+
+  --front-cold: #2f6fb0;
+  --front-warm: #d1614a;
+  --front-occluded: #7a5fb0;
+  --front-high: #2f9e63;
+
+  --c-cyan: #1f95a8;
+  --c-green: #2f9e63;
+  --c-violet: #6f5fb0;
+  --c-coral: #d1614a;
+  --c-blue: #3d6fa6;
+
+  --danger: #c0463a;
 }
 
 @theme inline {
-  --color-ice-0: var(--ice-0); --color-ice-1: var(--ice-1);
+  --color-page: var(--page); --color-page-2: var(--page-2);
   --color-surface: var(--surface); --color-surface-2: var(--surface-2);
   --color-ink: var(--ink); --color-ink-2: var(--ink-2); --color-ink-3: var(--ink-3);
   --color-line: var(--line); --color-line-2: var(--line-2);
-  --color-melt: var(--melt); --color-melt-strong: var(--melt-strong);
-  --color-signal: var(--signal); --color-deep: var(--deep); --color-deep-2: var(--deep-2);
-  --color-deep-ink: var(--deep-ink); --color-deep-ink-2: var(--deep-ink-2);
+  --color-accent: var(--accent); --color-accent-strong: var(--accent-strong);
+  --color-shell: var(--shell); --color-shell-2: var(--shell-2);
+  --color-shell-ink: var(--shell-ink); --color-shell-ink-2: var(--shell-ink-2);
+  --color-aurora-1: var(--aurora-1); --color-aurora-2: var(--aurora-2); --color-aurora-3: var(--aurora-3);
+  --color-front-cold: var(--front-cold); --color-front-warm: var(--front-warm);
+  --color-front-occluded: var(--front-occluded); --color-front-high: var(--front-high);
   --color-data-cyan: var(--c-cyan); --color-data-green: var(--c-green);
   --color-data-violet: var(--c-violet); --color-data-coral: var(--c-coral);
   --color-data-blue: var(--c-blue); --color-danger: var(--danger);
-  --font-sans: var(--font-schibsted), "Helvetica Neue", sans-serif;
-  --font-mono: var(--font-spline-mono), ui-monospace, monospace;
-  --radius-firn: 4px; --radius-firn-lg: 8px;
+  --font-sans: var(--font-bricolage), "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --radius-card: 16px; --radius-control: 11px; --radius-pill: 999px;
 }
 
 @layer base {
   * { box-sizing: border-box; }
   html { text-rendering: optimizeLegibility; font-feature-settings: "kern" 1, "liga" 1; }
   body {
-    background: var(--ice-0);
+    background: var(--page);
     color: var(--ink);
     font-variant-numeric: lining-nums;
   }
-  ::selection { background: var(--signal); color: var(--deep); }
-  :focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+  ::selection { background: var(--accent-soft); color: var(--ink); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 }
 
 @layer components {
   .surfaced {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--radius-firn);
-    box-shadow: 4px 4px 0 rgba(17, 24, 19, 0.08);
+    border-radius: var(--radius-card);
+    box-shadow: 0 10px 24px -18px rgba(23, 32, 43, 0.18);
   }
   .surfaced-lg {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--radius-firn-lg);
-    box-shadow: 10px 10px 0 rgba(17, 24, 19, 0.12);
+    border-radius: var(--radius-card);
+    box-shadow: 0 20px 40px -20px rgba(23, 32, 43, 0.22);
   }
   .recessed {
-    background: rgba(17, 24, 19, 0.055);
-    border-left: 3px solid var(--line);
-    border-radius: 0 var(--radius-firn) var(--radius-firn) 0;
+    background: var(--surface-2);
+    border-radius: var(--radius-control);
   }
-  .risen { border-color: var(--ink); box-shadow: 6px 6px 0 rgba(17, 24, 19, 0.16); }
+  .risen { border-color: var(--line-2); box-shadow: 0 24px 48px -20px rgba(23, 32, 43, 0.28); }
   .rise-on-hover { transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease; }
-  .rise-on-hover:hover { transform: translate(-2px, -2px); border-color: var(--ink); box-shadow: 7px 7px 0 rgba(17, 24, 19, 0.14); }
+  .rise-on-hover:hover { transform: translateY(-2px); box-shadow: 0 20px 36px -18px rgba(23, 32, 43, 0.24); }
   .strata-line { border-top: 1px solid var(--line); }
+
+  /* Aurora restraint layer — decorative only, exactly two spots app-wide
+     (page-header band + Nova/brand mark). Always paired with a solid
+     --surface/--page base underneath so text contrast is computed against
+     that solid color, never against the gradient itself. */
+  .aurora-wash {
+    position: relative;
+    isolation: isolate;
+  }
+  .aurora-wash::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(600px 240px at 12% 0%, color-mix(in srgb, var(--aurora-1) 14%, transparent), transparent 70%),
+      radial-gradient(520px 220px at 88% 100%, color-mix(in srgb, var(--aurora-3) 12%, transparent), transparent 70%);
+  }
+
+  /* Weather-front stage glyph badge — Stage semantics only, never reused
+     for Compatibility/Priority/Problem/Followup (those stay flat-tint pills). */
+  .front-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
   .anim-overlay-in { animation: overlay-in 150ms ease both; }
   .anim-drawer-in { animation: drawer-in 180ms ease both; }
   .anim-palette-in { animation: palette-in 150ms ease both; }

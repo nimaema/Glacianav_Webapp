@@ -26,13 +26,13 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="border-b border-ink/15 bg-surface">
+    <header className="aurora-wash border-b border-line bg-surface">
       <div className="mx-auto flex max-w-[1680px] flex-col gap-4 px-6 py-8 lg:px-10 lg:py-10">
         <div className="flex flex-wrap items-center gap-4">
           {IconEl && (
             <span
               aria-hidden
-              className="flex h-12 w-12 shrink-0 items-center justify-center bg-deep text-signal"
+              className="rounded-control flex h-12 w-12 shrink-0 items-center justify-center bg-accent text-white"
             >
               <IconEl size={21} weight="bold" />
             </span>

@@ -13,7 +13,7 @@ import { toggleUserActive, toggleUserRole, updateAppConfig } from "@/lib/data/se
 function Stat({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string | number; tone?: string }) {
   return (
     <div className="surfaced flex items-center gap-3 px-4 py-3.5">
-      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${tone ?? "bg-melt/10 text-melt"}`}>
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${tone ?? "bg-accent/10 text-accent"}`}>
         {icon}
       </span>
       <div>
@@ -54,7 +54,7 @@ export function AdminView({ roster: initialRoster, config: initialConfig, queueH
           <SectionHeader>Queue health</SectionHeader>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat icon={<CircleNotch size={16} />} label="Processing" value={queueHealth.processing} tone="bg-[rgba(217,178,60,0.16)] text-[#8a6a1a]" />
-            <Stat icon={<WarningCircle size={16} />} label="Failed" value={queueHealth.failed} tone={queueHealth.failed > 0 ? "bg-[rgba(207,80,64,0.16)] text-[#b23c2e]" : undefined} />
+            <Stat icon={<WarningCircle size={16} />} label="Failed" value={queueHealth.failed} tone={queueHealth.failed > 0 ? "bg-[rgba(192,70,58,0.16)] text-[#c0463a]" : undefined} />
             <Stat icon={<CheckCircle size={16} />} label="Processed, 24h" value={queueHealth.last24h} />
             <Stat icon={<CircleNotch size={16} />} label="Avg. process time" value={`${queueHealth.avgProcessMinutes}m`} />
           </div>
@@ -73,7 +73,7 @@ export function AdminView({ roster: initialRoster, config: initialConfig, queueH
                 <button
                   type="button"
                   onClick={() => toggleRole(o.id)}
-                  className="shrink-0 cursor-pointer rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-1 text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-2 transition-colors duration-150 hover:bg-[rgba(11,61,77,0.13)] hover:text-ink"
+                  className="shrink-0 cursor-pointer rounded-full bg-[rgba(23,32,43,0.07)] px-2.5 py-1 text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-2 transition-colors duration-150 hover:bg-[rgba(23,32,43,0.13)] hover:text-ink"
                   title="Click to change role"
                 >
                   {o.role}
@@ -111,7 +111,7 @@ export function AdminView({ roster: initialRoster, config: initialConfig, queueH
               <span className="text-[14px] font-semibold text-ink">Allowed domains</span>
               <div className="flex gap-1.5">
                 {config.allowedDomains.map((d) => (
-                  <span key={d} className="rounded-full bg-[rgba(11,61,77,0.07)] px-2.5 py-0.5 font-mono text-[12px] font-semibold text-ink-2">
+                  <span key={d} className="rounded-full bg-[rgba(23,32,43,0.07)] px-2.5 py-0.5 font-mono text-[12px] font-semibold text-ink-2">
                     {d}
                   </span>
                 ))}

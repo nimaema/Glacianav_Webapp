@@ -184,7 +184,7 @@ export function KanbanView({
             {...dropProps(stage.key)}
             style={{ width: COLUMN_WIDTH }}
             className={`recessed flex shrink-0 flex-col gap-2.5 p-2.5 ${
-              isOver ? "outline-2 outline-dashed outline-melt/60 -outline-offset-2" : ""
+              isOver ? "outline-2 outline-dashed outline-accent/60 -outline-offset-2" : ""
             }`}
           >
             <SectionHeader
@@ -285,7 +285,7 @@ export function KanbanView({
               <button
                 type="button"
                 onClick={commitNewStage}
-                className="h-8 cursor-pointer rounded-md bg-melt px-3 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+                className="h-8 cursor-pointer rounded-md bg-accent px-3 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
               >
                 Add
               </button>
@@ -305,7 +305,7 @@ export function KanbanView({
           <button
             type="button"
             onClick={() => setAddingStage(true)}
-            className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line text-[13px] font-bold text-ink-3 transition-colors duration-150 hover:border-melt/60 hover:text-melt"
+            className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-control border border-dashed border-line text-[13px] font-bold text-ink-3 transition-colors duration-150 hover:border-accent/60 hover:text-accent"
           >
             <Plus size={15} weight="bold" />
             Add stage

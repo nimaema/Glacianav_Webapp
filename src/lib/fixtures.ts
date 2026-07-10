@@ -36,12 +36,12 @@ export const STAGE_TONE_ROTATION: PillTone[] = [
 // The data-palette hex behind each pill tone, for chrome that needs a raw
 // color (section-header ticks) rather than the Pill component itself.
 export const TONE_HEX: Record<PillTone, string> = {
-  blue: "#2f6fd0",
-  cyan: "#14b8ce",
-  green: "#27b577",
-  violet: "#6e5be8",
-  coral: "#f26d5f",
-  gray: "rgba(11,61,77,0.30)",
+  blue: "#3d6fa6",
+  cyan: "#1f95a8",
+  green: "#2f9e63",
+  violet: "#6f5fb0",
+  coral: "#d1614a",
+  gray: "rgba(23,32,43,0.30)",
 };
 
 export type StageKey = string;
@@ -91,9 +91,9 @@ export type QueueItem = {
 };
 
 export const owners: Owner[] = [
-  { id: "nima", name: "Nima", initials: "N", color: "#0295ac", email: "nima@glacianav.com", role: "admin", active: true },
-  { id: "sara", name: "Sara", initials: "SA", color: "#6e5be8", email: "sara@glacianav.com", role: "member", active: true },
-  { id: "jon", name: "Jon", initials: "JR", color: "#27b577", email: "jon@glacianav.com", role: "member", active: true },
+  { id: "nima", name: "Nima", initials: "N", color: "#3d6fa6", email: "nima@glacianav.com", role: "admin", active: true },
+  { id: "sara", name: "Sara", initials: "SA", color: "#6f5fb0", email: "sara@glacianav.com", role: "member", active: true },
+  { id: "jon", name: "Jon", initials: "JR", color: "#2f9e63", email: "jon@glacianav.com", role: "member", active: true },
 ];
 
 export type NotificationPrefs = {
@@ -134,19 +134,19 @@ export const queueHealth = {
 };
 
 export const segments: Segment[] = [
-  { id: "heli", name: "Heli-ski operators", color: "#14b8ce" },
-  { id: "guides", name: "Mountain guides", color: "#6e5be8" },
-  { id: "expedition", name: "Expedition operators", color: "#2f6fd0" },
+  { id: "heli", name: "Heli-ski operators", color: "#1f95a8" },
+  { id: "guides", name: "Mountain guides", color: "#6f5fb0" },
+  { id: "expedition", name: "Expedition operators", color: "#3d6fa6" },
 ];
 
 // A rotation new groups cycle through so "add a group" never needs a color
 // picker — same pattern as STAGE_TONE_ROTATION.
 export const SEGMENT_COLOR_ROTATION = [
-  "#2f6fd0",
-  "#14b8ce",
-  "#27b577",
-  "#6e5be8",
-  "#f26d5f",
+  "#3d6fa6",
+  "#1f95a8",
+  "#2f9e63",
+  "#6f5fb0",
+  "#d1614a",
 ];
 
 export const stages: Stage[] = [
@@ -170,11 +170,11 @@ export const COMPATIBILITY_LEVELS: {
   label: string;
   hex: string;
 }[] = [
-  { key: "none", label: "Not compatible", hex: "#CF5040" },
-  { key: "weak", label: "Weak fit", hex: "#E2793D" },
-  { key: "possible", label: "Possible fit", hex: "#D9B23C" },
-  { key: "good", label: "Good fit", hex: "#8FB93C" },
-  { key: "full", label: "Full match", hex: "#27B577" },
+  { key: "none", label: "Not compatible", hex: "#C0463A" },
+  { key: "weak", label: "Weak fit", hex: "#D1614A" },
+  { key: "possible", label: "Possible fit", hex: "#D9A33C" },
+  { key: "good", label: "Good fit", hex: "#86B84A" },
+  { key: "full", label: "Full match", hex: "#2F9E63" },
 ];
 
 export function compatibilityByKey(key: CompatibilityLevel | null | undefined) {
@@ -505,7 +505,7 @@ export const todaySlots: {
 export const funnel = [
   { label: "Contacted", count: 24, pct: 88, color: "#c9dcf6" },
   { label: "Interviewed", count: 11, pct: 42, color: "#7fa3e3" },
-  { label: "Validated", count: 6, pct: 23, color: "#2f6fd0" },
+  { label: "Validated", count: 6, pct: 23, color: "#3d6fa6" },
 ];
 
 // interviews per week, last 8 weeks
@@ -562,13 +562,13 @@ export type CalendarFeed = {
 };
 
 export const calendarFeeds: CalendarFeed[] = [
-  { id: "f1", ownerId: "nima", label: "GlaciaNav", color: "#0295ac", visibility: "details", internal: true },
-  { id: "f2", ownerId: "nima", label: "Personal Gmail", color: "#6e5be8", visibility: "busy_only", syncStatus: "synced", lastSyncedMinutes: 6 },
-  { id: "f3", ownerId: "nima", label: "MS365 work", color: "#2f6fd0", visibility: "busy_only", syncStatus: "synced", lastSyncedMinutes: 18 },
-  { id: "f4", ownerId: "sara", label: "GlaciaNav", color: "#0295ac", visibility: "details", internal: true },
-  { id: "f5", ownerId: "sara", label: "MS365 work", color: "#2f6fd0", visibility: "busy_only", syncStatus: "synced", lastSyncedMinutes: 11 },
-  { id: "f6", ownerId: "jon", label: "GlaciaNav", color: "#0295ac", visibility: "details", internal: true },
-  { id: "f7", ownerId: "jon", label: "Personal Gmail", color: "#6e5be8", visibility: "busy_only", syncStatus: "error", lastSyncedMinutes: 340 },
+  { id: "f1", ownerId: "nima", label: "GlaciaNav", color: "#3d6fa6", visibility: "details", internal: true },
+  { id: "f2", ownerId: "nima", label: "Personal Gmail", color: "#6f5fb0", visibility: "busy_only", syncStatus: "synced", lastSyncedMinutes: 6 },
+  { id: "f3", ownerId: "nima", label: "MS365 work", color: "#3d6fa6", visibility: "busy_only", syncStatus: "synced", lastSyncedMinutes: 18 },
+  { id: "f4", ownerId: "sara", label: "GlaciaNav", color: "#3d6fa6", visibility: "details", internal: true },
+  { id: "f5", ownerId: "sara", label: "MS365 work", color: "#3d6fa6", visibility: "busy_only", syncStatus: "synced", lastSyncedMinutes: 11 },
+  { id: "f6", ownerId: "jon", label: "GlaciaNav", color: "#3d6fa6", visibility: "details", internal: true },
+  { id: "f7", ownerId: "jon", label: "Personal Gmail", color: "#6f5fb0", visibility: "busy_only", syncStatus: "error", lastSyncedMinutes: 340 },
 ];
 
 export function feedsForOwner(ownerId: string): CalendarFeed[] {
@@ -674,9 +674,9 @@ export type Conversation = {
 };
 
 export const topics: Topic[] = [
-  { id: "interviews", name: "Customer interviews", color: "#14b8ce", visibility: "all", memberIds: ["nima", "sara", "jon"] },
-  { id: "weekly", name: "Weekly sync", color: "#6e5be8", visibility: "all", memberIds: ["nima", "sara", "jon"] },
-  { id: "learning", name: "Learning", color: "#27b577", visibility: "selected", memberIds: ["nima", "sara"] },
+  { id: "interviews", name: "Customer interviews", color: "#1f95a8", visibility: "all", memberIds: ["nima", "sara", "jon"] },
+  { id: "weekly", name: "Weekly sync", color: "#6f5fb0", visibility: "all", memberIds: ["nima", "sara", "jon"] },
+  { id: "learning", name: "Learning", color: "#2f9e63", visibility: "selected", memberIds: ["nima", "sara"] },
 ];
 
 // Ordered by recency, newest first.
@@ -964,8 +964,8 @@ export const conversationDetails: Record<string, ConversationDetails> = {
     durationMs: 1_620_000,
     editedBy: "sara",
     speakers: [
-      { label: "A", name: "Sara", color: "#6e5be8" },
-      { label: "B", name: "Ida Sørheim", color: "#14b8ce" },
+      { label: "A", name: "Sara", color: "#6f5fb0" },
+      { label: "B", name: "Ida Sørheim", color: "#1f95a8" },
     ],
     chapters: [
       { title: "Current rotation-planning workflow", summary: "How ArcticOps plans a season today: spreadsheets plus the ops whiteboard.", startMs: 60_000 },
@@ -1021,8 +1021,8 @@ export const conversationDetails: Record<string, ConversationDetails> = {
     language: "English",
     durationMs: 2_460_000,
     speakers: [
-      { label: "A", name: "Nima", color: "#0295ac" },
-      { label: "B", name: "Salome Berger", color: "#f26d5f" },
+      { label: "A", name: "Nima", color: "#3d6fa6" },
+      { label: "B", name: "Salome Berger", color: "#d1614a" },
     ],
     chapters: [
       { title: "Rope-team planning today", startMs: 180_000 },

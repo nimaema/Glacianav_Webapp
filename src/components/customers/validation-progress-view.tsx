@@ -97,7 +97,7 @@ export function ValidationProgressView({
               label="Overdue"
               value={overdue}
               divider
-              tone={overdue > 0 ? "text-[#b23c2e]" : "text-ink"}
+              tone={overdue > 0 ? "text-danger" : "text-ink"}
             />
           </>
         }
@@ -122,7 +122,7 @@ export function ValidationProgressView({
             <h2 className="text-[12.5px] font-bold uppercase tracking-[0.11em] text-ink-2">
               Archive
             </h2>
-            <span className="rounded-full bg-[rgba(11,61,77,0.07)] px-2 py-0.5 font-mono text-[11.5px] font-bold text-ink-2 tabular-nums">
+            <span className="rounded-full bg-[rgba(23,32,43,0.07)] px-2 py-0.5 font-mono text-[11.5px] font-bold text-ink-2 tabular-nums">
               {archivedRows.length}
             </span>
           </div>
@@ -141,7 +141,7 @@ export function ValidationProgressView({
                       <button
                         type="button"
                         onClick={() => open(customer.id)}
-                        className="block max-w-full truncate text-left text-[14.5px] font-semibold text-ink transition-colors duration-150 hover:text-melt"
+                        className="block max-w-full truncate text-left text-[14.5px] font-semibold text-ink transition-colors duration-150 hover:text-accent"
                       >
                         {customer.name}
                       </button>
@@ -154,7 +154,7 @@ export function ValidationProgressView({
                     <button
                       type="button"
                       onClick={() => setArchived(customer.id, false)}
-                      className="flex h-8 cursor-pointer items-center gap-1 rounded-md px-2.5 text-[12.5px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+                      className="flex h-8 cursor-pointer items-center gap-1 rounded-md px-2.5 text-[12.5px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
                     >
                       <ArrowCounterClockwise size={14} />
                       Restore

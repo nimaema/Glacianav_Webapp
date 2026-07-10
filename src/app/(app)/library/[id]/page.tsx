@@ -26,7 +26,7 @@ export default async function ConversationPage({
         </p>
         <Link
           href="/library"
-          className="mt-4 inline-block text-[14px] font-bold text-melt transition-colors duration-150 hover:text-melt-strong"
+          className="mt-4 inline-block text-[14px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
         >
           Back to library
         </Link>

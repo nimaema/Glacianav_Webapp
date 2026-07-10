@@ -87,7 +87,7 @@ export function AskView({
               aria-selected={scope.kind === "everything"}
               onClick={() => changeScope({ kind: "everything" })}
               className={`h-8 cursor-pointer rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-150 ${
-                scope.kind === "everything" ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                scope.kind === "everything" ? "bg-accent text-white" : "bg-[rgba(23,32,43,0.06)] text-ink-2 hover:bg-[rgba(23,32,43,0.1)]"
               }`}
             >
               Everything
@@ -97,7 +97,7 @@ export function AskView({
               onChange={(e) => e.target.value && changeScope({ kind: "customer", id: e.target.value })}
               aria-label="Scope to a customer"
               className={`h-8 cursor-pointer rounded-full px-3 text-[13px] font-semibold outline-none transition-colors duration-150 ${
-                scope.kind === "customer" ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                scope.kind === "customer" ? "bg-accent text-white" : "bg-[rgba(23,32,43,0.06)] text-ink-2 hover:bg-[rgba(23,32,43,0.1)]"
               }`}
             >
               <option value="" disabled>
@@ -114,7 +114,7 @@ export function AskView({
               onChange={(e) => e.target.value && changeScope({ kind: "conversation", id: e.target.value })}
               aria-label="Scope to a conversation"
               className={`h-8 cursor-pointer rounded-full px-3 text-[13px] font-semibold outline-none transition-colors duration-150 ${
-                scope.kind === "conversation" ? "bg-melt text-white" : "bg-[rgba(11,61,77,0.06)] text-ink-2 hover:bg-[rgba(11,61,77,0.1)]"
+                scope.kind === "conversation" ? "bg-accent text-white" : "bg-[rgba(23,32,43,0.06)] text-ink-2 hover:bg-[rgba(23,32,43,0.1)]"
               }`}
             >
               <option value="" disabled>
@@ -135,7 +135,7 @@ export function AskView({
             <div className="flex min-h-[220px] flex-1 flex-col gap-3 overflow-y-auto pr-1">
               {messages.map((m, i) =>
                 m.role === "user" ? (
-                  <p key={i} className="self-end rounded-firn bg-melt/10 px-3 py-2 text-[14px] font-semibold text-ink">
+                  <p key={i} className="self-end rounded-card bg-accent/10 px-3 py-2 text-[14px] font-semibold text-ink">
                     {m.content}
                   </p>
                 ) : (
@@ -164,7 +164,7 @@ export function AskView({
                 type="button"
                 onClick={send}
                 aria-label="Send question"
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-melt text-white transition-colors duration-150 hover:bg-melt-strong"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-accent text-white transition-colors duration-150 hover:bg-accent-strong"
               >
                 <PaperPlaneTilt size={16} />
               </button>
@@ -184,7 +184,7 @@ export function AskView({
               >
                 <span className="line-clamp-2 leading-snug text-ink-2">{item.content}</span>
                 {item.citationMs != null && (
-                  <span className="flex items-center gap-1.5 font-mono text-[11.5px] font-bold text-melt">
+                  <span className="flex items-center gap-1.5 font-mono text-[11.5px] font-bold text-accent">
                     {fmtMs(item.citationMs)}
                     <span className="truncate font-sans font-semibold text-ink-3">{item.conversationTitle}</span>
                   </span>

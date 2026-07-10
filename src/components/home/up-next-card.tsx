@@ -10,7 +10,7 @@ export function UpNextCard({ topItem }: { topItem: AttentionItem | undefined }) 
   if (!topItem) {
     return (
       <section data-rise aria-label="Up next" className="surfaced risen flex items-center gap-4 p-6 lg:p-8">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-melt/10 text-melt">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
           <Sparkle size={18} weight="bold" />
         </span>
         <div className="min-w-0 flex-1">
@@ -19,7 +19,7 @@ export function UpNextCard({ topItem }: { topItem: AttentionItem | undefined }) 
         </div>
         <Link
           href="/record"
-          className="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-melt px-4 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+          className="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-accent px-4 text-[14px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
         >
           <Record size={18} />
           Record
@@ -32,7 +32,7 @@ export function UpNextCard({ topItem }: { topItem: AttentionItem | undefined }) 
     <section data-rise aria-label="Up next" className="surfaced risen relative overflow-hidden p-6 lg:p-8">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-melt">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-accent">
             {topItem.kind === "review" ? "Ready to review" : "Open task"}
           </p>
           <h2 className="mt-3 text-[clamp(1.75rem,3vw,3rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-ink">
@@ -48,7 +48,7 @@ export function UpNextCard({ topItem }: { topItem: AttentionItem | undefined }) 
       <div className="mt-7 flex items-center gap-3">
         <Link
           href={topItem.href}
-          className="flex h-11 cursor-pointer items-center gap-1.5 bg-deep px-5 text-[14px] font-bold text-white transition-colors hover:bg-melt-strong"
+          className="flex h-11 cursor-pointer items-center gap-1.5 rounded-control bg-accent px-5 text-[14px] font-bold text-white transition-colors hover:bg-accent-strong"
         >
           Open
         </Link>

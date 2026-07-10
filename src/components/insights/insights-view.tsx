@@ -25,10 +25,10 @@ function CadenceChart({ cadence }: { cadence: InsightsPageData["cadence"] }) {
       role="img"
       aria-label={`Interviews per week over the last ${points.length} weeks against a target of ${target}`}
     >
-      <line x1={0} x2={w} y1={targetY} y2={targetY} stroke="rgba(11,61,77,0.18)" strokeDasharray="3 4" />
-      <path d={path} fill="none" stroke="var(--melt)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1={0} x2={w} y1={targetY} y2={targetY} stroke="rgba(23,32,43,0.18)" strokeDasharray="3 4" />
+      <path d={path} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       {points.map((v, i) => (
-        <circle key={i} cx={i * step} cy={y(v)} r="3.4" fill="var(--melt)" />
+        <circle key={i} cx={i * step} cy={y(v)} r="3.4" fill="var(--accent)" />
       ))}
     </svg>
   );
@@ -86,15 +86,15 @@ export function InsightsView({
 
           <div className="surfaced flex flex-col gap-3 px-5 py-4">
             <SectionHeader>Problem confirmation</SectionHeader>
-            <div className="flex h-4 overflow-hidden rounded-full bg-[rgba(11,61,77,0.07)]">
-              <span style={{ width: `${problemSplit.total ? (problemSplit.yes / problemSplit.total) * 100 : 0}%` }} className="bg-[#27b577]" title="Confirmed" />
+            <div className="flex h-4 overflow-hidden rounded-full bg-[rgba(23,32,43,0.07)]">
+              <span style={{ width: `${problemSplit.total ? (problemSplit.yes / problemSplit.total) * 100 : 0}%` }} className="bg-[#2f9e63]" title="Confirmed" />
               <span style={{ width: `${problemSplit.total ? (problemSplit.unknown / problemSplit.total) * 100 : 0}%` }} className="bg-[#d9b23c]" title="Unknown" />
-              <span style={{ width: `${problemSplit.total ? (problemSplit.no / problemSplit.total) * 100 : 0}%` }} className="bg-[#cf5040]" title="Not confirmed" />
+              <span style={{ width: `${problemSplit.total ? (problemSplit.no / problemSplit.total) * 100 : 0}%` }} className="bg-[#c0463a]" title="Not confirmed" />
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[13px]">
-              <span className="flex items-center gap-1.5 text-ink-2"><span className="h-2.5 w-2.5 rounded-full bg-[#27b577]" />Confirmed · {problemSplit.yes}</span>
+              <span className="flex items-center gap-1.5 text-ink-2"><span className="h-2.5 w-2.5 rounded-full bg-[#2f9e63]" />Confirmed · {problemSplit.yes}</span>
               <span className="flex items-center gap-1.5 text-ink-2"><span className="h-2.5 w-2.5 rounded-full bg-[#d9b23c]" />Unknown · {problemSplit.unknown}</span>
-              <span className="flex items-center gap-1.5 text-ink-2"><span className="h-2.5 w-2.5 rounded-full bg-[#cf5040]" />Not confirmed · {problemSplit.no}</span>
+              <span className="flex items-center gap-1.5 text-ink-2"><span className="h-2.5 w-2.5 rounded-full bg-[#c0463a]" />Not confirmed · {problemSplit.no}</span>
             </div>
           </div>
         </section>
@@ -127,7 +127,7 @@ export function InsightsView({
                   >
                     <span className="w-[180px] shrink-0 truncate text-[14px] font-semibold text-ink">{tag}</span>
                     <span
-                      className="h-3.5 rounded-r bg-melt/60"
+                      className="h-3.5 rounded-r bg-accent/60"
                       style={{ width: `${(taggedCustomers.length / maxNeeds) * 100}%`, maxWidth: "40%" }}
                       aria-hidden
                     />

@@ -255,7 +255,7 @@ export function RecordingProvider({
           <button
             type="button"
             onClick={flagMoment}
-            className="flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-[13px] font-bold text-melt transition-colors duration-150 hover:bg-melt/10"
+            className="flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-[13px] font-bold text-accent transition-colors duration-150 hover:bg-accent/10"
           >
             <Flag size={15} />
             {state.flags.length > 0 && (
@@ -274,7 +274,7 @@ export function RecordingProvider({
           <button
             type="button"
             onClick={() => stopAndProcess()}
-            className="flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-melt px-3.5 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-melt-strong"
+            className="flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-accent px-3.5 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
           >
             <Stop size={14} weight="fill" />
             Stop
