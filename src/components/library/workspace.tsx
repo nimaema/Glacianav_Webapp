@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   ArrowLeft,
   CaretDown,
-  ChatCircle,
   CheckCircle,
   FileDoc,
   FilePdf,
@@ -24,12 +25,13 @@ import {
   SpinnerGap,
   Warning,
 } from "@phosphor-icons/react";
-import { Avatar } from "@/components/ui/avatar";
 import { AssigneePicker } from "@/components/ui/assignee-picker";
 import { Pill } from "@/components/ui/pill";
 import { SectionHeader } from "@/components/ui/section-header";
 import { FiledUnderPanel } from "@/components/ui/linked-records";
 import { PlaybackConsole } from "./playback-console";
+import { TraceChip, fmtMs } from "./trace-chip";
+import { DiscussionPanel } from "./discussion-panel";
 import {
   contactById,
   customerById,
@@ -40,12 +42,10 @@ import {
   type ConversationDetails,
   type Customer,
   type Owner,
-  type QaMessage,
   type Topic,
 } from "@/lib/fixtures";
 import {
   exportConversationToGoogleDocs,
-  postConversationComment,
   renameConversationSpeaker,
   toggleActionItemStatus,
   toggleConversationShare,
@@ -55,24 +55,6 @@ import {
 import { askQaQuestion } from "@/lib/data/qa-actions";
 import { setWorkTaskAssignees } from "@/lib/data/work-actions";
 import { OPEN_NOVA_EVENT, type OpenNovaDetail } from "@/components/shell/nova-dock";
-
-function fmtMs(ms: number) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
-}
-
-/** Mono timestamp chip that moves the playhead — the transcript trace anchor. */
-function TraceChip({ ms, onSeek }: { ms: number; onSeek: (ms: number) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSeek(ms)}
-      className="shrink-0 cursor-pointer rounded-full bg-accent/10 px-2.5 py-1 font-mono text-[13px] font-bold text-accent tabular-nums transition-colors duration-150 hover:bg-accent/20"
-    >
-      {fmtMs(ms)}
-    </button>
-  );
-}
 
 function ProcessingView({ title }: { title: string }) {
   const steps = [
@@ -110,18 +92,47 @@ function ProcessingView({ title }: { title: string }) {
   );
 }
 
+type QaTurn = { role: "user" | "assistant"; content: string; citations?: { quote: string; startMs: number; speaker?: string }[] };
+
+// Lightweight markdown renderer bound to this page's own tokens (accent
+// blue, ink) — NovaMarkdown is styled for the Nova wing's separate --nw-*
+// token set and would render with broken colors reused outside it.
+function AnswerMarkdown({ content }: { content: string }) {
+  return (
+    <div className="text-[14px] leading-relaxed text-ink-2 [&>*+*]:mt-2 [ul]:pl-4">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ children }) => <p>{children}</p>,
+          strong: ({ children }) => <strong className="font-bold text-ink">{children}</strong>,
+          ul: ({ children }) => <ul className="flex flex-col gap-1 pl-4">{children}</ul>,
+          li: ({ children }) => <li className="list-disc">{children}</li>,
+          a: ({ children, href }) => (
+            <a href={href} target="_blank" rel="noreferrer" className="font-semibold text-accent underline underline-offset-2">
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+// Deliberately ephemeral — nothing here persists (see qa-actions.ts's
+// `persist: false`), so the thread always starts empty; a page refresh
+// clears it, matching "the ask a question section... should not be saved."
 function QaPanel({
   conversationId,
-  thread,
   currentUserId,
   onSeek,
 }: {
   conversationId: string;
-  thread: QaMessage[];
   currentUserId: string;
   onSeek: (ms: number) => void;
 }) {
-  const [messages, setMessages] = useState(thread);
+  const [messages, setMessages] = useState<QaTurn[]>([]);
   const [draft, setDraft] = useState("");
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +151,7 @@ function QaPanel({
         question: q,
         history,
         authorId: currentUserId,
+        persist: false,
       });
       setMessages((m) => [...m, { role: "assistant", content: result.answer, citations: result.citations }]);
     } catch (e) {
@@ -150,54 +162,59 @@ function QaPanel({
   };
 
   return (
-    <section data-rise aria-label="Ask Nova" className="surfaced flex flex-col p-4">
-      <SectionHeader icon={<Sparkle size={16} />} className="mb-3">
-        Ask this conversation
-      </SectionHeader>
-      <div className="flex max-h-[420px] flex-col gap-3 overflow-y-auto pr-1">
+    <section data-rise aria-label="Ask Nova" className="surfaced flex flex-col overflow-hidden">
+      <div className="aurora-wash px-4 py-3.5">
+        <SectionHeader icon={<Sparkle size={16} />}>Ask this conversation</SectionHeader>
+        <p className="mt-1 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink-3">
+          Not saved · clears on refresh
+        </p>
+      </div>
+      <div className="flex max-h-[420px] flex-col gap-3 overflow-y-auto p-4">
         {messages.map((m, i) =>
           m.role === "user" ? (
-            <p
-              key={i}
-              className="self-end rounded-card bg-accent/10 px-3 py-2 text-[14px] font-semibold text-ink"
-            >
+            <p key={i} className="self-end rounded-card rounded-br-sm bg-accent px-3.5 py-2.5 text-[14px] font-semibold text-white">
               {m.content}
             </p>
           ) : (
-            <div key={i} className="flex flex-col gap-2">
-              <p className="text-[14px] leading-relaxed text-ink-2">{m.content}</p>
-              {m.citations?.map((c) => (
-                <button
-                  key={c.startMs}
-                  type="button"
-                  onClick={() => onSeek(c.startMs)}
-                  className="recessed flex cursor-pointer items-baseline gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-[rgba(23,32,43,0.10)]"
-                >
-                  <span className="font-mono text-[12px] font-bold text-accent tabular-nums">
-                    {fmtMs(c.startMs)}
-                  </span>
-                  <span className="text-[13.5px] leading-snug text-ink-2">
-                    &ldquo;{c.quote}&rdquo;
-                  </span>
-                </button>
-              ))}
+            <div key={i} className="flex flex-col gap-2.5">
+              <AnswerMarkdown content={m.content} />
+              {m.citations && m.citations.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {m.citations.map((c) => (
+                    <button
+                      key={c.startMs}
+                      type="button"
+                      onClick={() => onSeek(c.startMs)}
+                      className="group flex cursor-pointer items-start gap-2.5 rounded-[10px] border border-line-2 bg-[color:var(--color-page,#f7f9fc)] px-3 py-2 text-left transition-colors duration-150 hover:border-accent/40 hover:bg-accent/5"
+                    >
+                      <span className="mt-0.5 flex h-5 shrink-0 items-center gap-1 rounded-pill bg-accent/10 px-1.5 font-mono text-[11px] font-bold text-accent tabular-nums group-hover:bg-accent group-hover:text-white">
+                        {fmtMs(c.startMs)}
+                      </span>
+                      <span className="min-w-0 text-[13px] italic leading-snug text-ink-2">
+                        &ldquo;{c.quote}&rdquo;
+                        {c.speaker && <span className="ml-1 not-italic text-ink-3">— {c.speaker}</span>}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ),
         )}
         {asking && (
           <div className="flex items-center gap-2 text-[13.5px] text-ink-3">
-            <Sparkle size={14} className="animate-pulse" />
+            <Sparkle size={14} className="animate-pulse text-accent" />
             Reading the transcript…
           </div>
         )}
         {messages.length === 0 && !asking && (
           <p className="text-[13.5px] text-ink-3">
-            Ask anything said here — answers cite the transcript moment.
+            Ask anything said here — answers cite the transcript moment. Nothing here is saved.
           </p>
         )}
         {error && <p className="text-[13px] font-semibold text-danger">{error}</p>}
       </div>
-      <div className="mt-3 flex items-center gap-2">
+      <div className="flex items-center gap-2 border-t border-line-2 p-3">
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -251,13 +268,16 @@ export function ConversationWorkspace({
   const hasAudio = Boolean(c.hasAudio) && !isNote;
   const audioRef = useRef<HTMLAudioElement>(null);
   const [actions, setActions] = useState(d.actionItems ?? []);
-  const [comments, setComments] = useState(d.comments ?? []);
   const [speakers, setSpeakers] = useState(d.speakers ?? []);
   const [editingSpeakerLabel, setEditingSpeakerLabel] = useState<string | null>(null);
   const [speakerDraft, setSpeakerDraft] = useState("");
   const [speakerSaving, setSpeakerSaving] = useState(false);
   const [speakerError, setSpeakerError] = useState<string | null>(null);
-  const [commentDraft, setCommentDraft] = useState("");
+  // Collapsed by default — a full transcript can be hundreds of lines and
+  // was pushing Discussion far down the page; a few lines are enough to
+  // orient, with an explicit expand for the rest.
+  const [transcriptExpanded, setTranscriptExpanded] = useState(false);
+  const TRANSCRIPT_PREVIEW_LINES = 4;
   const [exportOpen, setExportOpen] = useState(false);
   const [exportingDocs, setExportingDocs] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -314,14 +334,6 @@ export function ConversationWorkspace({
     else setPlaying(true);
   };
 
-  const postComment = () => {
-    const body = commentDraft.trim();
-    if (!body) return;
-    const atMs = isNote ? undefined : playheadMs;
-    setComments((cs) => [...cs, { authorId: currentUserId, body, atMs, when: "just now" }]);
-    setCommentDraft("");
-    void postConversationComment({ conversationId: c.id, authorId: currentUserId, body, atMs });
-  };
 
   const canRenameSpeakers = !isNote && c.authorId === currentUserId;
   const speakerName = (label: string) =>
@@ -362,14 +374,17 @@ export function ConversationWorkspace({
     }
   };
 
+  // Comment markers reflect the comments present at page load — Discussion
+  // now owns its own live state (mentions/Nova replies), so a comment
+  // posted this session won't show a scrubber dot until the next load.
   const markers = useMemo(
     () =>
       [
         ...actions.map((a) => a.sourceMs),
         ...(d.decisions ?? []).map((x) => x.sourceMs),
-        ...comments.map((cm) => cm.atMs),
+        ...(d.comments ?? []).map((cm) => cm.atMs),
       ].filter((m): m is number => m != null),
-    [actions, d.decisions, comments],
+    [actions, d.decisions, d.comments],
   );
 
   const openActions = actions.filter((a) => a.status === "open").length;
@@ -956,7 +971,7 @@ export function ConversationWorkspace({
                       </p>
                     )}
                     <div className="flex flex-col gap-3">
-                      {d.utterances.map((u) => (
+                      {(transcriptExpanded ? d.utterances : d.utterances.slice(0, TRANSCRIPT_PREVIEW_LINES)).map((u) => (
                         <div key={u.startMs} className="flex items-start gap-3">
                           <TraceChip ms={u.startMs} onSeek={seekAndPlay} />
                           <div className="min-w-0">
@@ -982,87 +997,37 @@ export function ConversationWorkspace({
                         </div>
                       ))}
                     </div>
+                    {d.utterances.length > TRANSCRIPT_PREVIEW_LINES && (
+                      <button
+                        type="button"
+                        onClick={() => setTranscriptExpanded((v) => !v)}
+                        className="mt-3 flex cursor-pointer items-center gap-1.5 text-[13px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
+                      >
+                        <CaretDown size={13} className={`transition-transform duration-150 ${transcriptExpanded ? "rotate-180" : ""}`} />
+                        {transcriptExpanded
+                          ? "Show fewer lines"
+                          : `Show full transcript (${d.utterances.length - TRANSCRIPT_PREVIEW_LINES} more lines)`}
+                      </button>
+                    )}
                     <p className="mt-3 border-t border-line-2 pt-3 text-[12.5px] text-ink-3">
                       Corrections never overwrite the original transcript; edits are stored beside it.
                     </p>
                   </section>
                 )}
 
-                <section data-rise className="surfaced px-5 py-4">
-                  <SectionHeader
-                    icon={<ChatCircle size={16} />}
-                    count={comments.length > 0 ? comments.length : undefined}
-                    className="mb-3"
-                  >
-                    Comments
-                  </SectionHeader>
-                  {comments.length > 0 && (
-                    <div className="flex flex-col gap-3.5">
-                      {comments.map((cm, i) => {
-                        const who = ownerById(cm.authorId, owners);
-                        return (
-                          <div key={i} className="flex items-start gap-3">
-                            <Avatar owner={who} size={24} />
-                            <div className="min-w-0">
-                              <p className="flex items-baseline gap-2 text-[13px]">
-                                <span className="font-bold text-ink">{who.name}</span>
-                                <span className="font-mono text-[12.5px] text-ink-2 tabular-nums">{cm.when}</span>
-                                {cm.atMs != null && <TraceChip ms={cm.atMs} onSeek={seekAndPlay} />}
-                              </p>
-                              <p className="text-[14.5px] leading-relaxed text-ink-2">{cm.body}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div className={`flex items-start gap-3 ${comments.length > 0 ? "mt-4 border-t border-line-2 pt-4" : ""}`}>
-                    <Avatar owner={ownerById(currentUserId, owners)} size={24} />
-                    <div className="min-w-0 flex-1">
-                      <textarea
-                        value={commentDraft}
-                        onChange={(e) => setCommentDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            postComment();
-                          }
-                        }}
-                        placeholder={
-                          isNote
-                            ? "Add a comment"
-                            : "Add a comment, anchored to the current playhead"
-                        }
-                        aria-label="Add a comment"
-                        rows={1}
-                        className="recessed w-full resize-none px-3 py-2 text-[14px] text-ink outline-none placeholder:text-ink-3"
-                      />
-                      <div className="mt-1.5 flex items-center justify-between">
-                        {isNote ? (
-                          <span className="text-[12.5px] font-semibold text-ink-3">
-                            Comments are saved on the note.
-                          </span>
-                        ) : (
-                          <span className="font-mono text-[12.5px] font-semibold text-ink-2 tabular-nums">
-                            at {fmtMs(playheadMs)}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={postComment}
-                          disabled={!commentDraft.trim()}
-                          className="h-7 cursor-pointer rounded-md bg-accent px-3 text-[12.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Comment
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+                <DiscussionPanel
+                  conversationId={c.id}
+                  initialComments={d.comments ?? []}
+                  owners={owners}
+                  currentUserId={currentUserId}
+                  isNote={isNote}
+                  playheadMs={playheadMs}
+                  onSeek={seekAndPlay}
+                />
               </div>
 
               <div className="xl:sticky xl:top-6 xl:self-start">
-                <QaPanel conversationId={c.id} thread={d.qa ?? []} currentUserId={currentUserId} onSeek={seekAndPlay} />
+                <QaPanel conversationId={c.id} currentUserId={currentUserId} onSeek={seekAndPlay} />
               </div>
             </div>
           </div>

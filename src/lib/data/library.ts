@@ -279,7 +279,9 @@ export async function getConversationWorkspaceData(
   );
 
   const commentList: ConversationComment[] = commentRows.map((c) => ({
+    id: c.id,
     authorId: c.authorId ?? "",
+    isNova: c.isNova,
     body: c.body,
     atMs: c.atMs ?? undefined,
     when: relativeTime(c.createdAt, now),

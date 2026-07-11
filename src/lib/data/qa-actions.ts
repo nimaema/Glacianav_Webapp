@@ -16,9 +16,16 @@ export async function askQaQuestion(input: {
   question: string;
   history: { role: "user" | "assistant"; content: string }[];
   authorId: string;
+  // The Conversation Workspace's "Ask this conversation" panel is
+  // deliberately ephemeral — nothing about it persists across a refresh,
+  // unlike the Discussion thread below it. The /ask page keeps persisting
+  // (its "Answered already" sidebar depends on real history), so this
+  // defaults to true and only that one caller opts out.
+  persist?: boolean;
 }): Promise<{ answer: string; citations: { quote: string; startMs: number; speaker?: string }[] }> {
   const question = input.question.trim();
   if (!question) throw new Error("Ask something first.");
+  const persist = input.persist ?? true;
 
   const [author] = await db.select({ role: profiles.role, active: profiles.active }).from(profiles).where(eq(profiles.id, input.authorId)).limit(1);
   if (!author?.active) throw new Error("Your workspace profile isn't active.");
@@ -26,7 +33,9 @@ export async function askQaQuestion(input: {
   const conversationId = input.scope.kind === "conversation" ? input.scope.id : undefined;
   const customerId = input.scope.kind === "customer" ? input.scope.id : undefined;
 
-  await db.insert(qaMessages).values({ conversationId, customerId, authorId: input.authorId, role: "user", content: question });
+  if (persist) {
+    await db.insert(qaMessages).values({ conversationId, customerId, authorId: input.authorId, role: "user", content: question });
+  }
 
   const result = await answerQaQuestion({
     scope: input.scope,
@@ -36,27 +45,29 @@ export async function askQaQuestion(input: {
     authorRole: author.role ?? "member",
   });
 
-  const [assistantMessage] = await db
-    .insert(qaMessages)
-    .values({ conversationId, customerId, authorId: input.authorId, role: "assistant", content: result.answer })
-    .returning({ id: qaMessages.id });
+  if (persist) {
+    const [assistantMessage] = await db
+      .insert(qaMessages)
+      .values({ conversationId, customerId, authorId: input.authorId, role: "assistant", content: result.answer })
+      .returning({ id: qaMessages.id });
 
-  if (result.citations.length && assistantMessage) {
-    await db.insert(qaCitations).values(
-      result.citations.map((c) => ({
-        qaMessageId: assistantMessage.id,
-        quote: c.quote,
-        startMs: c.startMs,
-        speakerLabel: c.speaker,
-      })),
-    );
-  }
+    if (result.citations.length && assistantMessage) {
+      await db.insert(qaCitations).values(
+        result.citations.map((c) => ({
+          qaMessageId: assistantMessage.id,
+          quote: c.quote,
+          startMs: c.startMs,
+          speakerLabel: c.speaker,
+        })),
+      );
+    }
 
-  if (conversationId) {
-    revalidatePath("/library");
-    revalidatePath(`/library/${conversationId}`);
+    if (conversationId) {
+      revalidatePath("/library");
+      revalidatePath(`/library/${conversationId}`);
+    }
+    revalidatePath("/ask");
   }
-  revalidatePath("/ask");
 
   return { answer: result.answer, citations: result.citations };
 }

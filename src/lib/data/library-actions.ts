@@ -11,15 +11,20 @@ import {
   conversationContacts,
   conversationParticipants,
   conversations,
+  profiles,
   speakers,
   tasks,
   topicMembers,
   topics,
 } from "@/db/schema";
 import { getCurrentProfile } from "@/lib/data/current-user";
-import type { ConversationStatus, TopicVisibility } from "@/lib/fixtures";
+import type { ConversationComment, ConversationStatus, TopicVisibility } from "@/lib/fixtures";
 import { buildConversationDocHtml, type ConversationDocSpec } from "@/lib/google-doc-content";
 import { createGoogleDoc, getGoogleConnection, isGoogleConfigured } from "@/lib/google-drive";
+import { generateNovaDiscussionReply } from "@/lib/ai/nova-discussion-reply";
+import { notifyProfile } from "@/lib/data/notifications";
+import { parseMentions } from "@/lib/mentions";
+import { relativeTime } from "@/lib/data/relative-time";
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -195,12 +200,28 @@ export async function toggleActionItemStatus(taskId: string, conversationId: str
   revalidateConversation(conversationId);
 }
 
+// Posts a comment, notifies any real teammates @mentioned in it, and — if
+// @Nova was mentioned — has her read the whole thread (transcript/summary
+// + every comment so far, including this one) and reply as a real,
+// persisted comment of her own. Returns her reply so the client can insert
+// it immediately without a refetch; the awaited LLM round trip means this
+// call takes a few seconds longer whenever she's mentioned.
 export async function postConversationComment(input: {
   conversationId: string;
   authorId: string;
   body: string;
   atMs?: number;
-}) {
+}): Promise<{ novaReply?: ConversationComment }> {
+  const [ownerRows, conversationRow, existingComments] = await Promise.all([
+    db.select({ id: profiles.id, name: profiles.name }).from(profiles),
+    db.select({ title: conversations.title }).from(conversations).where(eq(conversations.id, input.conversationId)).limit(1),
+    db
+      .select({ authorId: comments.authorId, isNova: comments.isNova, body: comments.body })
+      .from(comments)
+      .where(and(eq(comments.entityType, "conversation"), eq(comments.entityId, input.conversationId)))
+      .orderBy(comments.createdAt),
+  ]);
+
   await db.insert(comments).values({
     entityType: "conversation",
     entityId: input.conversationId,
@@ -209,6 +230,62 @@ export async function postConversationComment(input: {
     atMs: input.atMs,
   });
   revalidateConversation(input.conversationId);
+
+  const author = ownerRows.find((o) => o.id === input.authorId);
+  const { mentionedOwnerIds, mentionsNova } = parseMentions(input.body, ownerRows);
+
+  await Promise.all(
+    mentionedOwnerIds
+      .filter((id) => id !== input.authorId)
+      .map((profileId) =>
+        notifyProfile({
+          profileId,
+          kind: "mentioned",
+          title: `${author?.name ?? "Someone"} mentioned you`,
+          body: input.body.length > 140 ? `${input.body.slice(0, 140)}…` : input.body,
+          href: `/library/${input.conversationId}`,
+        }),
+      ),
+  );
+
+  if (!mentionsNova || !conversationRow[0]) return {};
+
+  const ownerNameById = new Map(ownerRows.map((o) => [o.id, o.name]));
+  const thread = [
+    ...existingComments.map((c) => ({
+      authorName: c.isNova ? "Nova" : (c.authorId ? ownerNameById.get(c.authorId) ?? "Someone" : "Someone"),
+      body: c.body,
+    })),
+    { authorName: author?.name ?? "Someone", body: input.body },
+  ];
+
+  const replyBody = await generateNovaDiscussionReply({
+    conversationId: input.conversationId,
+    conversationTitle: conversationRow[0].title,
+    thread,
+  });
+
+  const [novaRow] = await db
+    .insert(comments)
+    .values({
+      entityType: "conversation",
+      entityId: input.conversationId,
+      authorId: null,
+      isNova: true,
+      body: replyBody,
+    })
+    .returning({ id: comments.id, createdAt: comments.createdAt });
+  revalidateConversation(input.conversationId);
+
+  return {
+    novaReply: {
+      id: novaRow.id,
+      authorId: "",
+      isNova: true,
+      body: replyBody,
+      when: relativeTime(novaRow.createdAt, new Date()),
+    },
+  };
 }
 
 // Speaker labels affect the entire transcript, so only the person who owns

@@ -909,7 +909,9 @@ export type QaMessage = {
 };
 
 export type ConversationComment = {
+  id?: string;
   authorId: string;
+  isNova?: boolean;
   body: string;
   atMs?: number; // optional transcript anchor
   when: string;

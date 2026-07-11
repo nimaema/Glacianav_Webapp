@@ -60,7 +60,7 @@ export const entityTypeEnum = pgEnum("entity_type", ["conversation", "customer",
 // Extend as more real trigger points get wired up — kept to what actually
 // fires today (task assignment, a validation note landing on an account
 // you own) rather than every conceivable notification type.
-export const notificationKindEnum = pgEnum("notification_kind", ["task_assigned", "validation_note_added"]);
+export const notificationKindEnum = pgEnum("notification_kind", ["task_assigned", "validation_note_added", "mentioned"]);
 
 // ─── People & workspace config ──────────────────────────────────────
 
@@ -305,6 +305,11 @@ export const comments = pgTable("comments", {
   entityType: entityTypeEnum("entity_type").notNull(),
   entityId: text("entity_id").notNull(),
   authorId: uuid("author_id").references(() => profiles.id),
+  // Nova isn't a real profile (no auth identity, never selectable as a
+  // teammate/assignee elsewhere in the app) — her replies keep authorId
+  // null and set this instead, so the UI can render her distinctly
+  // without her polluting every "list team members" surface.
+  isNova: boolean("is_nova").notNull().default(false),
   body: text("body").notNull(),
   atMs: integer("at_ms"), // optional transcript anchor
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

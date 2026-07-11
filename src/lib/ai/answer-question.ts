@@ -31,7 +31,7 @@ function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
-async function conversationTranscriptContext(conversationId: string): Promise<{ title: string; text: string; hasTimestamps: boolean } | null> {
+export async function conversationTranscriptContext(conversationId: string): Promise<{ title: string; text: string; hasTimestamps: boolean } | null> {
   const [convRows, utteranceRows, chapterRows] = await Promise.all([
     db
       .select({
@@ -135,6 +135,7 @@ const SYSTEM_PROMPT = [
   "You are Nova's retrieval answerer inside GlaciaNav, a customer-validation workspace. You answer ONLY from the CONTEXT given below — never invent facts, names, or numbers that aren't in it.",
   "If the context doesn't contain the answer, say so plainly in one sentence instead of guessing.",
   "Keep answers to 1-4 sentences unless the question genuinely needs a list.",
+  "The answer renders as real markdown, not plain text — use it deliberately: **bold** the specific fact/name/number the question was actually asking for, and use a short \"- \" list when the answer is genuinely multi-part. Don't decorate a one-line answer with structure it doesn't need.",
   'When the context is a timestamped transcript (lines look like "[12345ms] Speaker: text"), and your answer draws on a specific line, include it in a `citations` array: {quote, startMs, speaker}. The quote must be copied verbatim from a transcript line. Omit citations entirely when the context has no timestamps or your answer doesn\'t hinge on a specific line.',
   "Respond as JSON: {\"answer\": string, \"citations\": [{\"quote\": string, \"startMs\": number, \"speaker\": string}]}. citations may be an empty array.",
 ].join("\n");

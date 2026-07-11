@@ -10,7 +10,7 @@ import { relativeTime } from "@/lib/data/relative-time";
 
 export type NotificationItem = {
   id: string;
-  kind: "task_assigned" | "validation_note_added";
+  kind: "task_assigned" | "validation_note_added" | "mentioned";
   title: string;
   body?: string;
   href?: string;
@@ -45,7 +45,7 @@ export async function getNotifications(profileId: string): Promise<{ items: Noti
 
 export async function notifyProfile(input: {
   profileId: string;
-  kind: "task_assigned" | "validation_note_added";
+  kind: "task_assigned" | "validation_note_added" | "mentioned";
   title: string;
   body?: string;
   href?: string;
