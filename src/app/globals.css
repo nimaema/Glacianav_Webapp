@@ -224,6 +224,12 @@
     border-radius: var(--radius-pill);
   }
 
+  /* Nova's own mark, when detailed+busy: the orbital ring slow-spins
+     and its accent dots pulse in sequence — state-conveying only,
+     mirrors the comet-on-the-spine idea at the mark's own scale. */
+  .nova-mark-orbit { animation: nova-mark-spin 6s linear infinite; }
+  .nova-mark-dot { animation: nova-mark-dot-pulse 1.8s ease-in-out infinite; }
+
   /* While Nova works, a comet travels her segment of the spine —
      state-conveying, running only during an in-flight request. */
   .nova-comet {
@@ -295,6 +301,8 @@
 @keyframes nova-sheen { to { transform: translateX(120%); } }
 @keyframes nova-spine-draw { from { transform: scaleY(0); } }
 @keyframes nova-comet-fall { 0% { top: 4px; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { top: calc(100% - 8px); opacity: 0; } }
+@keyframes nova-mark-spin { to { transform: rotate(360deg); } }
+@keyframes nova-mark-dot-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 @keyframes nova-shimmer-sweep { from { background-position: 120% 0; } to { background-position: -100% 0; } }
 @keyframes nova-glow-once {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--nw-teal) 45%, transparent); }

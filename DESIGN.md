@@ -134,10 +134,16 @@ instead.
 
 ### 7b. Nova's identity
 
-Nova's mark is a four-ray stellar nova with a tilted orbital ring
-(`nova-mark.tsx`) — hand-rolled SVG, permitted as part of the brand-mark
-exception alongside the rail's pressure-ring glyph. It wears the aurora
-gradient (§5).
+Nova's mark is a four-ray star with her initial woven into its core as
+a small monogram N (`nova-mark.tsx`) — hand-rolled SVG, permitted as
+part of the brand-mark exception alongside the rail's pressure-ring
+glyph. It wears the aurora gradient (§5). Two render tiers: the plain
+star+N (used at the ~13-15px it renders at inline in trace kickers,
+where a busier mark turns to mud) and a `detailed` tier that adds a
+dashed orbital ring + four diagonal accent dots (sky band 36px, closed
+orb 26px, where there's room to read it). `busy` slow-spins the ring
+and pulses the dots — state-conveying only, while a request is
+actually in flight (§7), same restraint as the spine's comet.
 
 ### 7c. Nova's Wing
 

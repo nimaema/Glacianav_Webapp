@@ -650,7 +650,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
           <div className="nova-wing-sky shrink-0 px-5 pb-4 pt-4" style={{ borderBottom: "1px solid var(--nw-line)" }}>
             <div className="flex items-center justify-between">
               <span className="anim-wing-rise" style={{ animationDelay: "60ms" }}>
-                <NovaMark size={36} />
+                <NovaMark size={36} detailed busy={sending} />
               </span>
               <div className="flex items-center gap-1">
                 {messages.length > 0 && (
@@ -920,7 +920,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
             sending ? "nova-orb-busy" : ""
           }`}
         >
-          <NovaMark size={26} tone="white" />
+          <NovaMark size={26} tone="white" detailed busy={sending} />
         </button>
       )}
     </>
