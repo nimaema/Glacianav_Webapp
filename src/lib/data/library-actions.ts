@@ -275,27 +275,3 @@ export async function createConversationFromRecording(input: {
   revalidatePath("/library");
   return { id };
 }
-
-// Backs both the Conversation Workspace's QaPanel and the Ask page — same
-// qaMessages table, three scopes (conversation-scoped, customer-scoped, or
-// neither for a workspace-wide thread) per the schema's RAG-scope comment.
-// No live RAG pipeline yet, so the assistant side is still a fixed
-// placeholder; this at least makes every question asked real, persisted
-// history instead of local-only state that vanishes on refresh.
-export async function postQaMessage(input: {
-  conversationId?: string;
-  customerId?: string;
-  authorId: string;
-  role: "user" | "assistant";
-  content: string;
-}) {
-  await db.insert(qaMessages).values({
-    conversationId: input.conversationId,
-    customerId: input.customerId,
-    authorId: input.authorId,
-    role: input.role,
-    content: input.content,
-  });
-  if (input.conversationId) revalidateConversation(input.conversationId);
-  revalidatePath("/ask");
-}

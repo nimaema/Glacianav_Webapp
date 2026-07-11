@@ -47,6 +47,7 @@ import {
   updateConversationContacts,
   updateConversationParticipants,
 } from "@/lib/data/library-actions";
+import { askQaQuestion } from "@/lib/data/qa-actions";
 
 function fmtMs(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -103,33 +104,42 @@ function ProcessingView({ title }: { title: string }) {
 }
 
 function QaPanel({
+  conversationId,
   thread,
+  currentUserId,
   onSeek,
 }: {
+  conversationId: string;
   thread: QaMessage[];
+  currentUserId: string;
   onSeek: (ms: number) => void;
 }) {
   const [messages, setMessages] = useState(thread);
   const [draft, setDraft] = useState("");
-  // The "not wired up yet" note only earns its place the first time —
-  // repeating it on every send is just noise.
-  const [explained, setExplained] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const send = () => {
+  const send = async () => {
     const q = draft.trim();
-    if (!q) return;
-    setMessages((m) => {
-      const next = [...m, { role: "user" as const, content: q }];
-      if (!explained) {
-        next.push({
-          role: "assistant",
-          content: "Live answers arrive with the capture pipeline — questions asked here are saved.",
-        });
-      }
-      return next;
-    });
-    setExplained(true);
+    if (!q || asking) return;
+    setMessages((m) => [...m, { role: "user", content: q }]);
     setDraft("");
+    setAsking(true);
+    setError(null);
+    try {
+      const history = messages.slice(-6).map((m) => ({ role: m.role, content: m.content }));
+      const result = await askQaQuestion({
+        scope: { kind: "conversation", id: conversationId },
+        question: q,
+        history,
+        authorId: currentUserId,
+      });
+      setMessages((m) => [...m, { role: "assistant", content: result.answer, citations: result.citations }]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't reach Nova — try again.");
+    } finally {
+      setAsking(false);
+    }
   };
 
   return (
@@ -167,26 +177,35 @@ function QaPanel({
             </div>
           ),
         )}
-        {messages.length === 0 && (
+        {asking && (
+          <div className="flex items-center gap-2 text-[13.5px] text-ink-3">
+            <Sparkle size={14} className="animate-pulse" />
+            Reading the transcript…
+          </div>
+        )}
+        {messages.length === 0 && !asking && (
           <p className="text-[13.5px] text-ink-3">
             Ask anything said here — answers cite the transcript moment.
           </p>
         )}
+        {error && <p className="text-[13px] font-semibold text-danger">{error}</p>}
       </div>
       <div className="mt-3 flex items-center gap-2">
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
+          onKeyDown={(e) => e.key === "Enter" && void send()}
           placeholder="Ask about this conversation"
           aria-label="Ask about this conversation"
-          className="recessed h-9 w-full px-3 text-[14px] text-ink outline-none placeholder:text-ink-3"
+          disabled={asking}
+          className="recessed h-9 w-full px-3 text-[14px] text-ink outline-none placeholder:text-ink-3 disabled:opacity-60"
         />
         <button
           type="button"
-          onClick={send}
+          onClick={() => void send()}
+          disabled={asking || !draft.trim()}
           aria-label="Send question"
-          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-accent text-white transition-colors duration-150 hover:bg-accent-strong"
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-accent text-white transition-colors duration-150 hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
         >
           <PaperPlaneTilt size={16} />
         </button>
@@ -944,7 +963,7 @@ export function ConversationWorkspace({
               </div>
 
               <div className="xl:sticky xl:top-6 xl:self-start">
-                <QaPanel thread={d.qa ?? []} onSeek={seekAndPlay} />
+                <QaPanel conversationId={c.id} thread={d.qa ?? []} currentUserId={currentUserId} onSeek={seekAndPlay} />
               </div>
             </div>
           </div>

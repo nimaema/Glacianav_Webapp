@@ -7,7 +7,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { PageHeader } from "@/components/ui/page-header";
 import type { Customer, QaMessage } from "@/lib/fixtures";
 import type { AnsweredItem, AskPageData, ConversationOption } from "@/lib/data/ask";
-import { postQaMessage } from "@/lib/data/library-actions";
+import { askQaQuestion } from "@/lib/data/qa-actions";
 
 type Scope =
   | { kind: "everything" }
@@ -31,7 +31,8 @@ export function AskView({
   const [scope, setScope] = useState<Scope>({ kind: "everything" });
   const [messages, setMessages] = useState<QaMessage[]>(everythingThread);
   const [draft, setDraft] = useState("");
-  const [explained, setExplained] = useState(everythingThread.length > 0);
+  const [asking, setAsking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const scopeLabel = (s: Scope): string => {
     if (s.kind === "everything") return "the whole workspace";
@@ -41,32 +42,28 @@ export function AskView({
 
   const changeScope = (next: Scope) => {
     setScope(next);
+    setError(null);
     // Only "everything" has its persisted history preloaded — switching to
     // a customer/conversation scope starts a fresh thread (still real,
-    // still persists), same simplification the placeholder-answer already
-    // implies: nothing scoped has real answers to show yet either way.
+    // still persists via askQaQuestion).
     setMessages(next.kind === "everything" ? everythingThread : []);
-    setExplained(next.kind === "everything" && everythingThread.length > 0);
   };
 
-  const send = () => {
+  const send = async () => {
     const q = draft.trim();
-    if (!q) return;
-    const toPersist: QaMessage[] = [{ role: "user", content: q }];
-    if (!explained) {
-      toPersist.push({
-        role: "assistant",
-        content: `Live answers over ${scopeLabel(scope)} arrive with the capture pipeline and embeddings — questions asked here are saved for when that lands.`,
-      });
-    }
-    setMessages((m) => [...m, ...toPersist]);
-    setExplained(true);
+    if (!q || asking) return;
+    setMessages((m) => [...m, { role: "user", content: q }]);
     setDraft("");
-
-    const conversationId = scope.kind === "conversation" ? scope.id : undefined;
-    const customerId = scope.kind === "customer" ? scope.id : undefined;
-    for (const m of toPersist) {
-      void postQaMessage({ conversationId, customerId, authorId: currentUserId, role: m.role, content: m.content });
+    setAsking(true);
+    setError(null);
+    try {
+      const history = messages.slice(-6).map((m) => ({ role: m.role, content: m.content }));
+      const result = await askQaQuestion({ scope, question: q, history, authorId: currentUserId });
+      setMessages((m) => [...m, { role: "assistant", content: result.answer, citations: result.citations }]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't reach Nova — try again.");
+    } finally {
+      setAsking(false);
     }
   };
 
@@ -139,32 +136,57 @@ export function AskView({
                     {m.content}
                   </p>
                 ) : (
-                  <p key={i} className="text-[14px] leading-relaxed text-ink-2">
-                    {m.content}
-                  </p>
+                  <div key={i} className="flex flex-col gap-2">
+                    <p className="text-[14px] leading-relaxed text-ink-2">{m.content}</p>
+                    {m.citations?.map((c) =>
+                      scope.kind === "conversation" ? (
+                        <Link
+                          key={c.startMs}
+                          href={`/library/${scope.id}`}
+                          className="recessed flex items-baseline gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-[rgba(23,32,43,0.10)]"
+                        >
+                          <span className="font-mono text-[12px] font-bold text-accent tabular-nums">{fmtMs(c.startMs)}</span>
+                          <span className="text-[13.5px] leading-snug text-ink-2">&ldquo;{c.quote}&rdquo;</span>
+                        </Link>
+                      ) : (
+                        <div key={c.startMs} className="recessed flex items-baseline gap-2 px-3 py-2 text-left">
+                          <span className="text-[13.5px] leading-snug text-ink-2">&ldquo;{c.quote}&rdquo;</span>
+                        </div>
+                      ),
+                    )}
+                  </div>
                 ),
               )}
-              {messages.length === 0 && (
+              {asking && (
+                <div className="flex items-center gap-2 text-[13.5px] text-ink-3">
+                  <Sparkle size={14} className="animate-pulse" />
+                  Reading {scopeLabel(scope)}…
+                </div>
+              )}
+              {messages.length === 0 && !asking && (
                 <p className="text-[13.5px] text-ink-3">
-                  Ask anything about {scopeLabel(scope)} — answers will cite the exact quote and
-                  moment once the pipeline is live.
+                  Ask anything about {scopeLabel(scope)} — answers cite the exact quote and moment
+                  when they can.
                 </p>
               )}
+              {error && <p className="text-[13px] font-semibold text-danger">{error}</p>}
             </div>
             <div className="mt-3 flex items-center gap-2">
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && send()}
+                onKeyDown={(e) => e.key === "Enter" && void send()}
                 placeholder={`Ask about ${scopeLabel(scope)}`}
                 aria-label="Ask Nova"
-                className="recessed h-9 w-full px-3 text-[14px] text-ink outline-none placeholder:text-ink-3"
+                disabled={asking}
+                className="recessed h-9 w-full px-3 text-[14px] text-ink outline-none placeholder:text-ink-3 disabled:opacity-60"
               />
               <button
                 type="button"
-                onClick={send}
+                onClick={() => void send()}
+                disabled={asking || !draft.trim()}
                 aria-label="Send question"
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-accent text-white transition-colors duration-150 hover:bg-accent-strong"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-accent text-white transition-colors duration-150 hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <PaperPlaneTilt size={16} />
               </button>
