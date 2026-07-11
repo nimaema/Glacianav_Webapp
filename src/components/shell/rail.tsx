@@ -12,6 +12,7 @@ import {
   ListChecks,
   CalendarBlank,
   ChartBar,
+  ShootingStar,
   Sparkle,
   Gear,
   ShieldCheck,
@@ -47,7 +48,7 @@ const SECTIONS: Section[] = [
     label: "Intelligence",
     items: [
       { href: "/insights", label: "Insights", icon: ChartBar },
-      { href: "/nova", label: "Nova", icon: Sparkle },
+      { href: "/nova", label: "Nova", icon: ShootingStar },
       { href: "/ask", label: "Ask", icon: Sparkle },
     ],
   },
