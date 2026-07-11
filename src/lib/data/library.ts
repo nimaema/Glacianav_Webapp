@@ -26,6 +26,7 @@ import {
   traceItems,
   utterances,
 } from "@/db/schema";
+import { pairQaHistory } from "@/lib/data/qa-pairing";
 import type {
   ActionItem,
   Contact,
@@ -269,11 +270,13 @@ export async function getConversationWorkspaceData(
     list.push({ quote: c.quote, startMs: c.startMs, speaker: c.speakerLabel ?? undefined });
     qaCitationsByMessage.set(c.qaMessageId, list);
   }
-  const qa: QaMessage[] = qaRows.map((m) => ({
-    role: m.role,
-    content: m.content,
-    citations: qaCitationsByMessage.get(m.id),
-  }));
+  const qa: QaMessage[] = pairQaHistory(
+    qaRows.map((m) => ({
+      role: m.role,
+      content: m.content,
+      citations: qaCitationsByMessage.get(m.id),
+    })),
+  );
 
   const commentList: ConversationComment[] = commentRows.map((c) => ({
     authorId: c.authorId ?? "",

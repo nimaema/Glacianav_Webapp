@@ -8,6 +8,7 @@ import { db } from "@/db/client";
 import { conversations, customers, qaCitations, qaMessages } from "@/db/schema";
 import type { Customer, QaMessage } from "@/lib/fixtures";
 import { toCustomerRow } from "@/lib/data/rows";
+import { pairQaHistory } from "@/lib/data/qa-pairing";
 
 export type ConversationOption = { id: string; title: string };
 
@@ -66,6 +67,6 @@ export async function getAskPageData(): Promise<AskPageData> {
         content: r.content,
         citationMs: firstCitationByMessage.get(r.id),
       })),
-    everythingThread: everythingRows.map((r) => ({ role: r.role, content: r.content })),
+    everythingThread: pairQaHistory(everythingRows.map((r) => ({ role: r.role, content: r.content }))),
   };
 }
