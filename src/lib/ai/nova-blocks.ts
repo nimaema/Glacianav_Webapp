@@ -23,6 +23,14 @@ export type NovaBlock =
       items: { text: string; done: boolean; who?: string; due?: string }[];
     }
   | { kind: "callout"; tone: NovaCalloutTone; title?: string; body: string }
+  | {
+      kind: "table";
+      title?: string;
+      columns: { label: string; align?: "left" | "right" }[];
+      // Cells are strings; a cell may carry an inline tone as "tone:text"
+      // (e.g. "coral:overdue") — the renderer colors just that cell.
+      rows: string[][];
+    }
   | { kind: "next"; label: string; prompt: string };
 
 export type NovaPresentation = {
@@ -105,6 +113,30 @@ export function coerceNovaBlocks(value: unknown): NovaBlock[] {
           title: s(b.title, 80) || undefined,
           body,
         });
+      }
+    } else if (b.kind === "table") {
+      const columns = Array.isArray(b.columns)
+        ? (b.columns as unknown[])
+            .map((col) => {
+              const it = (col ?? {}) as Record<string, unknown>;
+              // Accept both {label} objects and bare strings.
+              const label = typeof col === "string" ? s(col, 40) : s(it.label, 40);
+              if (!label) return null;
+              return { label, align: it.align === "right" ? ("right" as const) : ("left" as const) };
+            })
+            .filter((col): col is { label: string; align: "left" | "right" } => col !== null)
+            .slice(0, 6)
+        : [];
+      const rows = Array.isArray(b.rows)
+        ? (b.rows as unknown[])
+            .map((row) =>
+              Array.isArray(row) ? row.map((cell) => s(cell, 120)).slice(0, columns.length || 6) : null,
+            )
+            .filter((row): row is string[] => row !== null && row.some(Boolean))
+            .slice(0, 12)
+        : [];
+      if (columns.length >= 2 && rows.length) {
+        blocks.push({ kind: "table", title: s(b.title, 60) || undefined, columns, rows });
       }
     } else if (b.kind === "next") {
       const label = s(b.label, 80);

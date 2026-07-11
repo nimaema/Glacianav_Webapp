@@ -178,9 +178,72 @@ function TasksBlock({ block }: { block: Extract<NovaBlock, { kind: "tasks" }> })
   );
 }
 
-// The one deliberately boxed surface — spend the "card" treatment on
+// Cells may carry an inline tone prefix ("coral:overdue") — color just
+// that cell's text, so status columns read at a glance.
+function parseCell(cell: string): { text: string; color?: string } {
+  const m = cell.match(/^(teal|violet|rose|green|coral|gold|neutral):(.+)$/);
+  if (m) return { text: m[2].trim(), color: TONE_VAR[m[1] as NovaTone] };
+  return { text: cell };
+}
+
+// A real instrument table: white card (tables earn the boxed surface —
+// a grid needs its frame), mono caps header row on a tinted band,
+// hairline rows, tabular numerals, right-alignable numeric columns,
+// tone-colorable cells.
+function TableBlock({ block }: { block: Extract<NovaBlock, { kind: "table" }> }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {block.title && <BlockTitle>{block.title}</BlockTitle>}
+      <div className="overflow-x-auto rounded-[12px] bg-white" style={{ border: "1px solid var(--nw-line)" }}>
+        <table className="w-full border-collapse text-[13px]">
+          <thead>
+            <tr style={{ background: "var(--nw-bg-2)" }}>
+              {block.columns.map((col, ci) => (
+                <th
+                  key={ci}
+                  className={`whitespace-nowrap px-3 py-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] ${
+                    col.align === "right" ? "text-right" : "text-left"
+                  }`}
+                  style={{ color: "var(--nw-ink-3)" }}
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {block.rows.map((row, ri) => (
+              <tr key={ri} style={ri > 0 ? { borderTop: "1px solid var(--nw-line-2)" } : undefined}>
+                {row.map((cell, ci) => {
+                  const { text, color } = parseCell(cell);
+                  const isFirst = ci === 0;
+                  const align = block.columns[ci]?.align === "right";
+                  return (
+                    <td
+                      key={ci}
+                      className={`px-3 py-2 align-top leading-snug ${align ? "text-right font-mono text-[12.5px] tabular-nums" : ""} ${
+                        isFirst ? "font-semibold" : ""
+                      }`}
+                      style={{ color: color ?? (isFirst ? "var(--nw-ink)" : "var(--nw-ink-2)") }}
+                    >
+                      {text}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// The one deliberately boxed *panel* — spend the "card" treatment on
 // the single thing that's meant to stand out, per DESIGN.md §5's
-// restraint principle applied to Nova's own visual system.
+// restraint principle applied to Nova's own visual system. (Tables
+// above also get a frame, but a grid structurally needs one — that's
+// containment, not emphasis.)
 function CalloutBlock({ block }: { block: Extract<NovaBlock, { kind: "callout" }> }) {
   const meta = CALLOUT_META[block.tone];
   const IconEl = meta.icon;
@@ -238,6 +301,8 @@ export function NovaBlocks({ blocks, onPrompt, stagger = false }: { blocks: Nova
             return wrap(<TasksBlock block={block} />);
           case "callout":
             return wrap(<CalloutBlock block={block} />);
+          case "table":
+            return wrap(<TableBlock block={block} />);
           case "next":
             return wrap(<NextBlock block={block} onPrompt={onPrompt} />);
         }

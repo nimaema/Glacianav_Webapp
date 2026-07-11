@@ -644,7 +644,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
       {open && (
         <section
           aria-label="Nova assistant"
-          className="nova-wing anim-wing-in fixed inset-y-0 right-0 z-50 flex w-full flex-col md:w-[512px]"
+          className="nova-wing anim-wing-in fixed inset-y-0 right-0 z-50 flex w-full flex-col md:w-[600px]"
         >
           {/* The sky band */}
           <div className="nova-wing-sky shrink-0 px-5 pb-4 pt-4" style={{ borderBottom: "1px solid var(--nw-line)" }}>
@@ -736,17 +736,23 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
               {messages.map((m, i) =>
                 m.role === "user" ? (
                   <Entry key={i} node={<span className="nova-node-port" />} className="anim-wing-rise">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nw-ink-3)" }}>
-                      You · {fmtTime(m.at)}
-                      {m.pendingFileName && (
-                        <span className="ml-2 inline-flex max-w-[60%] items-center gap-1 truncate align-bottom normal-case tracking-normal">
-                          <Paperclip size={11} className="shrink-0" />
-                          {m.pendingFileName}
-                        </span>
-                      )}
-                    </p>
-                    <div className="mt-1" style={{ color: "var(--nw-ink-2)" }}>
-                      <NovaMarkdown content={m.content} tone="user" />
+                    {/* Queries are input: a recessed tinted block (plain
+                        tint per §3 — no accent-edge convention), clearly
+                        distinct from Nova's readouts printed straight on
+                        the paper. */}
+                    <div className="rounded-[12px] px-3.5 py-2.5" style={{ background: "var(--nw-bg-2)" }}>
+                      <p className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nw-teal-deep)" }}>
+                        You · {fmtTime(m.at)}
+                        {m.pendingFileName && (
+                          <span className="inline-flex min-w-0 items-center gap-1 truncate normal-case tracking-normal" style={{ color: "var(--nw-ink-3)" }}>
+                            <Paperclip size={11} className="shrink-0" />
+                            {m.pendingFileName}
+                          </span>
+                        )}
+                      </p>
+                      <div className="mt-1" style={{ color: "var(--nw-ink)" }}>
+                        <NovaMarkdown content={m.content} tone="user" />
+                      </div>
                     </div>
                   </Entry>
                 ) : (

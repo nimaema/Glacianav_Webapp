@@ -940,16 +940,18 @@ const TOOL_SCHEMAS: ToolSchema[] = [
       blocks: {
         type: "array",
         description:
-          'The visual blocks, in reading order. Kinds: {kind:"stats", items:[{label, value, tone, delta?}]} for 2-6 key numbers (tone: teal|violet|rose|green|coral|gold|neutral — pick meaningfully: green=good, coral=problem, gold=watch); {kind:"entities", title?, items:[{title, subtitle?, tone, meta?:[strings]}]} for customers/conversations/records (subtitle = the one thing that matters about it, meta = short chips like stage or owner); {kind:"tasks", title?, items:[{text, done, who?, due?}]} for to-dos and done/pending reports; {kind:"callout", tone:"info"|"win"|"warn"|"risk", title?, body} for THE one insight or warning (max one per answer); {kind:"next", label, prompt} for the single obvious next move — label is what the user sees, prompt is the exact message tapping it sends back to you (max one per answer, put it last).',
+          'The visual blocks, in reading order. Kinds: {kind:"stats", items:[{label, value, tone, delta?}]} for 2-6 key numbers (tone: teal|violet|rose|green|coral|gold|neutral — pick meaningfully: green=good, coral=problem, gold=watch); {kind:"table", title?, columns:[{label, align?:"left"|"right"}], rows:[[cell strings]]} for 3+ records that share fields (customers, tasks, events — align:"right" for numeric columns; a cell may be prefixed "tone:" like "coral:overdue" to color it) — PREFER a table over entities/tasks whenever the records compare across the same 2-5 fields; {kind:"entities", title?, items:[{title, subtitle?, tone, meta?:[strings]}]} for records where a one-line story per item matters more than field comparison; {kind:"tasks", title?, items:[{text, done, who?, due?}]} for to-dos and done/pending reports; {kind:"callout", tone:"info"|"win"|"warn"|"risk", title?, body} for THE one insight or warning (max one per answer); {kind:"next", label, prompt} for the single obvious next move — label is what the user sees, prompt is the exact message tapping it sends back to you (max one per answer, put it last).',
         items: {
           type: "object",
           properties: {
-            kind: p("string", '"stats", "entities", "tasks", "callout", or "next".'),
-            title: p("string", "Optional small section label (entities/tasks) or callout title."),
+            kind: p("string", '"stats", "table", "entities", "tasks", "callout", or "next".'),
+            title: p("string", "Optional small section label (table/entities/tasks) or callout title."),
             tone: p("string", "Callout tone: info, win, warn, or risk."),
             body: p("string", "Callout body text."),
             label: p("string", "Next-move chip label."),
             prompt: p("string", "Next-move message sent back to you when tapped."),
+            columns: { type: "array", description: 'Table columns: [{label, align?:"left"|"right"}].', items: { type: "object" } },
+            rows: { type: "array", description: "Table rows: array of arrays of cell strings.", items: { type: "array", items: { type: "string" } } },
             items: { type: "array", description: "The block's items (see kind descriptions).", items: { type: "object" } },
           },
         },
@@ -1008,7 +1010,8 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
     `- Never invent customers, numbers, or facts that aren't in the context, a tool result, or the user's message.`,
     `- After acting, confirm briefly and naturally. Don't repeat a long list the UI will already show.`,
     `Answer presentation — this is how your answers become visual, take it seriously:`,
-    `- For ANY substantive reading (workspace stats, an account status, a task overview, a plan, an import result — anything with 3+ facts), finish by calling present_answer ONCE with a headline and typed blocks. The chat renders them as real components: stat cells with colored numbers, entity cards with tone dots and meta chips, task rows with checkboxes, one colored callout, one tappable next-move chip. A composed reading beats prose every time.`,
+    `- For ANY substantive reading (workspace stats, an account status, a task overview, a plan, an import result — anything with 3+ facts), finish by calling present_answer ONCE with a headline and typed blocks. The chat renders them as real components: stat readouts with colored numbers, styled tables, entity rows with tone ticks, task rows with checkboxes, one colored callout, one tappable next-move chip. A composed reading beats prose every time.`,
+    `- Reach for the {kind:"table"} block whenever 3+ records share the same fields (customers with stage/owner/priority, tasks with account/due, events with time/who) — a comparison belongs in a table, not a list. Use entities only when each item's one-line story matters more than comparing fields. Right-align numeric columns, and tone-prefix status cells ("coral:overdue", "green:won") so the status column reads at a glance.`,
     `- Choose block tones with meaning, never decoration: green = healthy/won, coral = problem/blocked, gold = watch closely, teal = neutral-good default, violet/rose = categorical variety for entities. The user learns your color language — keep it consistent.`,
     `- The next-move chip replaces the closing-offer sentence: when an obvious next step exists, put it in a {kind:"next"} block (prompt = the exact message tapping it sends you) instead of writing "I can do X — say the word."`,
     `- Quick one-line facts and casual conversation skip present_answer — answer in plain text. Never present two blocks where one line would do.`,

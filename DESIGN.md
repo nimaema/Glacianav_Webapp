@@ -149,7 +149,7 @@ actually in flight (§7), same restraint as the spine's comet.
 
 Nova is not a floating chat card: she is a **full-height wing that
 sweeps in from the right edge** of the instrument (`.nova-wing`,
-fixed inset-y-0 right-0, 512px on desktop, full-width on mobile),
+fixed inset-y-0 right-0, 600px on desktop, full-width on mobile),
 light and pearlescent like the rest of the app. She has her own scoped
 token set (`--nw-*` in `globals.css`): near-white surfaces
 `#FCFDFF / #F3F6FC / #E9EEF8`, ink text, and **deep teal `#0E8C7F` as
@@ -169,7 +169,10 @@ of the entrance; idle, the sky is still.
 aurora-gradient thread (`.nova-spine`) draws top-to-bottom on open and
 every exchange pins to it as a node — hollow ports for the user's
 entries, Nova's star for her readouts. Entries carry mono
-"YOU / NOVA · HH:MM" kickers and print straight on the paper — no
+"YOU / NOVA · HH:MM" kickers. The two voices are visually distinct:
+**queries are input**, so they sit in a recessed `--nw-bg-2` tinted
+block (plain tint, §3 — no accent edge) with a teal-deep kicker;
+**Nova's readouts print straight on the paper** under her star. No
 colored bubbles, no per-message avatars. The `Entry` node component
 and any list rendered while typing MUST live at module scope, never be
 defined inside `NovaDock`'s render body — a fresh function identity on
@@ -199,7 +202,13 @@ treatment on the single thing meant to stand out, everything else
 reads as marks directly on the paper: a display-weight one-line
 headline; a **stat readout strip** (colored mono numbers in a single
 row, divided by hairlines, like an instrument reading out several
-channels — no per-number box); **entity rows** (a short aurora tick,
+channels — no per-number box); a **table** for 3+ records sharing the
+same fields (white card — a grid structurally needs its frame, that's
+containment not emphasis; mono-caps header band on `--nw-bg-2`,
+hairline rows, right-aligned tabular-numeral numeric columns, cells
+tone-colorable via a "tone:" prefix so status columns read at a
+glance) — comparison belongs in a table, never a list; **entity rows**
+(a short aurora tick,
 title, the-one-thing-that-matters subtitle, mono meta separated by
 dots) in a plain hairline-divided list, no enclosing card; **task
 rows** (checkbox squares, who/due in mono) headed by a small radial
