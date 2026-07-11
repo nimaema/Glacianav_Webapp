@@ -44,6 +44,7 @@ import {
   type NovaDocumentPreset,
 } from "@/lib/ai/nova-document-worker";
 import { runNovaSandboxJob } from "@/lib/ai/nova-sandbox";
+import { generateRecordingBriefPdf } from "@/lib/ai/nova-recording-pdf";
 import {
   consumeNovaConfirmationToken,
   createNovaConfirmationToken,
@@ -195,35 +196,17 @@ async function latestRecordingPdf(authorId: string): Promise<NovaResponse | null
     dateStyle: "long",
     timeZone: "Europe/Helsinki",
   }).format(recording.createdAt);
-  const content = [
-    recording.summary ? `> ${recording.summary}` : "> This recording does not have a finished summary yet.",
-    "## Recording details",
-    `- **Recorded:** ${recordedOn}`,
-    `- **Duration:** ${durationMinutes} minutes`,
-    `- **Status:** ${recording.status ?? "processing"}`,
-    recording.aiTags?.length ? `- **Topics:** ${recording.aiTags.join(", ")}` : "",
-    chapterRows.length ? "## Conversation outline" : "",
-    ...chapterRows.flatMap((chapter) => [
-      `### ${chapter.title}`,
-      chapter.summary || `Begins around ${Math.floor(chapter.startMs / 60_000)} minutes.`,
-    ]),
-    decisions.length ? "## Decisions" : "",
-    ...decisions.map((item) => `- ${item.text}`),
-    followups.length ? "## Follow-ups" : "",
-    ...followups.map((item) => `- ${item.text}`),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-
-  const generated = await generateNovaPdf({
+  const generated = generateRecordingBriefPdf({
     filename: `${slugify(recording.title) || "latest-recording"}-summary`,
     title: recording.title,
-    subtitle: `Recording summary · ${recordedOn} · ${durationMinutes} min`,
-    documentType: "Conversation brief",
-    audience: "GlaciaNav workspace team",
-    preset: "editorial_report",
-    layout: "standard",
-    content,
+    recordedOn,
+    durationMinutes,
+    status: recording.status ?? "processing",
+    summary: recording.summary,
+    tags: recording.aiTags ?? [],
+    chapters: chapterRows,
+    decisions: decisions.map((item) => item.text),
+    followups: followups.map((item) => item.text),
   });
   return {
     answer: `Done—your latest recording, **${recording.title}**, is ready as a PDF.`,
