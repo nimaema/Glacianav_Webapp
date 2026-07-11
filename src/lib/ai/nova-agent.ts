@@ -5,10 +5,11 @@
 // tools. Workspace-scoped instead of single-recording-scoped.
 
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   contacts,
+  chapters,
   conversationContacts,
   conversationParticipants,
   conversations,
@@ -139,6 +140,107 @@ function formatFromFilename(filename: string): NovaFileFormat {
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function asksForLatestRecordingPdf(question: string) {
+  const normalized = question.toLowerCase();
+  return (
+    /\bpdf\b/.test(normalized) &&
+    /\b(last|latest|most recent)\b/.test(normalized) &&
+    /\b(recording|conversation|interview|meeting)\b/.test(normalized)
+  );
+}
+
+async function latestRecordingPdf(authorId: string): Promise<NovaResponse | null> {
+  const [authorRows, recordingRows] = await Promise.all([
+    db
+      .select({ active: profiles.active })
+      .from(profiles)
+      .where(eq(profiles.id, authorId))
+      .limit(1),
+    db
+      .select()
+      .from(conversations)
+      .where(and(eq(conversations.authorId, authorId), isNull(conversations.noteBody)))
+      .orderBy(desc(conversations.createdAt))
+      .limit(1),
+  ]);
+  if (!authorRows[0]?.active) throw new Error("Nova tools require an active workspace profile.");
+  const recording = recordingRows[0];
+  if (!recording) {
+    return {
+      answer: "I couldn’t find one of your recordings to turn into a PDF.",
+      actions: [],
+      files: [],
+      confirmations: [],
+    };
+  }
+
+  const [chapterRows, traceRows] = await Promise.all([
+    db
+      .select({ title: chapters.title, summary: chapters.summary, startMs: chapters.startMs })
+      .from(chapters)
+      .where(eq(chapters.conversationId, recording.id))
+      .orderBy(chapters.startMs),
+    db
+      .select({ kind: traceItems.kind, text: traceItems.text })
+      .from(traceItems)
+      .where(eq(traceItems.conversationId, recording.id)),
+  ]);
+
+  const decisions = traceRows.filter((item) => item.kind === "decision");
+  const followups = traceRows.filter((item) => item.kind === "followup");
+  const durationMinutes = Math.max(1, Math.round((recording.durationMs ?? 0) / 60_000));
+  const recordedOn = new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "long",
+    timeZone: "Europe/Helsinki",
+  }).format(recording.createdAt);
+  const content = [
+    recording.summary ? `> ${recording.summary}` : "> This recording does not have a finished summary yet.",
+    "## Recording details",
+    `- **Recorded:** ${recordedOn}`,
+    `- **Duration:** ${durationMinutes} minutes`,
+    `- **Status:** ${recording.status ?? "processing"}`,
+    recording.aiTags?.length ? `- **Topics:** ${recording.aiTags.join(", ")}` : "",
+    chapterRows.length ? "## Conversation outline" : "",
+    ...chapterRows.flatMap((chapter) => [
+      `### ${chapter.title}`,
+      chapter.summary || `Begins around ${Math.floor(chapter.startMs / 60_000)} minutes.`,
+    ]),
+    decisions.length ? "## Decisions" : "",
+    ...decisions.map((item) => `- ${item.text}`),
+    followups.length ? "## Follow-ups" : "",
+    ...followups.map((item) => `- ${item.text}`),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const generated = await generateNovaPdf({
+    filename: `${slugify(recording.title) || "latest-recording"}-summary`,
+    title: recording.title,
+    subtitle: `Recording summary · ${recordedOn} · ${durationMinutes} min`,
+    documentType: "Conversation brief",
+    audience: "GlaciaNav workspace team",
+    preset: "editorial_report",
+    layout: "standard",
+    content,
+  });
+  return {
+    answer: `Done—your latest recording, **${recording.title}**, is ready as a PDF.`,
+    actions: [{
+      label: "Generated recording PDF",
+      detail: `${generated.filename}.pdf · ${generated.pageCount} page${generated.pageCount === 1 ? "" : "s"}`,
+      ok: true,
+    }],
+    files: [{
+      filename: generated.filename,
+      format: "pdf",
+      dataBase64: generated.dataBase64,
+      mimeType: generated.mimeType,
+      byteSize: generated.byteSize,
+    }],
+    confirmations: [],
+  };
 }
 
 // ─── Context ──────────────────────────────────────────────────────────
@@ -916,6 +1018,10 @@ export async function runNovaAgent(input: {
   fileContext?: string; // parsed text from an attached file, if any
   attachment?: NovaAttachment;
 }): Promise<NovaResponse> {
+  if (asksForLatestRecordingPdf(input.question)) {
+    const response = await latestRecordingPdf(input.authorId);
+    if (response) return response;
+  }
   const ctx = await loadContext(input.authorId, input.scopeCustomerId);
 
   if (isMockLLM()) return mockNova(ctx, input.question, input.fileContext);

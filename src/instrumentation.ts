@@ -1,7 +1,9 @@
 export async function register() {
+  const localProcessorExplicitlyEnabled = process.env.NOVA_PROCESSOR_ENABLED === "true";
   if (
     process.env.NEXT_RUNTIME !== "nodejs" ||
     !process.env.DATABASE_URL ||
+    (process.env.NODE_ENV !== "production" && !localProcessorExplicitlyEnabled) ||
     process.env.NOVA_PROCESSOR_DISABLED === "true"
   ) {
     return;
