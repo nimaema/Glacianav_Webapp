@@ -4,6 +4,7 @@ import { processNextNovaJob } from "@/lib/ai/nova-jobs";
 
 const IDLE_POLL_MS = 1_000;
 const ERROR_BACKOFF_MS = 5_000;
+const DEFAULT_CONCURRENCY = 3;
 
 declare global {
   var __glacianavNovaProcessorStarted: boolean | undefined;
@@ -28,5 +29,11 @@ function scheduleNext(delay: number) {
 export function startNovaJobProcessor() {
   if (globalThis.__glacianavNovaProcessorStarted) return;
   globalThis.__glacianavNovaProcessorStarted = true;
-  scheduleNext(250);
+  const configured = Number(process.env.NOVA_PROCESSOR_CONCURRENCY ?? DEFAULT_CONCURRENCY);
+  const concurrency = Number.isFinite(configured)
+    ? Math.min(6, Math.max(1, Math.floor(configured)))
+    : DEFAULT_CONCURRENCY;
+  for (let lane = 0; lane < concurrency; lane += 1) {
+    scheduleNext(250 + lane * 100);
+  }
 }

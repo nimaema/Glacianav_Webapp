@@ -930,6 +930,7 @@ export async function runNovaAgent(input: {
   const files: NovaFile[] = [];
   const confirmations: NovaConfirmation[] = [];
   const pendingConfirmationKeys = new Set<string>();
+  const generatedFileKeys = new Set<string>();
 
   for (let step = 0; step < 6; step++) {
     const msg = await deepseekChatWithTools(messages, TOOL_SCHEMAS);
@@ -968,50 +969,56 @@ export async function runNovaAgent(input: {
           ? str(args.format)
           : "markdown") as NovaFile["format"];
         const content = str(args.content);
-        try {
-          if (format === "pdf") {
-            const preset = (NOVA_DOCUMENT_PRESETS.includes(str(args.preset) as NovaDocumentPreset)
-              ? str(args.preset)
-              : "business_brief") as NovaDocumentPreset;
-            const layout = (NOVA_DOCUMENT_LAYOUTS.includes(str(args.layout) as NovaDocumentLayout)
-              ? str(args.layout)
-              : "standard") as NovaDocumentLayout;
-            const generated = await generateNovaPdf({
-              filename,
-              title: str(args.title) || filename.replace(/-/g, " "),
-              subtitle: str(args.subtitle),
-              documentType: str(args.document_type) || "Workspace document",
-              audience: str(args.audience),
-              preset,
-              layout,
-              content,
-            });
-            files.push({
-              filename: generated.filename,
-              format: "pdf",
-              dataBase64: generated.dataBase64,
-              mimeType: generated.mimeType,
-              byteSize: generated.byteSize,
-            });
-            actions.push({
-              label: "Generated designed PDF",
-              detail: `${filename}.pdf - ${generated.pageCount} page${generated.pageCount === 1 ? "" : "s"}`,
-              ok: true,
-            });
-            toolResult = `Designed PDF rendered and attached (${generated.pageCount} page${generated.pageCount === 1 ? "" : "s"}).`;
-          } else {
-            files.push({ filename, format, content });
-            actions.push({
-              label: "Generated file",
-              detail: `${filename}.${format === "markdown" ? "md" : format}`,
-              ok: true,
-            });
-            toolResult = "File generated and attached for download.";
+        const fileKey = `${filename}:${format}`;
+        if (generatedFileKeys.has(fileKey)) {
+          toolResult = "That named file is already rendered and attached. Continue with the answer without generating it again.";
+        } else {
+          try {
+            if (format === "pdf") {
+              const preset = (NOVA_DOCUMENT_PRESETS.includes(str(args.preset) as NovaDocumentPreset)
+                ? str(args.preset)
+                : "business_brief") as NovaDocumentPreset;
+              const layout = (NOVA_DOCUMENT_LAYOUTS.includes(str(args.layout) as NovaDocumentLayout)
+                ? str(args.layout)
+                : "standard") as NovaDocumentLayout;
+              const generated = await generateNovaPdf({
+                filename,
+                title: str(args.title) || filename.replace(/-/g, " "),
+                subtitle: str(args.subtitle),
+                documentType: str(args.document_type) || "Workspace document",
+                audience: str(args.audience),
+                preset,
+                layout,
+                content,
+              });
+              files.push({
+                filename: generated.filename,
+                format: "pdf",
+                dataBase64: generated.dataBase64,
+                mimeType: generated.mimeType,
+                byteSize: generated.byteSize,
+              });
+              actions.push({
+                label: "Generated designed PDF",
+                detail: `${filename}.pdf - ${generated.pageCount} page${generated.pageCount === 1 ? "" : "s"}`,
+                ok: true,
+              });
+              toolResult = `Designed PDF rendered and attached (${generated.pageCount} page${generated.pageCount === 1 ? "" : "s"}).`;
+            } else {
+              files.push({ filename, format, content });
+              actions.push({
+                label: "Generated file",
+                detail: `${filename}.${format === "markdown" ? "md" : format}`,
+                ok: true,
+              });
+              toolResult = "File generated and attached for download.";
+            }
+            generatedFileKeys.add(fileKey);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Document generation failed";
+            actions.push({ label: "Couldn't generate document", detail: message, ok: false });
+            toolResult = `Failed: ${message}`;
           }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Document generation failed";
-          actions.push({ label: "Couldn't generate document", detail: message, ok: false });
-          toolResult = `Failed: ${message}`;
         }
       } else if (call.function.name === "run_python_workspace") {
         try {

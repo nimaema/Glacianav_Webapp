@@ -71,6 +71,7 @@ function validateSpec(spec: NovaDocumentSpec): NovaDocumentSpec {
   };
 }
 
+
 /** Runs the fixed PDF renderer inside the same networkless worker used for all Nova scripts. */
 export async function generateNovaPdf(input: NovaDocumentSpec): Promise<GeneratedNovaDocument> {
   const spec = validateSpec(input);
@@ -101,7 +102,10 @@ export async function generateNovaPdf(input: NovaDocumentSpec): Promise<Generate
       },
     ],
     expectedOutputs: ["document.pdf"],
-    timeoutSeconds: 120,
+    // The fixed renderer normally finishes in seconds. A shorter deadline
+    // prevents a missing or unhealthy sandbox worker from holding a queue
+    // lane for several minutes.
+    timeoutSeconds: 60,
   });
   const output = result.files[0];
   if (!output || output.mimeType !== "application/pdf") {
@@ -127,4 +131,3 @@ export async function generateNovaPdf(input: NovaDocumentSpec): Promise<Generate
     layout: spec.layout,
   };
 }
-

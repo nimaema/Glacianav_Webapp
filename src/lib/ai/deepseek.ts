@@ -11,6 +11,30 @@ function apiKey() {
   return process.env.DEEPSEEK_API_KEY ?? "";
 }
 
+function requestTimeoutMs() {
+  const configured = Number(process.env.DEEPSEEK_TIMEOUT_MS ?? 45_000);
+  return Number.isFinite(configured)
+    ? Math.min(120_000, Math.max(10_000, configured))
+    : 45_000;
+}
+
+async function requestCompletion(body: Record<string, unknown>) {
+  const timeoutMs = requestTimeoutMs();
+  try {
+    return await fetch(`${BASE}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey()}` },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new Error(`DeepSeek did not respond within ${Math.round(timeoutMs / 1_000)} seconds.`);
+    }
+    throw error;
+  }
+}
+
 export function isMockLLM() {
   const k = apiKey();
   return process.env.MOCK_LLM === "1" || !k || k === "dev";
@@ -40,16 +64,12 @@ export async function deepseekChat(
   messages: { role: "system" | "user" | "assistant"; content: string }[],
   opts: { json?: boolean; temperature?: number; maxTokens?: number } = {},
 ): Promise<string> {
-  const res = await fetch(`${BASE}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey()}` },
-    body: JSON.stringify({
-      model: MODEL,
-      temperature: opts.temperature ?? 0.3,
-      ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
-      ...(opts.json ? { response_format: { type: "json_object" } } : {}),
-      messages,
-    }),
+  const res = await requestCompletion({
+    model: MODEL,
+    temperature: opts.temperature ?? 0.3,
+    ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
+    ...(opts.json ? { response_format: { type: "json_object" } } : {}),
+    messages,
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -66,15 +86,11 @@ export async function deepseekChatWithTools(
   messages: ChatMsg[],
   tools: ToolSchema[],
 ): Promise<{ content: string; tool_calls?: ToolCall[] }> {
-  const res = await fetch(`${BASE}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey()}` },
-    body: JSON.stringify({
-      model: MODEL,
-      temperature: 0.2,
-      messages,
-      ...(tools.length ? { tools, tool_choice: "auto" } : {}),
-    }),
+  const res = await requestCompletion({
+    model: MODEL,
+    temperature: 0.2,
+    messages,
+    ...(tools.length ? { tools, tool_choice: "auto" } : {}),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
