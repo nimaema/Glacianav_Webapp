@@ -3,12 +3,14 @@
 import { ArrowRight, Check, Info, Sparkle, Warning, WarningOctagon, type Icon } from "@phosphor-icons/react";
 import type { NovaBlock, NovaCalloutTone, NovaTone } from "@/lib/ai/nova-blocks";
 
-// Renders Nova's structured answers inside the Wing. Every component
-// styles itself from the --nw-* tokens scoped on .nova-wing — light,
-// pearlescent, with text-grade tone colors that hold AA on white.
-// Blocks rise in a stagger (delay set per-block by the parent).
+// Renders Nova's structured answers inside the Wing. Deliberately NOT
+// a stack of uniform bordered cards: the callout is the one boxed
+// surface (the moment meant to stand out), everything else reads as
+// marks directly on the paper — a readout strip, a hairline list, a
+// progress ring — so a multi-block answer doesn't turn into a pile of
+// identical boxes. Blocks rise in a stagger (delay set per-block).
 
-const TONE_VAR: Record<NovaTone, string> = {
+export const TONE_VAR: Record<NovaTone, string> = {
   teal: "var(--nw-teal)",
   violet: "var(--nw-violet)",
   rose: "var(--nw-rose)",
@@ -25,16 +27,19 @@ const CALLOUT_META: Record<NovaCalloutTone, { icon: Icon; color: string; label: 
   risk: { icon: WarningOctagon, color: "var(--nw-coral)", label: "Needs attention" },
 };
 
+// A readout strip, not a grid of cards: numbers sit in a single row,
+// separated by hairline dividers, the way an instrument panel reads
+// out several channels at once.
 function StatsBlock({ items }: { items: Extract<NovaBlock, { kind: "stats" }>["items"] }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap">
       {items.map((it, i) => (
         <div
           key={i}
-          className="min-w-[104px] flex-1 rounded-[12px] bg-white px-3 py-2.5"
-          style={{ border: "1px solid var(--nw-line)" }}
+          className="min-w-[92px] flex-1 px-3.5 py-1 first:pl-0"
+          style={i > 0 ? { borderLeft: "1px solid var(--nw-line)" } : undefined}
         >
-          <p className="text-[21px] font-bold leading-none tracking-[-0.02em] tabular-nums" style={{ color: TONE_VAR[it.tone] }}>
+          <p className="text-[22px] font-bold leading-none tracking-[-0.02em] tabular-nums" style={{ color: TONE_VAR[it.tone] }}>
             {it.value}
             {it.delta && (
               <span className="ml-1.5 font-mono text-[10px] font-semibold tracking-normal" style={{ color: "var(--nw-ink-3)" }}>
@@ -42,8 +47,7 @@ function StatsBlock({ items }: { items: Extract<NovaBlock, { kind: "stats" }>["i
               </span>
             )}
           </p>
-          <p className="mt-1.5 flex items-center gap-1.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nw-ink-3)" }}>
-            <span aria-hidden className="h-1.5 w-1.5 rounded-pill" style={{ background: TONE_VAR[it.tone] }} />
+          <p className="mt-1 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nw-ink-3)" }}>
             {it.label}
           </p>
         </div>
@@ -60,20 +64,24 @@ function BlockTitle({ children }: { children: string }) {
   );
 }
 
+// A plain hairline-divided list — no enclosing card. Each row carries
+// its own small aurora tick instead of sitting inside a bordered box,
+// so a list of entities reads as marks on the spine's paper, not
+// another panel stacked under the last one.
 function EntitiesBlock({ block }: { block: Extract<NovaBlock, { kind: "entities" }> }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col">
       {block.title && <BlockTitle>{block.title}</BlockTitle>}
-      <div className="overflow-hidden rounded-[12px] bg-white" style={{ border: "1px solid var(--nw-line)" }}>
+      <div className={block.title ? "mt-1.5" : undefined}>
         {block.items.map((it, i) => (
           <div
             key={i}
-            className="flex items-start gap-2.5 px-3 py-2"
+            className="flex items-start gap-2.5 py-2"
             style={i > 0 ? { borderTop: "1px solid var(--nw-line-2)" } : undefined}
           >
             <span
               aria-hidden
-              className="mt-[7px] h-2 w-2 shrink-0 rounded-pill"
+              className="mt-[6px] h-[3px] w-3 shrink-0 rounded-pill"
               style={{ background: TONE_VAR[it.tone] }}
             />
             <div className="min-w-0 flex-1">
@@ -86,13 +94,10 @@ function EntitiesBlock({ block }: { block: Extract<NovaBlock, { kind: "entities"
                 </p>
               )}
               {it.meta && it.meta.length > 0 && (
-                <p className="mt-1 flex flex-wrap gap-1">
+                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--nw-ink-3)" }}>
                   {it.meta.map((m, mi) => (
-                    <span
-                      key={mi}
-                      className="rounded-pill px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.08em]"
-                      style={{ background: "var(--nw-bg-2)", color: "var(--nw-ink-2)" }}
-                    >
+                    <span key={mi} className="flex items-center gap-2">
+                      {mi > 0 && <span aria-hidden className="h-[3px] w-[3px] rounded-pill" style={{ background: "var(--nw-ink-3)" }} />}
                       {m}
                     </span>
                   ))}
@@ -106,10 +111,44 @@ function EntitiesBlock({ block }: { block: Extract<NovaBlock, { kind: "entities"
   );
 }
 
+// Small radial ring showing done/total — a second chart language
+// besides plain rows, cheap enough to earn its place on a task list.
+function ProgressRing({ done, total }: { done: number; total: number }) {
+  const r = 8;
+  const c = 2 * Math.PI * r;
+  const pct = total > 0 ? done / total : 0;
+  const color = pct >= 1 ? "var(--nw-green)" : "var(--nw-teal)";
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" className="shrink-0 -rotate-90" aria-hidden>
+      <circle cx="10" cy="10" r={r} fill="none" stroke="var(--nw-line)" strokeWidth="2.5" />
+      <circle
+        cx="10"
+        cy="10"
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - pct)}
+      />
+    </svg>
+  );
+}
+
 function TasksBlock({ block }: { block: Extract<NovaBlock, { kind: "tasks" }> }) {
+  const done = block.items.filter((it) => it.done).length;
   return (
     <div className="flex flex-col gap-1.5">
-      {block.title && <BlockTitle>{block.title}</BlockTitle>}
+      {(block.title || block.items.length > 1) && (
+        <div className="flex items-center gap-2">
+          {block.items.length > 1 && <ProgressRing done={done} total={block.items.length} />}
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--nw-ink-3)" }}>
+            {block.title ?? "Tasks"}
+            {block.items.length > 1 && ` · ${done}/${block.items.length}`}
+          </p>
+        </div>
+      )}
       <div className="flex flex-col gap-1">
         {block.items.map((it, i) => (
           <div key={i} className="flex items-start gap-2">
@@ -139,6 +178,9 @@ function TasksBlock({ block }: { block: Extract<NovaBlock, { kind: "tasks" }> })
   );
 }
 
+// The one deliberately boxed surface — spend the "card" treatment on
+// the single thing that's meant to stand out, per DESIGN.md §5's
+// restraint principle applied to Nova's own visual system.
 function CalloutBlock({ block }: { block: Extract<NovaBlock, { kind: "callout" }> }) {
   const meta = CALLOUT_META[block.tone];
   const IconEl = meta.icon;
@@ -177,7 +219,7 @@ function NextBlock({ block, onPrompt }: { block: Extract<NovaBlock, { kind: "nex
 
 export function NovaBlocks({ blocks, onPrompt, stagger = false }: { blocks: NovaBlock[]; onPrompt: (q: string) => void; stagger?: boolean }) {
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-3">
       {blocks.map((block, i) => {
         const wrap = (node: React.ReactNode) =>
           stagger ? (

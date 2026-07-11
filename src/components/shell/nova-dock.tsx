@@ -6,6 +6,7 @@ import {
   ArrowCounterClockwise,
   CheckCircle,
   DownloadSimple,
+  EnvelopeSimple,
   FileCode,
   FileCsv,
   FileDoc,
@@ -13,8 +14,10 @@ import {
   FilePdf,
   FilePpt,
   FileText,
+  FireSimple,
   FileXls,
   FileZip,
+  ListChecks,
   Paperclip,
   PaperPlaneTilt,
   ShieldWarning,
@@ -30,8 +33,8 @@ import type {
   NovaFile,
   NovaFileFormat,
 } from "@/lib/ai/nova-agent";
-import type { NovaBlock } from "@/lib/ai/nova-blocks";
-import { NovaBlocks } from "@/components/shell/nova-answer-blocks";
+import type { NovaBlock, NovaTone } from "@/lib/ai/nova-blocks";
+import { NovaBlocks, TONE_VAR } from "@/components/shell/nova-answer-blocks";
 import { NovaMarkdown } from "@/components/shell/nova-markdown";
 import { NovaMark } from "@/components/shell/nova-mark";
 
@@ -50,6 +53,33 @@ type ChatMessage = {
 // The trace's time voice: 24h HH:MM, set in mono next to each node.
 function fmtTime(at: number) {
   return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+// A trace entry: a node pinned to the spine + its content. Hoisted to
+// module scope deliberately — defining this inside NovaDock's render
+// gave it a fresh function identity every keystroke (draft state
+// updates trigger a re-render), so React treated every entry as a
+// brand-new component type and remounted the whole trace, replaying
+// every entrance animation on each character typed.
+function Entry({
+  node,
+  children,
+  className = "",
+  style,
+}: {
+  node: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div className={`relative ${className}`} style={style}>
+      <span className="nova-node top-[1px]" aria-hidden>
+        {node}
+      </span>
+      {children}
+    </div>
+  );
 }
 
 // ─── File cards ───────────────────────────────────────────────────────
@@ -194,6 +224,43 @@ function workingCopy(stage: string) {
     return { label: "Wrapping up", title: "Stopping the task safely" };
   }
   return { label: "Composing", title: "Nova is thinking it through" };
+}
+
+// ─── Signal chips ─────────────────────────────────────────────────────
+// Replaces a plain list of suggested sentences: real, live workspace
+// signals (an account, a task count, an evergreen action) as tappable
+// pills with their own icon and tone — a small control deck, not more
+// text to read. Module scope for the same reason Entry is: a fresh
+// function identity every render would remount it on every keystroke.
+type Signal = { icon: Icon; label: string; tone: NovaTone; prompt: string };
+
+function SignalRow({ signals, onPick }: { signals: Signal[]; onPick: (prompt: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {signals.map((s, i) => {
+        const IconEl = s.icon;
+        const color = TONE_VAR[s.tone];
+        return (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onPick(s.prompt)}
+            className="flex cursor-pointer items-center gap-2 rounded-pill bg-white py-1.5 pl-1.5 pr-3.5 text-left text-[12.5px] font-bold transition-transform duration-150 hover:-translate-y-0.5"
+            style={{ border: "1px solid var(--nw-line)", color: "var(--nw-ink)" }}
+          >
+            <span
+              aria-hidden
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-pill"
+              style={{ background: `color-mix(in srgb, ${color} 16%, white)`, color }}
+            >
+              <IconEl size={13} weight="bold" />
+            </span>
+            {s.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 // While a request is in flight, a comet travels this segment of the
@@ -385,24 +452,51 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     return best;
   }, [context.customers, context.openTaskCountByCustomer]);
 
-  const suggestions = useMemo(
+  const signals: Signal[] = useMemo(
     () =>
       scopeCustomer
         ? [
-            `Sum up where we stand with ${scopeCustomer.name}`,
-            scopedOpenTasks > 0
-              ? `Plan the ${scopedOpenTasks} open task${scopedOpenTasks === 1 ? "" : "s"} on this account`
-              : "Create a follow-up task for this account",
-            "What did they say in the last conversation?",
-            "Draft a follow-up email I can send",
+            {
+              icon: ListChecks,
+              label: scopedOpenTasks > 0 ? `${scopedOpenTasks} open here` : "Nothing open",
+              tone: scopedOpenTasks > 0 ? "gold" : "green",
+              prompt:
+                scopedOpenTasks > 0
+                  ? `Plan the ${scopedOpenTasks} open task${scopedOpenTasks === 1 ? "" : "s"} on this account`
+                  : "Create a follow-up task for this account",
+            },
+            {
+              icon: FireSimple,
+              label: "Last word",
+              tone: "coral",
+              prompt: "What did they say in the last conversation?",
+            },
+            {
+              icon: EnvelopeSimple,
+              label: "Draft follow-up",
+              tone: "violet",
+              prompt: "Draft a follow-up email I can send",
+            },
           ]
         : [
-            totalOpenTasks > 0
-              ? `Walk me through the ${totalOpenTasks} open tasks`
-              : "What needs attention this week?",
-            hottestAccount ? `Where do we stand with ${hottestAccount.name}?` : "Summarize the latest recording",
-            "What did we decide in the last conversation?",
-            "Generate a PDF status report of the pipeline",
+            {
+              icon: FireSimple,
+              label: hottestAccount ? hottestAccount.name : "This week",
+              tone: "coral",
+              prompt: hottestAccount ? `Where do we stand with ${hottestAccount.name}?` : "What needs attention this week?",
+            },
+            {
+              icon: ListChecks,
+              label: totalOpenTasks > 0 ? `${totalOpenTasks} open tasks` : "Nothing open",
+              tone: totalOpenTasks > 0 ? "gold" : "green",
+              prompt: totalOpenTasks > 0 ? "Walk me through the open tasks" : "Summarize the latest recording",
+            },
+            {
+              icon: FileText,
+              label: "Weekly report",
+              tone: "violet",
+              prompt: "Generate a PDF status report of the pipeline",
+            },
           ],
     [scopeCustomer, scopedOpenTasks, totalOpenTasks, hottestAccount],
   );
@@ -545,32 +639,12 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     );
   };
 
-  // A trace entry: a node pinned to the spine + its content.
-  const Entry = ({
-    node,
-    children,
-    className = "",
-    style,
-  }: {
-    node: React.ReactNode;
-    children: React.ReactNode;
-    className?: string;
-    style?: React.CSSProperties;
-  }) => (
-    <div className={`relative ${className}`} style={style}>
-      <span className="nova-node top-[1px]" aria-hidden>
-        {node}
-      </span>
-      {children}
-    </div>
-  );
-
   return (
     <>
       {open && (
         <section
           aria-label="Nova assistant"
-          className="nova-wing anim-wing-in fixed inset-y-0 right-0 z-50 flex w-full flex-col md:w-[440px]"
+          className="nova-wing anim-wing-in fixed inset-y-0 right-0 z-50 flex w-full flex-col md:w-[512px]"
         >
           {/* The sky band */}
           <div className="nova-wing-sky shrink-0 px-5 pb-4 pt-4" style={{ borderBottom: "1px solid var(--nw-line)" }}>
@@ -647,29 +721,15 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                     <div className="mt-2.5">
                       <NovaBlocks blocks={briefingBlocks} onPrompt={(q) => void send(q)} />
                     </div>
-                    <p className="mt-2.5 max-w-[40ch] text-[13px] leading-relaxed" style={{ color: "var(--nw-ink-2)" }}>
+                    <p className="mt-2.5 max-w-[42ch] text-[13px] leading-relaxed" style={{ color: "var(--nw-ink-2)" }}>
                       {scopeCustomer
                         ? `I can read everything filed on ${scopeCustomer.name} and work the records — or take a file in and hand one back.`
-                        : "I read every conversation, work the records, and trade files. Log an entry below, or start from one of these."}
+                        : "I read every conversation, work the records, and trade files. Log an entry below."}
                     </p>
+                    <div className="mt-3">
+                      <SignalRow signals={signals} onPick={(q) => void send(q)} />
+                    </div>
                   </Entry>
-                  {suggestions.map((s, idx) => (
-                    <Entry
-                      key={s}
-                      node={<span className="nova-node-ghost" />}
-                      className="anim-wing-rise"
-                      style={{ animationDelay: `${260 + idx * 70}ms` }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => void send(s)}
-                        className="-my-1 cursor-pointer rounded-control px-1 py-1 text-left text-[13.5px] font-medium transition-colors duration-150 hover:text-[color:var(--nw-teal-deep)]"
-                        style={{ color: "var(--nw-ink-2)" }}
-                      >
-                        {s}
-                      </button>
-                    </Entry>
-                  ))}
                 </>
               )}
 

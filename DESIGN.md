@@ -143,7 +143,7 @@ gradient (§5).
 
 Nova is not a floating chat card: she is a **full-height wing that
 sweeps in from the right edge** of the instrument (`.nova-wing`,
-fixed inset-y-0 right-0, 440px on desktop, full-width on mobile),
+fixed inset-y-0 right-0, 512px on desktop, full-width on mobile),
 light and pearlescent like the rest of the app. She has her own scoped
 token set (`--nw-*` in `globals.css`): near-white surfaces
 `#FCFDFF / #F3F6FC / #E9EEF8`, ink text, and **deep teal `#0E8C7F` as
@@ -162,10 +162,19 @@ of the entrance; idle, the sky is still.
 **The spine.** The conversation is a **trace, not a bubble chat**: an
 aurora-gradient thread (`.nova-spine`) draws top-to-bottom on open and
 every exchange pins to it as a node — hollow ports for the user's
-entries, Nova's star for her readouts, dashed ghost nodes for the
-prepared queries in the empty state. Entries carry mono
+entries, Nova's star for her readouts. Entries carry mono
 "YOU / NOVA · HH:MM" kickers and print straight on the paper — no
-colored bubbles, no per-message avatars.
+colored bubbles, no per-message avatars. The `Entry` node component
+and any list rendered while typing MUST live at module scope, never be
+defined inside `NovaDock`'s render body — a fresh function identity on
+every keystroke makes React treat every entry as a new component type
+and remount the whole trace, replaying every entrance animation.
+
+**Signal chips.** The empty state's opening entry closes with a row of
+tappable pills (`SignalRow`) — a live account, an open-task count, an
+evergreen action — each with its own icon and tone color, not a
+vertical list of suggested sentences to read. They're real workspace
+signals that happen to be askable, not a canned FAQ.
 
 **Motion choreography** (all state- or entrance-conveying, §7; reduced
 motion collapses everything): the wing sweeps in (340ms), the spine
@@ -178,21 +187,28 @@ it appears. Nothing loops while idle.
 **Structured answers.** Substantive readings arrive as typed blocks
 (`nova-blocks.ts` protocol, composed by the agent's `present_answer`
 tool, rendered by `nova-answer-blocks.tsx`), rising in a stagger on
-the newest reply: a display-weight one-line headline; **stat cells**
-(21px colored number, tone-dot mono label, white card); **entity
-cards** (tone dot, title, the-one-thing-that-matters subtitle, meta
-chips); **task rows** (checkbox squares, who/due in mono); at most one
-**callout** (info=teal, win=green, warn=gold, risk=coral — tinted
-white panel, colored icon kicker); and at most one **next-move chip**
-(solid teal pill, tap sends its prompt back to Nova) which replaces
-the prose closing offer. Tones carry meaning (green=healthy,
-coral=problem, gold=watch), never decoration. Tool runs print as mono
-trace lines with green/red state icons; files are format-colored
-artifact cards; destructive confirmations are danger-tinted cards with
-an explicit Confirm / Keep it choice. Plain markdown remains the
-fallback for quick facts and casual turns. The empty state is a
-briefing — live workspace numbers as stat cells plus prepared queries
-derived from real data, never canned pills.
+the newest reply — deliberately NOT a stack of identical bordered
+cards; the **callout is the one boxed surface**, spending the "card"
+treatment on the single thing meant to stand out, everything else
+reads as marks directly on the paper: a display-weight one-line
+headline; a **stat readout strip** (colored mono numbers in a single
+row, divided by hairlines, like an instrument reading out several
+channels — no per-number box); **entity rows** (a short aurora tick,
+title, the-one-thing-that-matters subtitle, mono meta separated by
+dots) in a plain hairline-divided list, no enclosing card; **task
+rows** (checkbox squares, who/due in mono) headed by a small radial
+progress ring when there's more than one; at most one **callout**
+(info=teal, win=green, warn=gold, risk=coral — tinted white panel,
+colored icon kicker); and at most one **next-move chip** (solid teal
+pill, tap sends its prompt back to Nova) which replaces the prose
+closing offer. Tones carry meaning (green=healthy, coral=problem,
+gold=watch), never decoration. Tool runs print as mono trace lines
+with green/red state icons; files are format-colored artifact cards;
+destructive confirmations are danger-tinted cards with an explicit
+Confirm / Keep it choice. Plain markdown remains the fallback for
+quick facts and casual turns. The empty state is a briefing — live
+workspace numbers as a stat readout plus signal chips (above) derived
+from real data, never canned copy.
 
 ## 8. Typography and copy
 

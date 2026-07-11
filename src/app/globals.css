@@ -223,12 +223,6 @@
     border: 2px solid var(--nw-ink-3);
     border-radius: var(--radius-pill);
   }
-  .nova-node-ghost {
-    width: 9px;
-    height: 9px;
-    border: 2px dashed color-mix(in srgb, var(--nw-ink-3) 65%, white);
-    border-radius: var(--radius-pill);
-  }
 
   /* While Nova works, a comet travels her segment of the spine —
      state-conveying, running only during an in-flight request. */
