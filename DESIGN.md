@@ -12,7 +12,9 @@ This file is the gate: no UI ships that violates it.
 
 - The whole app is light. The shell (rail + topbar) is not distinguished from
   content by darkness — it reads as a distinct zone through a hairline border
-  and a subtle tonal shift (`--shell` vs `--page`), nothing more.
+  and a subtle tonal shift (`--shell` vs `--page`), nothing more. The single
+  sanctioned exception is Nova's Night Window (§7c): the assistant's dock is
+  the one dark surface in the product, and nothing else may borrow that.
 - Validation stages get a literal meteorological glyph system: Interview is a
   cold front, Review is a warm front, Decision is an occluded front, Signed is
   a high-pressure system. This is the one deliberate hand-rolled-icon
@@ -138,19 +140,45 @@ Nova's mark is a four-ray stellar nova with a tilted orbital ring
 exception alongside the rail's pressure-ring glyph. It wears the aurora
 gradient (§5).
 
-Nova's panel is an **observation log, not a bubble chat**. The user's
-queries sit in recessed input blocks (`.recessed` — queries are input)
-under a mono "YOU · HH:MM" kicker; Nova's replies are readouts printed
-straight on the white paper under her mark and a mono "NOVA · HH:MM"
-kicker; exchanges are separated by hairline rules. No colored chat
-bubbles, no per-message avatar orbs — the aurora stays on the mark and
-the closed-state orb only. Markdown renders fully (headings, tables,
-task lists, one callout max), tool runs print as mono log lines with a
-green/red state icon, generated files show as format-colored artifact
-cards with a download affordance, and destructive confirmations are
-danger-tinted cards with an explicit Confirm / Keep it choice. The
-empty state is a briefing, not a greeting: real workspace numbers and
-prepared queries derived from live data, never canned suggestion pills.
+### 7c. Nova's Night Window
+
+Nova is a star, and her dock is the one place the instrument looks at
+the night sky: the app's **single sanctioned dark surface**, styled
+entirely from the `--nv-*` tokens scoped on `.nova-night` in
+`globals.css` — never from the light tokens, and the light app never
+borrows the night tokens back. Surfaces `#0C1424 / #142038 / #1B2A49`,
+text `#EAF1FC / #AEBFDA / #8296B4`, hairlines in translucent slate. On
+the night surface the aurora palette glows at full saturation instead
+of paper-wash percentages: **teal `#34D9C4` is Nova's own interactive
+accent** (send, links, focus rings, next-move chips — the app's flat
+blue never appears inside the window), with violet `#9AA0F4`, rose
+`#EE9CC3`, green `#4AD695`, coral `#FF8E73`, gold `#EEC568` as the
+window's tone palette. A static aurora glow (`.nova-sky`) sits along
+the header's top edge — ambient, never animated while idle; motion
+stays state-conveying only (§7).
+
+The window is an **observation log, not a bubble chat**: queries sit in
+raised `--nv-bg-2` blocks under a mono "YOU · HH:MM" kicker, Nova's
+replies print straight on the night surface under her mark and a mono
+"NOVA · HH:MM" kicker, exchanges rule apart with hairlines. The empty
+state is a briefing — live workspace numbers rendered as stat cells
+plus prepared queries derived from real data, never canned pills.
+
+**Structured answers.** Substantive readings arrive as typed blocks
+(`nova-blocks.ts` protocol, composed by the agent's `present_answer`
+tool, rendered by `nova-answer-blocks.tsx`): a bold one-line headline;
+**stat cells** (mono colored number + small mono label); **entity
+cards** (tone dot, title, the-one-thing-that-matters subtitle, meta
+chips); **task rows** (checkbox squares, who/due in mono); at most one
+**callout** (info=teal, win=green, warn=gold, risk=coral — tinted
+panel, colored icon kicker); and at most one **next-move chip** (teal
+pill, tap sends its prompt back to Nova) which replaces the prose
+closing offer. Tones carry meaning (green=healthy, coral=problem,
+gold=watch), never decoration. Tool runs print as mono log lines with
+green/red state icons; files are format-colored artifact cards;
+destructive confirmations are danger-tinted cards with an explicit
+Confirm / Keep it choice. Plain markdown remains the fallback for
+quick facts and casual turns.
 
 ## 8. Typography and copy
 

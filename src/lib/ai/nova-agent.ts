@@ -44,6 +44,7 @@ import {
   type NovaDocumentPreset,
 } from "@/lib/ai/nova-document-worker";
 import { runNovaSandboxJob } from "@/lib/ai/nova-sandbox";
+import { coerceNovaBlocks, type NovaBlock } from "@/lib/ai/nova-blocks";
 import { generateRecordingBriefPdf } from "@/lib/ai/nova-recording-pdf";
 import {
   consumeNovaConfirmationToken,
@@ -109,6 +110,11 @@ export type NovaConfirmation = { token: string; label: string; detail: string };
 
 export type NovaResponse = {
   answer: string;
+  // Structured presentation (present_answer tool): a one-line headline
+  // plus typed blocks the dock renders as real components. Prose-only
+  // answers leave headline undefined and blocks empty.
+  headline?: string;
+  blocks: NovaBlock[];
   actions: NovaActionLog[];
   files: NovaFile[];
   confirmations: NovaConfirmation[];
@@ -171,6 +177,7 @@ async function latestRecordingPdf(authorId: string): Promise<NovaResponse | null
   if (!recording) {
     return {
       answer: "I couldn’t find one of your recordings to turn into a PDF.",
+      blocks: [],
       actions: [],
       files: [],
       confirmations: [],
@@ -210,6 +217,7 @@ async function latestRecordingPdf(authorId: string): Promise<NovaResponse | null
   });
   return {
     answer: `Done—your latest recording, **${recording.title}**, is ready as a PDF.`,
+    blocks: [],
     actions: [{
       label: "Generated recording PDF",
       detail: `${generated.filename}.pdf · ${generated.pageCount} page${generated.pageCount === 1 ? "" : "s"}`,
@@ -924,6 +932,32 @@ const TOOL_SCHEMAS: ToolSchema[] = [
     ["filename", "format", "content"],
   ),
   fn(
+    "present_answer",
+    "Compose your final answer as structured visual blocks — the chat renders each block as a real UI component (stat cells, entity cards, task rows, a colored callout, a tappable next-step chip). Call this ONCE, as your LAST tool call, for any substantive reading: workspace stats, account status, task overviews, plans, imports, anything with 3+ facts. Skip it for quick one-line facts and casual conversation. After calling it, reply with an empty message or one short closing line — never repeat the presented content as text.",
+    {
+      headline: p("string", "The finding in one plain sentence — the first thing the user reads. Specific, with the key number or name in it."),
+      prose: p("string", "Optional 1-3 sentences of narrative context under the headline. Markdown allowed. Omit when the blocks carry everything."),
+      blocks: {
+        type: "array",
+        description:
+          'The visual blocks, in reading order. Kinds: {kind:"stats", items:[{label, value, tone, delta?}]} for 2-6 key numbers (tone: teal|violet|rose|green|coral|gold|neutral — pick meaningfully: green=good, coral=problem, gold=watch); {kind:"entities", title?, items:[{title, subtitle?, tone, meta?:[strings]}]} for customers/conversations/records (subtitle = the one thing that matters about it, meta = short chips like stage or owner); {kind:"tasks", title?, items:[{text, done, who?, due?}]} for to-dos and done/pending reports; {kind:"callout", tone:"info"|"win"|"warn"|"risk", title?, body} for THE one insight or warning (max one per answer); {kind:"next", label, prompt} for the single obvious next move — label is what the user sees, prompt is the exact message tapping it sends back to you (max one per answer, put it last).',
+        items: {
+          type: "object",
+          properties: {
+            kind: p("string", '"stats", "entities", "tasks", "callout", or "next".'),
+            title: p("string", "Optional small section label (entities/tasks) or callout title."),
+            tone: p("string", "Callout tone: info, win, warn, or risk."),
+            body: p("string", "Callout body text."),
+            label: p("string", "Next-move chip label."),
+            prompt: p("string", "Next-move message sent back to you when tapped."),
+            items: { type: "array", description: "The block's items (see kind descriptions).", items: { type: "object" } },
+          },
+        },
+      },
+    },
+    ["headline", "blocks"],
+  ),
+  fn(
     "run_python_workspace",
     "Run a focused Python script in Nova's isolated, networkless file lab. Use it for Excel/Word/PowerPoint work, data analysis, calculations, plots, images, PDF transformations, archives, and other binary-file tasks. The workspace is temporary and cannot access the website, database, secrets, or the network. Do not use this for persistent workspace mutations or deletions.",
     {
@@ -973,14 +1007,13 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
     `- Never claim a destructive action completed when the tool says confirmation was requested. Tell the user exactly what will change and let the confirmation control in the UI perform it.`,
     `- Never invent customers, numbers, or facts that aren't in the context, a tool result, or the user's message.`,
     `- After acting, confirm briefly and naturally. Don't repeat a long list the UI will already show.`,
-    `- Your replies render as fully styled markdown in the chat — headings, bold, bullet/numbered lists, GFM task lists, tables, fenced code blocks, and > callouts all get real visual treatment. Choose the shape that fits the content, not always prose:`,
-    `  * **Bold** every key number, name, and date.`,
-    `  * A table when listing records that share fields (customers, tasks, events) — the chat renders tables with proper headers and borders.`,
-    `  * A "- [x] / - [ ]" task list when reporting what got done vs. what's still pending.`,
-    `  * A > callout for the ONE most important insight, warning, or recommendation in a longer answer — it renders as a highlighted panel, so never use more than one per reply.`,
-    `  * "### Small headings" to split a longer answer into scannable sections.`,
-    `  * A fenced code block only for actual code, raw data, or something meant to be copied verbatim (an email draft, a snippet).`,
-    `- Calibrate: a quick fact gets one plain line; never headers or tables on a two-line answer, and never a wall of prose when structure is clearer.`,
+    `Answer presentation — this is how your answers become visual, take it seriously:`,
+    `- For ANY substantive reading (workspace stats, an account status, a task overview, a plan, an import result — anything with 3+ facts), finish by calling present_answer ONCE with a headline and typed blocks. The chat renders them as real components: stat cells with colored numbers, entity cards with tone dots and meta chips, task rows with checkboxes, one colored callout, one tappable next-move chip. A composed reading beats prose every time.`,
+    `- Choose block tones with meaning, never decoration: green = healthy/won, coral = problem/blocked, gold = watch closely, teal = neutral-good default, violet/rose = categorical variety for entities. The user learns your color language — keep it consistent.`,
+    `- The next-move chip replaces the closing-offer sentence: when an obvious next step exists, put it in a {kind:"next"} block (prompt = the exact message tapping it sends you) instead of writing "I can do X — say the word."`,
+    `- Quick one-line facts and casual conversation skip present_answer — answer in plain text. Never present two blocks where one line would do.`,
+    `- When you answer in plain text, it renders as full markdown: **bold** every key number, name, and date; a table for same-shaped records; "- [x]" task lists; one > callout max; "### small headings" for long answers; fenced code only for verbatim content (an email draft, a snippet).`,
+    `- Calibrate: a quick fact gets one plain line; never headers, tables, or blocks on a two-line answer, and never a wall of prose when structure is clearer.`,
     ``,
     NOVA_VISUAL_SYSTEM,
     ``,
@@ -1020,17 +1053,49 @@ export async function runNovaAgent(input: {
   const confirmations: NovaConfirmation[] = [];
   const pendingConfirmationKeys = new Set<string>();
   const generatedFileKeys = new Set<string>();
+  let presentation: { headline: string; prose?: string; blocks: NovaBlock[] } | null = null;
+
+  const finalize = (closing: string): NovaResponse => {
+    if (presentation) {
+      // The presentation IS the answer; a short closing line from the
+      // model may follow it, but repeated prose is dropped in the UI's
+      // favor — the blocks already carry the content.
+      return {
+        answer: presentation.prose ?? (closing === "Done." ? "" : closing),
+        headline: presentation.headline,
+        blocks: presentation.blocks,
+        actions,
+        files,
+        confirmations,
+      };
+    }
+    return { answer: closing, blocks: [], actions, files, confirmations };
+  };
 
   for (let step = 0; step < 6; step++) {
     const msg = await deepseekChatWithTools(messages, TOOL_SCHEMAS);
     if (!msg.tool_calls?.length) {
-      return { answer: msg.content || "Done.", actions, files, confirmations };
+      return finalize(msg.content || "Done.");
     }
     messages.push({ role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls });
     for (const call of msg.tool_calls) {
       const args = safeArgs(call.function.arguments);
       let toolResult: string;
-      if (isDestructiveToolCall(call.function.name, args)) {
+      if (call.function.name === "present_answer") {
+        const headline = str(args.headline);
+        const blocks = coerceNovaBlocks(args.blocks);
+        if (headline || blocks.length) {
+          presentation = {
+            headline: headline || "Here’s the reading.",
+            prose: str(args.prose) || undefined,
+            blocks,
+          };
+          toolResult =
+            "Presented. Reply with an empty message or one short closing line now — do not repeat the presented content as text.";
+        } else {
+          toolResult = "Presentation was empty — answer in plain markdown instead.";
+        }
+      } else if (isDestructiveToolCall(call.function.name, args)) {
         try {
           await assertToolPermission(ctx, call.function.name, args);
           const key = `${call.function.name}:${JSON.stringify(args)}`;
@@ -1169,7 +1234,7 @@ export async function runNovaAgent(input: {
       messages.push({ role: "tool", tool_call_id: call.id, content: toolResult });
     }
   }
-  return { answer: "Done.", actions, files, confirmations };
+  return finalize("Done.");
 }
 
 export async function executeConfirmedNovaAction(
@@ -1192,7 +1257,6 @@ export async function executeConfirmedNovaAction(
 
 // ─── Mock (no DEEPSEEK_API_KEY configured) ─────────────────────────────
 async function mockNova(ctx: Ctx, question: string, fileContext?: string): Promise<NovaResponse> {
-  const lower = question.toLowerCase();
   const actions: NovaActionLog[] = [];
   const files: NovaFile[] = [];
   const confirmations: NovaConfirmation[] = [];
@@ -1211,9 +1275,41 @@ async function mockNova(ctx: Ctx, question: string, fileContext?: string): Promi
     }
   }
 
-  const answer = actions.length
-    ? actions.every((a) => a.ok) ? "Done." : "That didn't fully go through — see below."
-    : `Hi, I'm Nova. I don't have a live model connected right now (no DEEPSEEK_API_KEY set), so I'm running on a small built-in fallback — I can still create a customer if you say "create customer: Acme Inc". Connect a real key for full understanding, file parsing, and generation.${lower.includes("help") ? "" : ""}`;
+  if (actions.length) {
+    return {
+      answer: actions.every((a) => a.ok) ? "Done." : "That didn't fully go through — see below.",
+      blocks: [],
+      actions,
+      files,
+      confirmations,
+    };
+  }
 
-  return { answer, actions, files, confirmations };
+  // No live model: return a real-shaped presentation built from actual
+  // workspace context, so the Night Window's block components are
+  // browser-verifiable under MOCK_LLM.
+  return {
+    answer: "",
+    headline: "Mock mode — this is the shape of a real reading.",
+    blocks: [
+      {
+        kind: "stats",
+        items: [
+          { label: "Teammates", value: String(ctx.owners.length), tone: "teal" },
+          { label: "Segments", value: String(ctx.segments.length), tone: "violet" },
+          { label: "Stages", value: String(ctx.stages.length), tone: "rose" },
+        ],
+      },
+      {
+        kind: "callout",
+        tone: "info",
+        title: "No model connected",
+        body: "DEEPSEEK_API_KEY isn’t set, so Nova is running a built-in fallback. Connect a key for full understanding, file work, and composed readings like this one.",
+      },
+      { kind: "next", label: "Create a test customer", prompt: "create customer: Acme Inc" },
+    ],
+    actions,
+    files,
+    confirmations,
+  };
 }

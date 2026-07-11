@@ -30,6 +30,8 @@ import type {
   NovaFile,
   NovaFileFormat,
 } from "@/lib/ai/nova-agent";
+import type { NovaBlock } from "@/lib/ai/nova-blocks";
+import { NovaBlocks } from "@/components/shell/nova-answer-blocks";
 import { NovaMarkdown } from "@/components/shell/nova-markdown";
 import { NovaMark } from "@/components/shell/nova-mark";
 
@@ -37,6 +39,8 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   at: number;
+  headline?: string;
+  blocks?: NovaBlock[];
   actions?: NovaActionLog[];
   files?: NovaFile[];
   confirmations?: NovaConfirmation[];
@@ -52,19 +56,19 @@ function fmtTime(at: number) {
 // Format-specific icon + data-palette color, so a returned file reads as
 // a real artifact, not another text row.
 const FORMAT_META: Record<NovaFileFormat, { icon: Icon; color: string; label: string }> = {
-  pdf: { icon: FilePdf, color: "var(--c-coral)", label: "PDF" },
-  csv: { icon: FileCsv, color: "var(--c-green)", label: "CSV" },
-  xlsx: { icon: FileXls, color: "var(--c-green)", label: "XLSX" },
-  docx: { icon: FileDoc, color: "var(--c-blue)", label: "DOCX" },
-  pptx: { icon: FilePpt, color: "var(--c-coral)", label: "PPTX" },
-  markdown: { icon: FileText, color: "var(--c-blue)", label: "MD" },
-  txt: { icon: FileText, color: "var(--c-blue)", label: "TXT" },
-  json: { icon: FileCode, color: "var(--c-violet)", label: "JSON" },
-  png: { icon: FileImage, color: "var(--c-cyan)", label: "PNG" },
-  jpg: { icon: FileImage, color: "var(--c-cyan)", label: "JPG" },
-  jpeg: { icon: FileImage, color: "var(--c-cyan)", label: "JPEG" },
-  svg: { icon: FileImage, color: "var(--c-cyan)", label: "SVG" },
-  zip: { icon: FileZip, color: "var(--ink-3)", label: "ZIP" },
+  pdf: { icon: FilePdf, color: "var(--nv-coral)", label: "PDF" },
+  csv: { icon: FileCsv, color: "var(--nv-green)", label: "CSV" },
+  xlsx: { icon: FileXls, color: "var(--nv-green)", label: "XLSX" },
+  docx: { icon: FileDoc, color: "var(--nv-teal)", label: "DOCX" },
+  pptx: { icon: FilePpt, color: "var(--nv-coral)", label: "PPTX" },
+  markdown: { icon: FileText, color: "var(--nv-teal)", label: "MD" },
+  txt: { icon: FileText, color: "var(--nv-teal)", label: "TXT" },
+  json: { icon: FileCode, color: "var(--nv-violet)", label: "JSON" },
+  png: { icon: FileImage, color: "var(--nv-rose)", label: "PNG" },
+  jpg: { icon: FileImage, color: "var(--nv-rose)", label: "JPG" },
+  jpeg: { icon: FileImage, color: "var(--nv-rose)", label: "JPEG" },
+  svg: { icon: FileImage, color: "var(--nv-rose)", label: "SVG" },
+  zip: { icon: FileZip, color: "var(--nv-text-3)", label: "ZIP" },
 };
 
 function fmtBytes(n?: number) {
@@ -112,25 +116,32 @@ function FileCard({ file }: { file: NovaFile }) {
     <button
       type="button"
       onClick={() => downloadFile(file)}
-      className="surfaced rise-on-hover group flex w-full cursor-pointer items-center gap-3 p-2.5 text-left"
+      className="group flex w-full cursor-pointer items-center gap-3 rounded-control p-2.5 text-left transition-colors duration-150"
+      style={{ background: "var(--nv-bg-2)" }}
     >
       <span
         aria-hidden
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
-        style={{ background: `color-mix(in srgb, ${meta.color} 14%, white)`, color: meta.color }}
+        style={{ background: `color-mix(in srgb, ${meta.color} 20%, var(--nv-bg-3))`, color: meta.color }}
       >
         <IconEl size={19} weight="fill" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13.5px] font-semibold text-ink">
+        <span className="block truncate text-[13.5px] font-semibold" style={{ color: "var(--nv-text)" }}>
           {file.filename}.{file.format === "markdown" ? "md" : file.format}
         </span>
-        <span className="block font-mono text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-3">
+        <span
+          className="block font-mono text-[10px] font-semibold uppercase tracking-[0.08em]"
+          style={{ color: "var(--nv-text-3)" }}
+        >
           {meta.label}
           {size ? ` · ${size}` : ""}
         </span>
       </span>
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-accent transition-colors duration-150 group-hover:bg-accent group-hover:text-white">
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill"
+        style={{ background: "color-mix(in srgb, var(--nv-teal) 18%, var(--nv-bg-3))", color: "var(--nv-teal)" }}
+      >
         <DownloadSimple size={15} weight="bold" />
       </span>
     </button>
@@ -142,17 +153,22 @@ function FileCard({ file }: { file: NovaFile }) {
 // did — not as filled chips competing with the reply itself.
 function ActionReceipts({ actions }: { actions: NovaActionLog[] }) {
   return (
-    <div className="flex flex-col gap-1.5 border-t border-line-2 pt-2">
+    <div className="flex flex-col gap-1.5 pt-2" style={{ borderTop: "1px solid var(--nv-line-2)" }}>
       {actions.map((a, i) => (
         <div key={i} className="flex items-start gap-2 font-mono text-[12px] leading-relaxed">
           {a.ok ? (
-            <CheckCircle size={14} weight="fill" className="mt-[2px] shrink-0 text-data-green" />
+            <CheckCircle size={14} weight="fill" className="mt-[2px] shrink-0" style={{ color: "var(--nv-green)" }} />
           ) : (
-            <XCircle size={14} weight="fill" className="mt-[2px] shrink-0 text-danger" />
+            <XCircle size={14} weight="fill" className="mt-[2px] shrink-0" style={{ color: "var(--nv-danger)" }} />
           )}
-          <span className="min-w-0 font-semibold text-ink">
+          <span className="min-w-0 font-semibold" style={{ color: "var(--nv-text)" }}>
             {a.label}
-            {a.detail && <span className="font-normal text-ink-3"> — {a.detail}</span>}
+            {a.detail && (
+              <span className="font-normal" style={{ color: "var(--nv-text-3)" }}>
+                {" "}
+                — {a.detail}
+              </span>
+            )}
           </span>
         </div>
       ))}
@@ -223,25 +239,33 @@ function WorkingRow({ stage, onCancel }: { stage: string; onCancel: () => void }
   const isCancelling = stage.toLowerCase().includes("cancel");
   return (
     <div className="anim-msg-in flex flex-col gap-2" role="status" aria-live="polite" aria-atomic="true">
-      <p className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent-strong">
+      <p
+        className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em]"
+        style={{ color: "var(--nv-teal)" }}
+      >
         <span className="nova-think-mark flex" aria-hidden>
           <NovaMark size={13} />
         </span>
         Nova · {copy.label}
       </p>
       <div key={stage} className="anim-nova-stage">
-        <p className="text-[14px] font-semibold leading-snug text-ink">{copy.title}</p>
-        <p className="mt-0.5 max-w-[36ch] text-[12.5px] leading-[1.45] text-ink-2">{copy.detail}</p>
+        <p className="text-[14px] font-semibold leading-snug" style={{ color: "var(--nv-text)" }}>
+          {copy.title}
+        </p>
+        <p className="mt-0.5 max-w-[36ch] text-[12.5px] leading-[1.45]" style={{ color: "var(--nv-text-2)" }}>
+          {copy.detail}
+        </p>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-[11.5px] text-ink-3">
+        <span className="text-[11.5px]" style={{ color: "var(--nv-text-3)" }}>
           {isCancelling ? "Nova will close this safely." : "Keeps running if you close this panel."}
         </span>
         {!isCancelling && (
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-8 cursor-pointer rounded-control px-2 text-[11.5px] font-bold text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-danger"
+            className="min-h-8 cursor-pointer rounded-control px-2 text-[11.5px] font-bold transition-colors duration-150 hover:text-[color:var(--nv-coral)]"
+            style={{ color: "var(--nv-text-3)" }}
           >
             Cancel task
           </button>
@@ -325,6 +349,8 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
           error?: string;
           response?: {
             answer: string;
+            headline?: string;
+            blocks?: NovaBlock[];
             actions: NovaActionLog[];
             files: NovaFile[];
             confirmations: NovaConfirmation[];
@@ -352,7 +378,9 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
           setMessages((current) => [...current, {
             role: "assistant",
             at: Date.now(),
-            content: result.fileParseNote ? `${result.answer}\n\n${result.fileParseNote}` : result.answer,
+            content: result.fileParseNote ? `${result.answer}\n\n${result.fileParseNote}`.trim() : result.answer,
+            headline: result.headline,
+            blocks: result.blocks,
             actions: result.actions,
             files: result.files,
             confirmations: result.confirmations,
@@ -421,6 +449,41 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     [scopeCustomer, scopedOpenTasks, totalOpenTasks, hottestAccount],
   );
 
+  const briefingBlocks: NovaBlock[] = useMemo(
+    () =>
+      scopeCustomer
+        ? [
+            {
+              kind: "stats",
+              items: [
+                { label: "Account", value: scopeCustomer.name.slice(0, 14), tone: "teal" },
+                {
+                  label: "Open tasks",
+                  value: String(scopedOpenTasks),
+                  tone: scopedOpenTasks > 0 ? "gold" : "green",
+                },
+              ],
+            },
+          ]
+        : [
+            {
+              kind: "stats",
+              items: [
+                { label: "Accounts", value: String(context.customers.length), tone: "teal" },
+                {
+                  label: "Open tasks",
+                  value: String(totalOpenTasks),
+                  tone: totalOpenTasks > 0 ? "gold" : "green",
+                },
+                ...(hottestAccount
+                  ? [{ label: `Busiest · ${hottestAccount.name.slice(0, 12)}`, value: String(hottestAccount.count), tone: "coral" as const }]
+                  : []),
+              ],
+            },
+          ],
+    [scopeCustomer, scopedOpenTasks, context.customers.length, totalOpenTasks, hottestAccount],
+  );
+
   const autogrow = () => {
     const el = inputRef.current;
     if (!el) return;
@@ -433,7 +496,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     if ((!text && !pendingFile) || sending) return;
     const file = pendingFile;
     const userMsg: ChatMessage = { role: "user", content: text || `(attached ${file?.name})`, at: Date.now(), pendingFileName: file?.name };
-    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+    const history = messages.map((m) => ({ role: m.role, content: m.headline ? `${m.headline}\n${m.content}`.trim() : m.content }));
 
     setMessages((m) => [...m, userMsg]);
     setDraft("");
@@ -530,19 +593,21 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
       {open && (
         <section
           aria-label="Nova assistant"
-          className="anim-nova-panel surfaced-lg flex h-[min(660px,calc(100dvh-6.5rem))] w-[min(440px,calc(100vw-1.5rem))] flex-col overflow-hidden"
+          className="nova-night anim-nova-panel flex h-[min(680px,calc(100dvh-6.5rem))] w-[min(452px,calc(100vw-1.5rem))] flex-col overflow-hidden"
         >
-          {/* Header */}
-          <div className="flex shrink-0 items-center gap-2.5 border-b border-line-2 px-4 py-3">
+          {/* Header — the window's sky */}
+          <div className="nova-sky flex shrink-0 items-center gap-2.5 px-4 py-3" style={{ borderBottom: "1px solid var(--nv-line)" }}>
             <span className="nova-orb flex h-8 w-8 shrink-0 items-center justify-center rounded-pill">
               <NovaMark size={17} tone="white" />
             </span>
             <div className="min-w-0 flex-1 leading-tight">
-              <p className="text-[15px] font-semibold tracking-[-0.01em] text-ink">Nova</p>
-              <p className="mt-0.5 truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink-3">
+              <p className="text-[15px] font-semibold tracking-[-0.01em]" style={{ color: "var(--nv-text)" }}>
+                Nova
+              </p>
+              <p className="mt-0.5 truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nv-text-3)" }}>
                 {scopeCustomer ? (
                   <>
-                    Scope · <span className="text-accent-strong">{scopeCustomer.name}</span>
+                    Scope · <span style={{ color: "var(--nv-teal)" }}>{scopeCustomer.name}</span>
                   </>
                 ) : (
                   "Scope · Whole workspace"
@@ -555,7 +620,8 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                 onClick={() => setMessages([])}
                 aria-label="Start a new chat"
                 title="New chat"
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-control text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-control transition-colors duration-150 hover:bg-[color:var(--nv-bg-2)] hover:text-[color:var(--nv-text)]"
+                style={{ color: "var(--nv-text-3)" }}
               >
                 <ArrowCounterClockwise size={15} />
               </button>
@@ -564,46 +630,45 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close Nova"
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-control text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-control transition-colors duration-150 hover:bg-[color:var(--nv-bg-2)] hover:text-[color:var(--nv-text)]"
+              style={{ color: "var(--nv-text-3)" }}
             >
               <X size={16} />
             </button>
           </div>
 
-          {/* The log — queries as recessed input blocks, Nova's readouts
-              printed straight on the paper, exchanges ruled apart. */}
+          {/* The log — queries as raised input blocks, Nova's readouts
+              printed on the night surface, exchanges ruled apart. */}
           <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
             {messages.length === 0 && (
-              <div className="anim-msg-in flex flex-col gap-4 pt-1">
+              <div className="anim-msg-in flex flex-col gap-3.5 pt-1">
                 <div className="flex items-start gap-2.5">
                   <NovaMark size={26} className="mt-0.5 shrink-0" />
                   <div className="min-w-0">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-ink-3">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--nv-text-3)" }}>
                       The picture · {fmtTime(Date.now())}
                     </p>
-                    <p className="mt-1 text-[15px] font-semibold leading-snug tracking-[-0.01em] text-ink">
-                      {scopeCustomer
-                        ? `${scopeCustomer.name} — ${scopedOpenTasks} open task${scopedOpenTasks === 1 ? "" : "s"} on this account.`
-                        : `${context.customers.length} account${context.customers.length === 1 ? "" : "s"} on the chart · ${totalOpenTasks} open task${totalOpenTasks === 1 ? "" : "s"}.`}
-                    </p>
-                    <p className="mt-1.5 max-w-[38ch] text-[13px] leading-relaxed text-ink-2">
+                    <p className="mt-1 max-w-[38ch] text-[13px] leading-relaxed" style={{ color: "var(--nv-text-2)" }}>
                       {scopeCustomer
                         ? `I can read everything filed on ${scopeCustomer.name} and work the records — or take a file in and hand one back.`
                         : "I read every conversation, work the records, and trade files. Ask, or hand me a chore."}
                     </p>
                   </div>
                 </div>
-                <div className="overflow-hidden rounded-control border border-line-2">
+                <NovaBlocks blocks={briefingBlocks} onPrompt={(q) => void send(q)} />
+                <div className="overflow-hidden rounded-control" style={{ border: "1px solid var(--nv-line-2)" }}>
                   {suggestions.map((s, idx) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => void send(s)}
-                      className={`flex w-full cursor-pointer items-baseline gap-2 px-3 py-2 text-left text-[13px] font-medium text-ink-2 transition-colors duration-150 hover:bg-surface-2 hover:text-ink ${
-                        idx > 0 ? "border-t border-line-2" : ""
-                      }`}
+                      className="flex w-full cursor-pointer items-baseline gap-2 px-3 py-2 text-left text-[13px] font-medium transition-colors duration-150 hover:bg-[color:var(--nv-bg-2)] hover:text-[color:var(--nv-text)]"
+                      style={{
+                        color: "var(--nv-text-2)",
+                        borderTop: idx > 0 ? "1px solid var(--nv-line-2)" : undefined,
+                      }}
                     >
-                      <span aria-hidden className="font-mono text-[11px] font-bold text-accent">
+                      <span aria-hidden className="font-mono text-[11px] font-bold" style={{ color: "var(--nv-teal)" }}>
                         ▸
                       </span>
                       <span className="min-w-0">{s}</span>
@@ -615,9 +680,9 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
 
             {messages.map((m, i) =>
               m.role === "user" ? (
-                <div key={i} className={`anim-msg-in ${i > 0 ? "border-t border-line-2 pt-4" : ""}`}>
-                  <div className="recessed px-3 py-2">
-                    <p className="mb-1 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink-3">
+                <div key={i} className="anim-msg-in" style={i > 0 ? { borderTop: "1px solid var(--nv-line-2)", paddingTop: 16 } : undefined}>
+                  <div className="rounded-control px-3 py-2" style={{ background: "var(--nv-bg-2)" }}>
+                    <p className="mb-1 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nv-text-3)" }}>
                       You · {fmtTime(m.at)}
                       {m.pendingFileName && (
                         <span className="flex min-w-0 items-center gap-1 truncate normal-case tracking-normal">
@@ -631,12 +696,18 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                 </div>
               ) : (
                 <div key={i} className="anim-msg-in flex flex-col gap-2">
-                  <p className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink-3">
+                  <p className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nv-text-3)" }}>
                     <NovaMark size={13} className="shrink-0" />
                     Nova · {fmtTime(m.at)}
                   </p>
                   <div className="flex min-w-0 flex-col gap-2.5">
-                    <NovaMarkdown content={m.content} tone="assistant" />
+                    {m.headline && (
+                      <p className="text-[15px] font-semibold leading-snug tracking-[-0.01em]" style={{ color: "var(--nv-text)" }}>
+                        {m.headline}
+                      </p>
+                    )}
+                    {m.content.trim() && <NovaMarkdown content={m.content} tone="assistant" />}
+                    {m.blocks && m.blocks.length > 0 && <NovaBlocks blocks={m.blocks} onPrompt={(q) => void send(q)} />}
                     {m.actions && m.actions.length > 0 && <ActionReceipts actions={m.actions} />}
                     {m.files && m.files.length > 0 && (
                       <div className="flex flex-col gap-1.5">
@@ -648,25 +719,36 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                     {m.confirmations && m.confirmations.length > 0 && (
                       <div className="flex flex-col gap-2">
                         {m.confirmations.map((confirmation) => (
-                          <div key={confirmation.token} className="rounded-[12px] border border-danger/25 bg-danger/5 p-3">
-                            <p className="flex items-center gap-1.5 text-[12.5px] font-bold text-danger">
+                          <div
+                            key={confirmation.token}
+                            className="rounded-control p-3"
+                            style={{
+                              background: "color-mix(in srgb, var(--nv-danger) 12%, var(--nv-bg-2))",
+                              border: "1px solid color-mix(in srgb, var(--nv-danger) 32%, transparent)",
+                            }}
+                          >
+                            <p className="flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--nv-danger)" }}>
                               <ShieldWarning size={14} weight="fill" />
                               {confirmation.label}
                             </p>
-                            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-2">{confirmation.detail}</p>
+                            <p className="mt-1 text-[12.5px] leading-relaxed" style={{ color: "var(--nv-text-2)" }}>
+                              {confirmation.detail}
+                            </p>
                             <div className="mt-2.5 flex items-center gap-2">
                               <button
                                 type="button"
                                 disabled={confirmingToken !== null}
                                 onClick={() => void confirmAction(i, confirmation)}
-                                className="cursor-pointer rounded-control bg-danger px-3 py-1.5 text-[12.5px] font-bold text-white transition-colors duration-150 hover:bg-danger/90 disabled:cursor-wait disabled:opacity-60"
+                                className="cursor-pointer rounded-control px-3 py-1.5 text-[12.5px] font-bold text-white transition-opacity duration-150 hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+                                style={{ background: "var(--nv-danger)" }}
                               >
                                 {confirmingToken === confirmation.token ? "Checking permission…" : "Confirm"}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => dismissConfirmation(i, confirmation.token)}
-                                className="cursor-pointer rounded-control px-2.5 py-1.5 text-[12.5px] font-bold text-ink-2 transition-colors duration-150 hover:bg-surface-2"
+                                className="cursor-pointer rounded-control px-2.5 py-1.5 text-[12.5px] font-bold transition-colors duration-150 hover:bg-[color:var(--nv-bg-3)]"
+                                style={{ color: "var(--nv-text-2)" }}
                               >
                                 Keep it
                               </button>
@@ -683,23 +765,29 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
           </div>
 
           {/* Composer */}
-          <div className="shrink-0 border-t border-line-2 bg-surface p-3">
+          <div className="shrink-0 p-3" style={{ borderTop: "1px solid var(--nv-line)" }}>
             {pendingFile && (
-              <div className="anim-msg-in mb-2 flex items-center gap-2 rounded-control bg-surface-2 px-3 py-1.5 text-[12.5px] font-semibold text-ink-2">
-                <Paperclip size={13} className="shrink-0 text-accent" />
+              <div
+                className="anim-msg-in mb-2 flex items-center gap-2 rounded-control px-3 py-1.5 text-[12.5px] font-semibold"
+                style={{ background: "var(--nv-bg-2)", color: "var(--nv-text-2)" }}
+              >
+                <Paperclip size={13} className="shrink-0" style={{ color: "var(--nv-teal)" }} />
                 <span className="min-w-0 flex-1 truncate">{pendingFile.name}</span>
-                <span className="shrink-0 font-mono text-[10.5px] text-ink-3">{fmtBytes(pendingFile.size)}</span>
+                <span className="shrink-0 font-mono text-[10px]" style={{ color: "var(--nv-text-3)" }}>
+                  {fmtBytes(pendingFile.size)}
+                </span>
                 <button
                   type="button"
                   onClick={() => setPendingFile(null)}
                   aria-label="Remove attached file"
-                  className="shrink-0 cursor-pointer text-ink-3 hover:text-ink"
+                  className="shrink-0 cursor-pointer hover:text-[color:var(--nv-text)]"
+                  style={{ color: "var(--nv-text-3)" }}
                 >
                   <X size={13} />
                 </button>
               </div>
             )}
-            <div className="recessed flex items-end gap-1.5 p-1.5">
+            <div className="flex items-end gap-1.5 rounded-control p-1.5" style={{ background: "var(--nv-bg-2)" }}>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -716,7 +804,8 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Attach a file"
                 title="Attach a file"
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] text-ink-3 transition-colors duration-150 hover:bg-white hover:text-ink"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] transition-colors duration-150 hover:bg-[color:var(--nv-bg-3)] hover:text-[color:var(--nv-text)]"
+                style={{ color: "var(--nv-text-3)" }}
               >
                 <Paperclip size={16} />
               </button>
@@ -739,14 +828,16 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                 }}
                 placeholder={scopeCustomer ? `Ask about ${scopeCustomer.name}, or hand me a chore…` : "Ask, or hand me a chore…"}
                 rows={1}
-                className="max-h-[120px] w-full resize-none self-center bg-transparent px-1 py-1.5 text-[14px] leading-snug text-ink outline-none placeholder:text-ink-3"
+                className="max-h-[120px] w-full resize-none self-center bg-transparent px-1 py-1.5 text-[14px] leading-snug outline-none placeholder:text-[color:var(--nv-text-3)]"
+                style={{ color: "var(--nv-text)" }}
               />
               <button
                 type="button"
                 onClick={() => void send()}
                 disabled={sending || (!draft.trim() && !pendingFile)}
                 aria-label="Send"
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] bg-accent text-white transition-colors duration-150 hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-35"
+                className="nova-glow-teal flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] transition-opacity duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none"
+                style={{ background: "var(--nv-teal)", color: "#06251f" }}
               >
                 <PaperPlaneTilt size={15} weight="bold" />
               </button>

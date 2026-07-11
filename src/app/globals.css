@@ -126,6 +126,57 @@
   .anim-drawer-in { animation: drawer-in 180ms ease both; }
   .anim-palette-in { animation: palette-in 150ms ease both; }
 
+  /* ─── Nova's Night Window (DESIGN.md §7c) ───────────────────────
+     The app's single sanctioned dark surface. Nova is a star; her
+     panel is the one place the instrument looks at the night sky, so
+     the aurora palette glows here at full saturation instead of the
+     8-14% washes used on paper. Everything inside the window styles
+     itself from these --nv-* tokens, never from the light tokens. */
+  .nova-night {
+    --nv-bg: #0c1424;
+    --nv-bg-2: #142038;
+    --nv-bg-3: #1b2a49;
+    --nv-line: rgba(158, 183, 229, 0.16);
+    --nv-line-2: rgba(158, 183, 229, 0.1);
+    --nv-text: #eaf1fc;
+    --nv-text-2: #aebfda;
+    --nv-text-3: #8296b4;
+    --nv-teal: #34d9c4;
+    --nv-violet: #9aa0f4;
+    --nv-rose: #ee9cc3;
+    --nv-green: #4ad695;
+    --nv-coral: #ff8e73;
+    --nv-gold: #eec568;
+    --nv-danger: #ff7a6c;
+    background: var(--nv-bg);
+    border: 1px solid rgba(158, 183, 229, 0.22);
+    border-radius: var(--radius-card);
+    box-shadow: 0 28px 60px -24px rgba(5, 10, 22, 0.65);
+    color: var(--nv-text);
+    color-scheme: dark;
+  }
+  /* The window's sky: a static aurora glow along the top edge —
+     ambient, never animated while idle. */
+  .nova-sky {
+    position: relative;
+    isolation: isolate;
+  }
+  .nova-sky::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(420px 150px at 18% -30%, color-mix(in srgb, var(--nv-teal) 26%, transparent), transparent 70%),
+      radial-gradient(360px 140px at 62% -36%, color-mix(in srgb, var(--nv-violet) 22%, transparent), transparent 70%),
+      radial-gradient(300px 130px at 96% -28%, color-mix(in srgb, var(--nv-rose) 18%, transparent), transparent 70%);
+  }
+  .nova-glow-teal { box-shadow: 0 0 22px -6px color-mix(in srgb, var(--nv-teal) 45%, transparent); }
+  /* The app-wide accent-blue focus ring disappears against the night
+     surface — inside the window, focus is teal. */
+  .nova-night :focus-visible { outline-color: var(--nv-teal); }
+
   /* ─── Nova motion ───────────────────────────────────────────────
      The orb wears the aurora gradient (one of the two allowed spots).
      Loops here convey state only: the gradient drifts and the mark's

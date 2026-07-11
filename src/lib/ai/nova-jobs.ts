@@ -292,6 +292,8 @@ export async function processNextNovaJob(): Promise<boolean> {
 
     const storedResponse: StoredNovaResponse = {
       answer: response.answer,
+      headline: response.headline,
+      blocks: response.blocks,
       actions: response.actions,
       confirmations: response.confirmations,
       files: storedFiles,

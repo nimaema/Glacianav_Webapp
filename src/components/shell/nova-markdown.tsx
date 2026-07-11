@@ -4,31 +4,31 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 /**
- * Renders Nova's replies as real formatted content — headings, lists,
- * task lists, tables, code blocks, and callouts — styled against the
- * Aurora Chart tokens rather than the typography plugin, since the chat
- * column is small and dense. Blockquotes render as tinted callout panels
- * (Nova is told to reserve them for the one key insight or warning).
+ * Renders Nova's prose as real formatted content — headings, lists,
+ * task lists, tables, code blocks, and callouts — styled for the Night
+ * Window (--nv-* tokens on .nova-night), since Nova's dock is this
+ * component's only consumer. Structured readings use nova-answer-blocks
+ * instead; this handles the narrative text around and between them.
  */
 export function NovaMarkdown({ content, tone }: { content: string; tone: "user" | "assistant" }) {
-  // Both tones sit on light surfaces now — the user's queries in a
-  // recessed block, Nova's readouts straight on the paper — so styling
-  // is ink-based throughout; the user's entries are just set smaller.
   const isUser = tone === "user";
-  const link = "font-semibold text-accent underline underline-offset-2 hover:text-accent-strong";
-  const inlineCode = "rounded bg-[rgba(23,32,43,0.06)] px-1 py-0.5 font-mono text-[12.5px] text-ink";
+  const link = "font-semibold text-[color:var(--nv-teal)] underline underline-offset-2";
+  const inlineCode = "rounded bg-white/10 px-1 py-0.5 font-mono text-[12.5px] text-[color:var(--nv-text)]";
 
   return (
     <div
-      className={`whitespace-pre-wrap leading-relaxed [&>*+*]:mt-2.5 ${
-        isUser ? "text-[13.5px] text-ink" : "text-[14px] text-ink"
-      }`}
+      className={`whitespace-pre-wrap leading-relaxed [&>*+*]:mt-2.5 ${isUser ? "text-[13.5px]" : "text-[14px]"}`}
+      style={{ color: "var(--nv-text)" }}
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           p: ({ children }) => <p>{children}</p>,
-          strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
+          strong: ({ children }) => (
+            <strong className="font-semibold" style={{ color: "var(--nv-text)" }}>
+              {children}
+            </strong>
+          ),
           em: ({ children }) => <em className="italic">{children}</em>,
           a: ({ children, href }) => (
             <a href={href} target="_blank" rel="noreferrer" className={link}>
@@ -36,13 +36,20 @@ export function NovaMarkdown({ content, tone }: { content: string; tone: "user" 
             </a>
           ),
           h1: ({ children }) => (
-            <p className="mt-3 text-[16px] font-bold tracking-[-0.01em] text-ink first:mt-0">{children}</p>
+            <p className="mt-3 text-[16px] font-bold tracking-[-0.01em] first:mt-0" style={{ color: "var(--nv-text)" }}>
+              {children}
+            </p>
           ),
           h2: ({ children }) => (
-            <p className="mt-3 text-[15px] font-bold tracking-[-0.01em] text-ink first:mt-0">{children}</p>
+            <p className="mt-3 text-[15px] font-bold tracking-[-0.01em] first:mt-0" style={{ color: "var(--nv-text)" }}>
+              {children}
+            </p>
           ),
           h3: ({ children }) => (
-            <p className="mt-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-ink-2 first:mt-0">
+            <p
+              className="mt-2.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.12em] first:mt-0"
+              style={{ color: "var(--nv-text-2)" }}
+            >
               {children}
             </p>
           ),
@@ -66,43 +73,60 @@ export function NovaMarkdown({ content, tone }: { content: string; tone: "user" 
           input: ({ checked }) => (
             <span
               aria-hidden
-              className={`relative top-[1px] inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] text-[9px] font-bold ${
-                checked ? "bg-data-green text-white" : "border border-ink/30"
-              }`}
+              className="relative top-[1px] inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] text-[9px] font-bold"
+              style={
+                checked
+                  ? { background: "var(--nv-green)", color: "#06251f" }
+                  : { border: "1px solid rgba(234,241,252,0.3)" }
+              }
             >
               {checked ? "✓" : ""}
             </span>
           ),
           blockquote: ({ children }) => (
-            <blockquote className="rounded-[10px] bg-accent-soft px-3 py-2 text-ink [&>*+*]:mt-1.5">
+            <blockquote
+              className="rounded-[10px] px-3 py-2 [&>*+*]:mt-1.5"
+              style={{
+                background: "color-mix(in srgb, var(--nv-teal) 12%, var(--nv-bg-2))",
+                border: "1px solid color-mix(in srgb, var(--nv-teal) 28%, transparent)",
+              }}
+            >
               {children}
             </blockquote>
           ),
-          hr: () => <hr className="border-line-2" />,
+          hr: () => <hr style={{ borderColor: "var(--nv-line-2)" }} />,
           pre: ({ children }) => <>{children}</>,
           code: ({ className, children }) => {
             const text = String(children ?? "");
             const isBlock = /language-/.test(className ?? "") || text.includes("\n");
             if (!isBlock) return <code className={inlineCode}>{children}</code>;
             return (
-              <code className="block overflow-x-auto whitespace-pre rounded-[10px] bg-[#17202b] px-3 py-2.5 font-mono text-[12.5px] leading-relaxed text-[#dce5f0]">
+              <code
+                className="block overflow-x-auto whitespace-pre rounded-[10px] px-3 py-2.5 font-mono text-[12.5px] leading-relaxed"
+                style={{ background: "#060b16", color: "#dce5f0" }}
+              >
                 {text.replace(/\n$/, "")}
               </code>
             );
           },
           table: ({ children }) => (
-            <div className="overflow-x-auto rounded-[10px] border border-line-2">
+            <div className="overflow-x-auto rounded-[10px]" style={{ border: "1px solid var(--nv-line)" }}>
               <table className="w-full border-collapse text-[13px]">{children}</table>
             </div>
           ),
-          thead: ({ children }) => <thead className="bg-surface-2">{children}</thead>,
+          thead: ({ children }) => <thead style={{ background: "var(--nv-bg-2)" }}>{children}</thead>,
           th: ({ children }) => (
-            <th className="whitespace-nowrap px-2.5 py-1.5 text-left font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink-2">
+            <th
+              className="whitespace-nowrap px-2.5 py-1.5 text-left font-mono text-[10.5px] font-bold uppercase tracking-[0.08em]"
+              style={{ color: "var(--nv-text-2)" }}
+            >
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="border-t border-line-2 px-2.5 py-1.5 align-top">{children}</td>
+            <td className="px-2.5 py-1.5 align-top" style={{ borderTop: "1px solid var(--nv-line-2)" }}>
+              {children}
+            </td>
           ),
         }}
       >
