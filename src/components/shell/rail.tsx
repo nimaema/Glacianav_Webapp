@@ -47,6 +47,7 @@ const SECTIONS: Section[] = [
     label: "Intelligence",
     items: [
       { href: "/insights", label: "Insights", icon: ChartBar },
+      { href: "/nova", label: "Nova", icon: Sparkle },
       { href: "/ask", label: "Ask", icon: Sparkle },
     ],
   },

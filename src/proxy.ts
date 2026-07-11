@@ -45,9 +45,20 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // Match getCurrentProfile's local-only test escape hatch. Without this,
-  // AUTH_REQUIRED redirects before API routes can resolve DEV_PROFILE_EMAIL.
-  if (process.env.NODE_ENV === "development" && process.env.DEV_PROFILE_EMAIL) {
+  // Match getCurrentProfile's local-only test escape hatch. Restrict it to
+  // loopback hosts as well as `next dev`, so neither a preview deployment nor
+  // a machine on the local network can accidentally inherit the bypass.
+  const localDevBypass =
+    process.env.NODE_ENV === "development" &&
+    Boolean(process.env.DEV_PROFILE_EMAIL) &&
+    ["localhost", "127.0.0.1", "::1"].includes(request.nextUrl.hostname);
+  if (localDevBypass) {
+    // Going to /login during local testing should never start the Microsoft
+    // round trip or return to SITE_URL. The selected dev profile is already
+    // the authenticated identity for this process.
+    if (request.nextUrl.pathname === "/login" || request.nextUrl.pathname.startsWith("/auth/callback")) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
     return response;
   }
 
