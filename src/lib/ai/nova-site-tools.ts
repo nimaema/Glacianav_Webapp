@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   calendarEvents,
@@ -78,7 +78,7 @@ function findByLabel<T extends { label: string }>(rows: T[], label: string): T |
 }
 
 async function conversationByTitle(title: string) {
-  const rows = await db.select().from(conversations);
+  const rows = await db.select().from(conversations).where(isNull(conversations.deletedAt));
   const match = findByName(
     rows.map((row) => ({ ...row, name: row.title })),
     title,
@@ -234,7 +234,8 @@ export const NOVA_SITE_READ_TOOLS: Record<
           authorId: conversations.authorId,
           shared: conversations.shared,
         })
-        .from(conversations),
+        .from(conversations)
+        .where(isNull(conversations.deletedAt)),
       db.select({ id: profiles.id, name: profiles.name }).from(profiles),
     ]);
     const membershipIds = new Set(

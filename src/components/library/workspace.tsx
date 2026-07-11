@@ -2,11 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   CaretDown,
   ChatCircle,
   CheckCircle,
+  FileDoc,
+  FilePdf,
   FileText,
   Flag,
   Hash,
@@ -18,6 +21,7 @@ import {
   PaperPlaneTilt,
   PencilLine,
   Sparkle,
+  SpinnerGap,
   Warning,
 } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
@@ -40,6 +44,7 @@ import {
   type Topic,
 } from "@/lib/fixtures";
 import {
+  exportConversationToGoogleDocs,
   postConversationComment,
   renameConversationSpeaker,
   toggleActionItemStatus,
@@ -48,6 +53,8 @@ import {
   updateConversationParticipants,
 } from "@/lib/data/library-actions";
 import { askQaQuestion } from "@/lib/data/qa-actions";
+import { setWorkTaskAssignees } from "@/lib/data/work-actions";
+import { OPEN_NOVA_EVENT, type OpenNovaDetail } from "@/components/shell/nova-dock";
 
 function fmtMs(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -252,7 +259,11 @@ export function ConversationWorkspace({
   const [speakerError, setSpeakerError] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportingDocs, setExportingDocs] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [shared, setShared] = useState(c.shared);
 
   const [participantIds, setParticipantIds] = useState(c.participantIds);
@@ -384,6 +395,67 @@ export function ConversationWorkspace({
     setTimeout(() => setLinkCopied(false), 2000);
   };
 
+  // Google Docs is the one export kept as a direct action (needs a real
+  // OAuth-scoped Drive API call, not something to hand to Nova). PDF and
+  // Markdown hand off to her instead — she already has generate_file and
+  // knows how to write a real document from a conversation's real content,
+  // so there's no separate export pipeline to maintain for those two.
+  const exportToGoogleDocs = async () => {
+    setExportOpen(false);
+    setExportError(null);
+    setExportingDocs(true);
+    try {
+      const result = await exportConversationToGoogleDocs({
+        conversationId: c.id,
+        authorId: currentUserId,
+        spec: {
+          title: c.title,
+          recordedOn: c.when,
+          summary: c.summary,
+          tags: d.aiTags,
+          decisions: d.decisions?.map((x) => x.text),
+          followUps: d.followUps?.map((x) => x.text),
+        },
+      });
+      if (result.status === "exported") {
+        window.open(result.webViewLink, "_blank", "noreferrer");
+      } else if (result.status === "not_connected") {
+        window.location.href = result.connectUrl;
+      } else {
+        setExportError("Google Drive export isn't configured yet — ask an admin to set it up.");
+      }
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Couldn't export to Google Docs.");
+    } finally {
+      setExportingDocs(false);
+    }
+  };
+
+  // After the Drive connect round trip, /api/connect/google/callback
+  // redirects back here with ?googleConnected=1 or ?googleError=... —
+  // surface it once, then strip it so a refresh doesn't repeat it. Runs
+  // once on mount; re-subscribing on exportToGoogleDocs's identity would
+  // just fire this same one-time check again for no benefit.
+  useEffect(() => {
+    const googleError = searchParams.get("googleError");
+    const googleConnected = searchParams.get("googleConnected");
+    if (!googleError && !googleConnected) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (googleError) setExportError(googleError);
+    router.replace(`/library/${c.id}`, { scroll: false });
+    if (googleConnected) void exportToGoogleDocs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handOffToNova = (format: "PDF" | "Markdown") => {
+    setExportOpen(false);
+    window.dispatchEvent(
+      new CustomEvent<OpenNovaDetail>(OPEN_NOVA_EVENT, {
+        detail: { prompt: `Generate a ${format} export of "${c.title}"` },
+      }),
+    );
+  };
+
   return (
     <>
       <header className="bg-[linear-gradient(180deg,#ffffff,#fbfdfe)] shadow-[0_1px_0_rgba(23,32,43,0.10),0_12px_24px_-18px_rgba(23,32,43,0.35)]">
@@ -452,19 +524,53 @@ export function ConversationWorkspace({
                 <CaretDown size={14} />
               </button>
               {exportOpen && (
-                <div role="menu" className="surfaced-lg absolute right-0 top-11 z-30 w-52 p-1.5">
-                  {["Google Docs", "Microsoft Teams"].map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => setExportOpen(false)}
-                      className="flex w-full cursor-pointer items-center rounded-md px-2.5 py-2 text-left text-[14px] text-ink transition-colors duration-150 hover:bg-surface-2"
-                    >
-                      {t}
-                    </button>
-                  ))}
+                <div role="menu" className="surfaced-lg absolute right-0 top-11 z-30 w-56 p-1.5">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={exportingDocs}
+                    onClick={() => void exportToGoogleDocs()}
+                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] text-ink transition-colors duration-150 hover:bg-surface-2 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {exportingDocs ? (
+                      <SpinnerGap size={16} className="animate-spin text-ink-3" />
+                    ) : (
+                      <FileDoc size={16} className="text-accent" />
+                    )}
+                    {exportingDocs ? "Exporting…" : "Google Docs"}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => handOffToNova("PDF")}
+                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] text-ink transition-colors duration-150 hover:bg-surface-2"
+                  >
+                    <FilePdf size={16} className="text-accent" />
+                    PDF
+                    <span className="ml-auto flex items-center gap-1 font-mono text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-3">
+                      <Sparkle size={11} />
+                      Nova
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => handOffToNova("Markdown")}
+                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] text-ink transition-colors duration-150 hover:bg-surface-2"
+                  >
+                    <FileText size={16} className="text-accent" />
+                    Markdown (.md)
+                    <span className="ml-auto flex items-center gap-1 font-mono text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-3">
+                      <Sparkle size={11} />
+                      Nova
+                    </span>
+                  </button>
                 </div>
+              )}
+              {exportError && (
+                <p role="alert" className="absolute right-0 top-[52px] z-30 w-56 rounded-md bg-danger/10 px-2.5 py-1.5 text-[12.5px] font-semibold text-danger">
+                  {exportError}
+                </p>
               )}
             </div>
           </div>
@@ -687,20 +793,13 @@ export function ConversationWorkspace({
                           )}
                           <AssigneePicker
                             assigneeIds={a.assigneeIds}
-                            onToggle={(ownerId) =>
-                              setActions((rs) =>
-                                rs.map((x) =>
-                                  x.id === a.id
-                                    ? {
-                                        ...x,
-                                        assigneeIds: x.assigneeIds.includes(ownerId)
-                                          ? x.assigneeIds.filter((id) => id !== ownerId)
-                                          : [...x.assigneeIds, ownerId],
-                                      }
-                                    : x,
-                                ),
-                              )
-                            }
+                            onToggle={(ownerId) => {
+                              const next = a.assigneeIds.includes(ownerId)
+                                ? a.assigneeIds.filter((id) => id !== ownerId)
+                                : [...a.assigneeIds, ownerId];
+                              setActions((rs) => rs.map((x) => (x.id === a.id ? { ...x, assigneeIds: next } : x)));
+                              void setWorkTaskAssignees(a.id, next);
+                            }}
                             owners={owners}
                           />
                           {a.sourceMs != null && (

@@ -4,7 +4,7 @@
 // unifies both under one sourceType, so this is a single query + join
 // instead of two separate fixture arrays.
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { conversations, customers, profiles, taskAssignees, tasks } from "@/db/schema";
 import type { Customer, Owner } from "@/lib/fixtures";
@@ -49,11 +49,11 @@ export async function getWorkPageData(): Promise<WorkPageData> {
     db.select().from(taskAssignees),
     db.select().from(customers),
     db.select().from(profiles),
-    db.select({ id: conversations.id, title: conversations.title }).from(conversations),
+    db.select({ id: conversations.id, title: conversations.title }).from(conversations).where(isNull(conversations.deletedAt)),
     db
       .select({ id: conversations.id, title: conversations.title, createdAt: conversations.createdAt })
       .from(conversations)
-      .where(eq(conversations.status, "ready"))
+      .where(and(eq(conversations.status, "ready"), isNull(conversations.deletedAt)))
       .orderBy(desc(conversations.createdAt))
       .limit(5),
   ]);

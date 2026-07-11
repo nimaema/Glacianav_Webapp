@@ -5,7 +5,7 @@
 // /ask page's Everything/customer/conversation scopes.
 
 import "server-only";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   chapters,
@@ -42,7 +42,7 @@ async function conversationTranscriptContext(conversationId: string): Promise<{ 
         authorId: conversations.authorId,
       })
       .from(conversations)
-      .where(eq(conversations.id, conversationId))
+      .where(and(eq(conversations.id, conversationId), isNull(conversations.deletedAt)))
       .limit(1),
     db
       .select({ speakerLabel: utterances.speakerLabel, text: utterances.text, correctedText: utterances.correctedText, startMs: utterances.startMs })
@@ -87,7 +87,7 @@ async function customerContext(customerId: string, authorId: string, isAdmin: bo
     ? await db
         .select({ id: conversations.id, title: conversations.title, summary: conversations.summary, shared: conversations.shared, authorId: conversations.authorId, createdAt: conversations.createdAt })
         .from(conversations)
-        .where(inArray(conversations.id, convIds))
+        .where(and(inArray(conversations.id, convIds), isNull(conversations.deletedAt)))
         .orderBy(desc(conversations.createdAt))
     : [];
   const accessible = convRows.filter((c) => c.shared || c.authorId === authorId || isAdmin);
@@ -123,6 +123,7 @@ async function workspaceContext(authorId: string, isAdmin: boolean): Promise<str
   const rows = await db
     .select({ title: conversations.title, summary: conversations.summary, shared: conversations.shared, authorId: conversations.authorId, createdAt: conversations.createdAt })
     .from(conversations)
+    .where(isNull(conversations.deletedAt))
     .orderBy(desc(conversations.createdAt))
     .limit(60);
   const accessible = rows.filter((c) => c.shared || c.authorId === authorId || isAdmin).filter((c) => c.summary);

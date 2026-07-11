@@ -8,12 +8,14 @@
 // instant feedback; these persist it and revalidate so a fresh page load
 // (or another tab) sees the same state.
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
-import { contacts, customers, profiles, segments, stages, validationNotes } from "@/db/schema";
+import { contacts, conversationParticipants, conversations, customers, profiles, segments, stages, tasks, validationNotes } from "@/db/schema";
 import type { CompatibilityLevel, ContactChannel, Customer, CustomerKind, Priority } from "@/lib/fixtures";
 import { notifyProfile } from "@/lib/data/notifications";
+import { fmtDuration } from "@/lib/data/library";
+import { relativeTime } from "@/lib/data/relative-time";
 
 const PATHS = ["/customers", "/validation-progress"] as const;
 function revalidateBoth() {
@@ -287,4 +289,47 @@ export async function updateCustomerFields(
   await db.update(customers).set(patch).where(eq(customers.id, id));
   revalidateBoth();
   revalidatePath(`/customers/${id}`);
+}
+
+export type CustomerQuickView = {
+  conversations: { id: string; title: string; when: string; duration: string; wave: number[] }[];
+  noteCount: number;
+  openTaskCount: number;
+};
+
+// Lean, on-demand read backing the Customer quick-view drawer — deliberately
+// NOT the full Customer Room query (getCustomerRoomData skips nothing:
+// decisions, chapters, contact links), since the drawer only ever shows a
+// handful of recent conversations plus two counts. Called client-side when
+// the drawer opens rather than joined into every customer list's initial
+// page load.
+export async function getCustomerQuickView(customerId: string): Promise<CustomerQuickView> {
+  const now = new Date();
+  const [participantRows, noteRows, customerOpenTaskRows] = await Promise.all([
+    db.select({ conversationId: conversationParticipants.conversationId }).from(conversationParticipants).where(eq(conversationParticipants.customerId, customerId)),
+    db.select({ id: validationNotes.id }).from(validationNotes).where(eq(validationNotes.customerId, customerId)),
+    db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.customerId, customerId), eq(tasks.status, "open"))),
+  ]);
+  const conversationIds = participantRows.map((r) => r.conversationId);
+
+  const [conversationRows, conversationOpenTaskRows] = await Promise.all([
+    conversationIds.length
+      ? db.select().from(conversations).where(and(inArray(conversations.id, conversationIds), isNull(conversations.deletedAt))).orderBy(desc(conversations.createdAt)).limit(5)
+      : Promise.resolve([]),
+    conversationIds.length
+      ? db.select({ id: tasks.id }).from(tasks).where(and(inArray(tasks.conversationId, conversationIds), eq(tasks.status, "open")))
+      : Promise.resolve([]),
+  ]);
+
+  return {
+    conversations: conversationRows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      when: relativeTime(row.createdAt, now),
+      duration: row.noteBody != null ? "note" : fmtDuration(row.durationMs ?? 0),
+      wave: row.wave ?? [],
+    })),
+    noteCount: noteRows.length,
+    openTaskCount: customerOpenTaskRows.length + conversationOpenTaskRows.length,
+  };
 }

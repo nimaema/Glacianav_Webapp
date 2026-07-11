@@ -3,7 +3,7 @@
 // Mutations for Library / Conversation workspace / Record — same optimistic
 // local useState + persist + revalidatePath pattern as customers-actions.ts.
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db/client";
 import {
@@ -11,7 +11,6 @@ import {
   conversationContacts,
   conversationParticipants,
   conversations,
-  qaMessages,
   speakers,
   tasks,
   topicMembers,
@@ -19,6 +18,8 @@ import {
 } from "@/db/schema";
 import { getCurrentProfile } from "@/lib/data/current-user";
 import type { ConversationStatus, TopicVisibility } from "@/lib/fixtures";
+import { buildConversationDocHtml, type ConversationDocSpec } from "@/lib/google-doc-content";
+import { createGoogleDoc, getGoogleConnection, isGoogleConfigured } from "@/lib/google-drive";
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -148,13 +149,19 @@ export async function toggleConversationShare(id: string, shared: boolean) {
   revalidateConversation(id);
 }
 
+// Soft delete — recordings/notes are often unrepeatable interviews, so
+// this sets deletedAt instead of cascading everything away immediately.
+// Every read path that lists/looks up conversations filters
+// isNull(deletedAt); restoreConversation reverses this exactly, since
+// nothing related (tasks, comments, transcript, Q&A) was ever touched.
 export async function deleteConversation(id: string) {
-  await db.delete(conversationParticipants).where(eq(conversationParticipants.conversationId, id));
-  await db.delete(conversationContacts).where(eq(conversationContacts.conversationId, id));
-  await db.delete(comments).where(eq(comments.entityId, id));
-  await db.delete(tasks).where(eq(tasks.conversationId, id));
-  await db.delete(qaMessages).where(eq(qaMessages.conversationId, id));
-  await db.delete(conversations).where(eq(conversations.id, id));
+  await db.update(conversations).set({ deletedAt: new Date() }).where(eq(conversations.id, id));
+  revalidatePath("/library");
+  revalidatePath(`/library/${id}`);
+}
+
+export async function restoreConversation(id: string) {
+  await db.update(conversations).set({ deletedAt: null }).where(eq(conversations.id, id));
   revalidatePath("/library");
   revalidatePath(`/library/${id}`);
 }
@@ -218,7 +225,7 @@ export async function renameConversationSpeaker(input: {
   const [conversation] = await db
     .select({ authorId: conversations.authorId })
     .from(conversations)
-    .where(eq(conversations.id, input.conversationId))
+    .where(and(eq(conversations.id, input.conversationId), isNull(conversations.deletedAt)))
     .limit(1);
   if (!conversation) throw new Error("This recording no longer exists.");
   if (conversation.authorId !== me.id) {
@@ -274,4 +281,32 @@ export async function createConversationFromRecording(input: {
   }
   revalidatePath("/library");
   return { id };
+}
+
+export type GoogleDocsExportResult =
+  | { status: "exported"; webViewLink: string }
+  | { status: "not_connected"; connectUrl: string }
+  | { status: "not_configured" };
+
+// PDF/Markdown export hands off to Nova (she already has generate_file);
+// Google Docs is the one export kept as a direct action, since it needs a
+// real OAuth-scoped API call Nova has no business making on her own.
+export async function exportConversationToGoogleDocs(input: {
+  conversationId: string;
+  authorId: string;
+  spec: ConversationDocSpec;
+}): Promise<GoogleDocsExportResult> {
+  if (!isGoogleConfigured()) return { status: "not_configured" };
+
+  const connection = await getGoogleConnection(input.authorId);
+  if (!connection) {
+    return {
+      status: "not_connected",
+      connectUrl: `/api/connect/google?returnTo=${encodeURIComponent(`/library/${input.conversationId}`)}`,
+    };
+  }
+
+  const html = buildConversationDocHtml(input.spec);
+  const doc = await createGoogleDoc({ profileId: input.authorId, title: input.spec.title, html });
+  return { status: "exported", webViewLink: doc.webViewLink };
 }

@@ -23,7 +23,7 @@ import { signOut } from "@/lib/auth/actions";
 
 const NEW_ITEMS: { icon: Icon; label: string; hint?: string; href?: string }[] = [
   { icon: Microphone, label: "Record a conversation", href: "/record" },
-  { icon: UploadSimple, label: "Upload audio" },
+  { icon: UploadSimple, label: "Upload audio", href: "/record?mode=upload" },
   { icon: UserPlus, label: "New customer", href: "/customers/new" },
   { icon: NotePencil, label: "New note", href: "/library?new=note" },
 ];

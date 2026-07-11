@@ -6,7 +6,7 @@
 // recorded time, workload) comes from real conversations/tasks/trace_items,
 // which do have migrated data.
 
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { conversations, customers, profiles, stages, taskAssignees, tasks, topics, traceItems } from "@/db/schema";
 import { TONE_HEX, type Owner, type PillTone } from "@/lib/fixtures";
@@ -78,7 +78,8 @@ export async function getInsightsPageData(): Promise<InsightsPageData> {
           topicId: conversations.topicId,
           authorId: conversations.authorId,
         })
-        .from(conversations),
+        .from(conversations)
+        .where(isNull(conversations.deletedAt)),
       db.select({ id: topics.id, name: topics.name, color: topics.color }).from(topics),
       db
         .select({

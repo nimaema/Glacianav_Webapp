@@ -7,18 +7,20 @@
 
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { customers, tasks } from "@/db/schema";
-import { toCustomerRow } from "@/lib/data/rows";
-import type { Customer } from "@/lib/fixtures";
+import { contacts, customers, tasks } from "@/db/schema";
+import { toContactRow, toCustomerRow } from "@/lib/data/rows";
+import type { Contact, Customer } from "@/lib/fixtures";
 
 export type NovaContextData = {
   customers: Customer[];
+  contacts: Contact[];
   openTaskCountByCustomer: Record<string, number>;
 };
 
 export async function getNovaContextData(): Promise<NovaContextData> {
-  const [customerRows, openTaskRows] = await Promise.all([
+  const [customerRows, contactRows, openTaskRows] = await Promise.all([
     db.select().from(customers),
+    db.select().from(contacts),
     db.select({ customerId: tasks.customerId }).from(tasks).where(eq(tasks.status, "open")),
   ]);
 
@@ -30,6 +32,7 @@ export async function getNovaContextData(): Promise<NovaContextData> {
 
   return {
     customers: customerRows.map(toCustomerRow),
+    contacts: contactRows.map(toContactRow),
     openTaskCountByCustomer,
   };
 }

@@ -31,7 +31,7 @@ export function AppShell({
           <main className="min-h-0 flex-1 overflow-y-auto bg-page">{children}</main>
         </div>
         <NovaDock context={novaContext} currentUserId={currentUserId} />
-        <CommandPalette />
+        <CommandPalette customers={novaContext.customers} contacts={novaContext.contacts} />
       </div>
     </RecordingProvider>
   );

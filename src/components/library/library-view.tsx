@@ -41,9 +41,11 @@ import {
   createTopic as createTopicAction,
   updateTopic as updateTopicAction,
   deleteConversation as deleteConversationAction,
+  restoreConversation as restoreConversationAction,
   deleteTopic as deleteTopicAction,
   leaveTopic as leaveTopicAction,
 } from "@/lib/data/library-actions";
+import { ConfirmDialog } from "@/components/ui/dialog";
 import { NoteCard } from "./note-card";
 import { NoteComposer } from "./note-composer";
 import { RecordingCard } from "./recording-card";
@@ -887,14 +889,47 @@ export function LibraryView({
     [open, currentUserId],
   );
 
-  const handleDelete = useCallback(
-    (id: string) => {
-      if (confirm("Are you sure you want to delete this? This cannot be undone.")) {
-        setRows((rs) => rs.filter((r) => r.id !== id));
-        void deleteConversationAction(id);
-      }
-    },
-    [],
+  // Delete is a soft delete server-side (deletedAt), so this can offer a
+  // real Undo instead of the old "cannot be undone" warning — the row is
+  // stashed locally to splice back in instantly, no refetch needed.
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [undoToast, setUndoToast] = useState<{ row: Conversation; index: number } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDelete = useCallback((id: string) => {
+    setDeleteConfirmId(id);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    const id = deleteConfirmId;
+    setDeleteConfirmId(null);
+    if (!id) return;
+    setRows((rs) => {
+      const index = rs.findIndex((r) => r.id === id);
+      if (index === -1) return rs;
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      setUndoToast({ row: rs[index], index });
+      undoTimerRef.current = setTimeout(() => setUndoToast(null), 7000);
+      return rs.filter((r) => r.id !== id);
+    });
+    void deleteConversationAction(id);
+  }, [deleteConfirmId]);
+
+  const undoDelete = useCallback(() => {
+    if (!undoToast) return;
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setRows((rs) => {
+      const next = [...rs];
+      next.splice(Math.min(undoToast.index, next.length), 0, undoToast.row);
+      return next;
+    });
+    void restoreConversationAction(undoToast.row.id);
+    setUndoToast(null);
+  }, [undoToast]);
+
+  const deleteConfirmTitle = useMemo(
+    () => (deleteConfirmId ? rows.find((r) => r.id === deleteConfirmId)?.title : undefined),
+    [deleteConfirmId, rows],
   );
 
   const createTopic = useCallback((topic: Topic) => {
@@ -1229,6 +1264,38 @@ export function LibraryView({
           )}
         </main>
       </div>
+
+      <ConfirmDialog
+        open={deleteConfirmId != null}
+        title="Delete this recording?"
+        body={
+          deleteConfirmTitle
+            ? `"${deleteConfirmTitle}" moves to trash — you can undo this for a few seconds after, or restore it later.`
+            : "This moves to trash — you can undo this for a few seconds after, or restore it later."
+        }
+        confirmLabel="Delete"
+        destructive
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
+
+      {undoToast && (
+        <div
+          role="status"
+          className="anim-overlay-in surfaced-lg fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 px-4 py-3"
+        >
+          <span className="text-[13.5px] font-semibold text-ink">
+            Deleted &ldquo;{undoToast.row.title}&rdquo;
+          </span>
+          <button
+            type="button"
+            onClick={undoDelete}
+            className="cursor-pointer text-[13.5px] font-bold text-accent transition-colors duration-150 hover:text-accent-strong"
+          >
+            Undo
+          </button>
+        </div>
+      )}
     </>
   );
 }

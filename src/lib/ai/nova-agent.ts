@@ -5,7 +5,7 @@
 // tools. Workspace-scoped instead of single-recording-scoped.
 
 import "server-only";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   contacts,
@@ -20,6 +20,7 @@ import {
   taskAssignees,
   traceItems,
   tasks,
+  validationNotes,
 } from "@/db/schema";
 import {
   deepseekChatWithTools,
@@ -46,6 +47,7 @@ import {
 import { runNovaSandboxJob } from "@/lib/ai/nova-sandbox";
 import { coerceNovaBlocks, type NovaBlock } from "@/lib/ai/nova-blocks";
 import { generateRecordingBriefPdf } from "@/lib/ai/nova-recording-pdf";
+import { generateValidationEvidencePdf, type SegmentEvidence } from "@/lib/ai/nova-validation-pdf";
 import {
   consumeNovaConfirmationToken,
   createNovaConfirmationToken,
@@ -168,7 +170,7 @@ async function latestRecordingPdf(authorId: string): Promise<NovaResponse | null
     db
       .select()
       .from(conversations)
-      .where(and(eq(conversations.authorId, authorId), isNull(conversations.noteBody)))
+      .where(and(eq(conversations.authorId, authorId), isNull(conversations.noteBody), isNull(conversations.deletedAt)))
       .orderBy(desc(conversations.createdAt))
       .limit(1),
   ]);
@@ -220,6 +222,126 @@ async function latestRecordingPdf(authorId: string): Promise<NovaResponse | null
     blocks: [],
     actions: [{
       label: "Generated recording PDF",
+      detail: `${generated.filename}.pdf · ${generated.pageCount} page${generated.pageCount === 1 ? "" : "s"}`,
+      ok: true,
+    }],
+    files: [{
+      filename: generated.filename,
+      format: "pdf",
+      dataBase64: generated.dataBase64,
+      mimeType: generated.mimeType,
+      byteSize: generated.byteSize,
+    }],
+    confirmations: [],
+  };
+}
+
+function asksForValidationEvidencePack(question: string) {
+  const normalized = question.toLowerCase();
+  return (
+    /\b(validation|evidence)\b/.test(normalized) &&
+    /\b(pack|report|pdf|document|summary)\b/.test(normalized)
+  );
+}
+
+// A FIXED template — segment -> compatibility distribution -> supporting
+// decisions/quotes — reusable every week instead of Nova improvising a
+// report shape from scratch each time. Same fast-path pattern as
+// latestRecordingPdf: a deterministic intent match bypasses the general
+// tool-calling loop entirely, so the report's shape never drifts.
+async function validationEvidencePdf(authorId: string): Promise<NovaResponse | null> {
+  const [authorRows, segmentRows, customerRows] = await Promise.all([
+    db.select({ active: profiles.active }).from(profiles).where(eq(profiles.id, authorId)).limit(1),
+    db.select({ id: segments.id, name: segments.name }).from(segments),
+    db
+      .select({
+        id: customers.id,
+        segmentId: customers.segmentId,
+        compatibility: customers.compatibility,
+        problem: customers.problem,
+      })
+      .from(customers)
+      .where(eq(customers.archived, false)),
+  ]);
+  if (!authorRows[0]?.active) throw new Error("Nova tools require an active workspace profile.");
+  if (customerRows.length === 0) {
+    return {
+      answer: "There are no active customers yet, so there's nothing to build a validation-evidence pack from.",
+      blocks: [],
+      actions: [],
+      files: [],
+      confirmations: [],
+    };
+  }
+
+  const customerIds = customerRows.map((c) => c.id);
+  const [noteRows, participantRows] = await Promise.all([
+    db
+      .select({ customerId: validationNotes.customerId, quote: validationNotes.quote })
+      .from(validationNotes)
+      .where(inArray(validationNotes.customerId, customerIds)),
+    db
+      .select({ customerId: conversationParticipants.customerId, conversationId: conversationParticipants.conversationId })
+      .from(conversationParticipants)
+      .where(inArray(conversationParticipants.customerId, customerIds)),
+  ]);
+  const conversationIds = [...new Set(participantRows.map((r) => r.conversationId))];
+  const decisionRows = conversationIds.length
+    ? await db
+        .select({ conversationId: traceItems.conversationId, text: traceItems.text })
+        .from(traceItems)
+        .where(and(inArray(traceItems.conversationId, conversationIds), eq(traceItems.kind, "decision")))
+    : [];
+
+  const conversationIdsByCustomer = new Map<string, string[]>();
+  for (const row of participantRows) {
+    const list = conversationIdsByCustomer.get(row.customerId) ?? [];
+    list.push(row.conversationId);
+    conversationIdsByCustomer.set(row.customerId, list);
+  }
+  const decisionsByConversation = new Map<string, string[]>();
+  for (const row of decisionRows) {
+    const list = decisionsByConversation.get(row.conversationId) ?? [];
+    list.push(row.text);
+    decisionsByConversation.set(row.conversationId, list);
+  }
+
+  const segmentEvidence: SegmentEvidence[] = segmentRows
+    .map((segment) => {
+      const segmentCustomers = customerRows.filter((c) => c.segmentId === segment.id);
+      if (segmentCustomers.length === 0) return null;
+      const compatibilityCounts: SegmentEvidence["compatibilityCounts"] = { none: 0, weak: 0, possible: 0, good: 0, full: 0 };
+      for (const c of segmentCustomers) {
+        if (c.compatibility) compatibilityCounts[c.compatibility]++;
+      }
+      const segmentCustomerIds = new Set(segmentCustomers.map((c) => c.id));
+      const quotes = noteRows.filter((n) => segmentCustomerIds.has(n.customerId) && n.quote).map((n) => n.quote as string);
+      const decisions = segmentCustomers
+        .flatMap((c) => conversationIdsByCustomer.get(c.id) ?? [])
+        .flatMap((convId) => decisionsByConversation.get(convId) ?? []);
+      return {
+        segmentName: segment.name,
+        customerCount: segmentCustomers.length,
+        compatibilityCounts,
+        problemConfirmedCount: segmentCustomers.filter((c) => c.problem === "yes").length,
+        quotes: [...new Set(quotes)],
+        decisions: [...new Set(decisions)],
+      };
+    })
+    .filter((s): s is SegmentEvidence => s !== null);
+
+  const generatedOn = new Intl.DateTimeFormat("en-GB", { dateStyle: "long", timeZone: "Europe/Helsinki" }).format(new Date());
+  const generated = generateValidationEvidencePdf({
+    filename: "validation-evidence-pack",
+    generatedOn,
+    totalCustomers: customerRows.length,
+    segments: segmentEvidence,
+  });
+  return {
+    answer: `Done — the validation-evidence pack covers **${customerRows.length}** customers across **${segmentEvidence.length}** segment${segmentEvidence.length === 1 ? "" : "s"}.`,
+    blocks: [],
+    actions: [{
+      label: "Generated validation-evidence pack",
       detail: `${generated.filename}.pdf · ${generated.pageCount} page${generated.pageCount === 1 ? "" : "s"}`,
       ok: true,
     }],
@@ -290,7 +412,8 @@ async function conversationForManagement(ctx: Ctx, title: string) {
       title: conversations.title,
       authorId: conversations.authorId,
     })
-    .from(conversations);
+    .from(conversations)
+    .where(isNull(conversations.deletedAt));
   const match = findByField(rows, "title", title);
   if (!match) throw new Error(`no conversation found matching "${title}"`);
   if (match.authorId !== ctx.authorId && ctx.authorRole !== "admin") {
@@ -634,7 +757,7 @@ const READ_TOOLS: Record<string, (ctx: Ctx, a: Args) => Promise<string>> = {
         shared: conversations.shared,
         noteBody: conversations.noteBody,
         authorId: conversations.authorId,
-      }).from(conversations),
+      }).from(conversations).where(isNull(conversations.deletedAt)),
       db.select({ status: tasks.status }).from(tasks),
     ]);
 
@@ -673,7 +796,8 @@ const READ_TOOLS: Record<string, (ctx: Ctx, a: Args) => Promise<string>> = {
         noteBody: conversations.noteBody,
         authorId: conversations.authorId,
       })
-      .from(conversations);
+      .from(conversations)
+      .where(isNull(conversations.deletedAt));
     let filtered = rows.filter(
       (conversation) =>
         conversation.shared ||
@@ -719,7 +843,7 @@ const READ_TOOLS: Record<string, (ctx: Ctx, a: Args) => Promise<string>> = {
   async get_conversation_details(ctx, a) {
     const title = str(a.title);
     if (!title) throw new Error("no recording/note title given");
-    const rows = await db.select().from(conversations);
+    const rows = await db.select().from(conversations).where(isNull(conversations.deletedAt));
     const match = findByField(rows, "title", title);
     if (!match) return `No recording or note found matching "${title}".`;
     if (!match.shared && match.authorId !== ctx.authorId && ctx.authorRole !== "admin") {
@@ -1039,6 +1163,10 @@ export async function runNovaAgent(input: {
 }): Promise<NovaResponse> {
   if (asksForLatestRecordingPdf(input.question)) {
     const response = await latestRecordingPdf(input.authorId);
+    if (response) return response;
+  }
+  if (asksForValidationEvidencePack(input.question)) {
+    const response = await validationEvidencePdf(input.authorId);
     if (response) return response;
   }
   const ctx = await loadContext(input.authorId, input.scopeCustomerId);

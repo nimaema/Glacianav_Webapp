@@ -29,7 +29,7 @@ export type AskPageData = {
 export async function getAskPageData(): Promise<AskPageData> {
   const [customerRows, conversationRows, answeredRows, everythingRows] = await Promise.all([
     db.select().from(customers),
-    db.select({ id: conversations.id, title: conversations.title }).from(conversations),
+    db.select({ id: conversations.id, title: conversations.title }).from(conversations).where(isNull(conversations.deletedAt)),
     db
       .select({
         id: qaMessages.id,

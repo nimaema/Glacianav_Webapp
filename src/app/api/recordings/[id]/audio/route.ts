@@ -4,7 +4,7 @@
 // stored audio (e.g. migrated notes-app recordings whose bytes stayed on
 // the source system).
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { conversations } from "@/db/schema";
 import { getObjectStream } from "@/lib/storage";
@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const [row] = await db
     .select({ audioUrl: conversations.audioUrl })
     .from(conversations)
-    .where(eq(conversations.id, id))
+    .where(and(eq(conversations.id, id), isNull(conversations.deletedAt)))
     .limit(1);
 
   if (!row?.audioUrl) {

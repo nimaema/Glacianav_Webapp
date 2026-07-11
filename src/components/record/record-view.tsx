@@ -267,13 +267,15 @@ export function RecordView({
     setCaptionsSupported(speechSupported());
   }, []);
 
-  // A customer room's "Record" button deep-links here with ?c=<id>.
+  // A customer room's "Record" button deep-links here with ?c=<id>; the
+  // "Upload audio" actions (⌘K, +New menu) deep-link with ?mode=upload.
   const seededRef = useRef(false);
   useEffect(() => {
     if (seededRef.current) return;
     seededRef.current = true;
     if (rec.phase === "idle") {
       for (const id of searchParams.getAll("c")) rec.addParticipant(id);
+      if (searchParams.get("mode") === "upload") rec.setMode("upload");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

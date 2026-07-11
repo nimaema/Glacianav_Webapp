@@ -92,7 +92,7 @@ export async function getHomeData(profileId: string | null, profileName: string)
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(conversations)
-        .where(and(gte(conversations.createdAt, weekAgo), isNull(conversations.noteBody))),
+        .where(and(gte(conversations.createdAt, weekAgo), isNull(conversations.noteBody), isNull(conversations.deletedAt))),
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(conversations)
@@ -101,12 +101,13 @@ export async function getHomeData(profileId: string | null, profileName: string)
             gte(conversations.createdAt, twoWeeksAgo),
             lt(conversations.createdAt, weekAgo),
             isNull(conversations.noteBody),
+            isNull(conversations.deletedAt),
           ),
         ),
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(conversations)
-        .where(eq(conversations.status, "ready")),
+        .where(and(eq(conversations.status, "ready"), isNull(conversations.deletedAt))),
       db.select({ count: sql<number>`count(*)::int` }).from(customers),
     ]);
 
@@ -115,7 +116,7 @@ export async function getHomeData(profileId: string | null, profileName: string)
   const readyForReview = await db
     .select({ id: conversations.id, title: conversations.title, createdAt: conversations.createdAt })
     .from(conversations)
-    .where(eq(conversations.status, "ready"))
+    .where(and(eq(conversations.status, "ready"), isNull(conversations.deletedAt)))
     .orderBy(desc(conversations.createdAt))
     .limit(4);
 
@@ -204,7 +205,14 @@ export async function getHomeData(profileId: string | null, profileName: string)
     })
     .from(conversations)
     .leftJoin(topics, eq(topics.id, conversations.topicId))
-    .where(and(eq(conversations.shared, true), ne(conversations.status, "processing"), isNull(conversations.noteBody)))
+    .where(
+      and(
+        eq(conversations.shared, true),
+        ne(conversations.status, "processing"),
+        isNull(conversations.noteBody),
+        isNull(conversations.deletedAt),
+      ),
+    )
     .orderBy(desc(conversations.createdAt))
     .limit(4);
 
@@ -224,6 +232,7 @@ export async function getHomeData(profileId: string | null, profileName: string)
   const recentConvForActivity = await db
     .select({ title: conversations.title, createdAt: conversations.createdAt, authorId: conversations.authorId })
     .from(conversations)
+    .where(isNull(conversations.deletedAt))
     .orderBy(desc(conversations.createdAt))
     .limit(3);
   const authorIds = [...new Set(recentConvForActivity.map((c) => c.authorId).filter((x): x is string => !!x))];

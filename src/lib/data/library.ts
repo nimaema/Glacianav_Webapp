@@ -5,7 +5,7 @@
 // QaMessage, ActionItem, ConversationComment) so the large existing
 // component tree needs prop-threading, not rewriting.
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   chapters,
@@ -42,7 +42,7 @@ import type {
 import { relativeTime } from "@/lib/data/relative-time";
 import { toContactRow, toCustomerRow, toOwnerRow } from "@/lib/data/rows";
 
-function fmtDuration(ms: number): string {
+export function fmtDuration(ms: number): string {
   const min = Math.round(ms / 60_000);
   return min <= 0 ? "<1 min" : `${min} min`;
 }
@@ -117,7 +117,7 @@ export async function getLibraryPageData(currentUserId: string): Promise<Library
     traceRows,
     chapterRows,
   ] = await Promise.all([
-    db.select().from(conversations),
+    db.select().from(conversations).where(isNull(conversations.deletedAt)),
     db.select().from(topics),
     db.select().from(topicMembers),
     db.select().from(profiles),
@@ -202,7 +202,7 @@ export async function getConversationWorkspaceData(
   id: string,
   currentUserId: string,
 ): Promise<ConversationWorkspaceData | null> {
-  const [row] = await db.select().from(conversations).where(eq(conversations.id, id)).limit(1);
+  const [row] = await db.select().from(conversations).where(and(eq(conversations.id, id), isNull(conversations.deletedAt))).limit(1);
   if (!row) return null;
 
   const [

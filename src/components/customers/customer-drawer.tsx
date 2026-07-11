@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowSquareOut,
@@ -27,8 +28,11 @@ import {
   type Stage,
 } from "@/lib/fixtures";
 import { SectionHeader } from "@/components/ui/section-header";
+import { getCustomerQuickView, type CustomerQuickView } from "@/lib/data/customers-actions";
 import { CompatibilityBadge } from "./compatibility-badge";
 import { FollowupPill, PriorityPill, ProblemPill, StagePill } from "./status-pills";
+
+const EMPTY_QUICK_VIEW: CustomerQuickView = { conversations: [], noteCount: 0, openTaskCount: 0 };
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -64,18 +68,39 @@ export function CustomerDrawer({
   contacts: Contact[];
   onClose: () => void;
 }) {
+  const customerId = customer?.id;
+  const [quickView, setQuickView] = useState<CustomerQuickView>(EMPTY_QUICK_VIEW);
+  const [loaded, setLoaded] = useState(false);
+
+  // Fetched on open rather than joined into every customer list's initial
+  // load — the drawer is a lightweight glance, not the full Customer Room.
+  // Synchronizing to a server fetch keyed on customerId is exactly what
+  // effects are for; the setState calls are the point, not a smell.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoaded(false);
+    if (!customerId) {
+      setQuickView(EMPTY_QUICK_VIEW);
+      return;
+    }
+    let cancelled = false;
+    void getCustomerQuickView(customerId).then((data) => {
+      if (!cancelled) {
+        setQuickView(data);
+        setLoaded(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [customerId]);
+
   if (!customer) return null;
 
   const segment = segmentById(customer.segmentId, segments);
   const owner = ownerById(customer.ownerId, owners);
   const contact = primaryContactFor(customer.id, contacts);
-  // TODO: real per-customer conversations/validation notes/tasks, once the
-  // Library cutover (conversation_participants join) lands - customers
-  // table has zero real rows right now anyway, so this drawer has nothing
-  // real to join against yet.
-  const conversations: { id: string; title: string; when: string; duration: string; wave: number[] }[] = [];
-  const notes: unknown[] = [];
-  const openTasks: number = 0;
+  const { conversations, noteCount, openTaskCount } = quickView;
 
   return (
     <Drawer open onClose={onClose} label={`${customer.name} quick view`}>
@@ -201,16 +226,16 @@ export function CustomerDrawer({
           </div>
         )}
 
-        {(notes.length > 0 || openTasks > 0) && (
+        {(noteCount > 0 || openTaskCount > 0) && (
           <div className="flex items-center gap-4">
-            {notes.length > 0 && (
+            {noteCount > 0 && (
               <DetailField icon={<NotePencil size={13} />}>
-                {notes.length} validation note{notes.length === 1 ? "" : "s"}
+                {noteCount} validation note{noteCount === 1 ? "" : "s"}
               </DetailField>
             )}
-            {openTasks > 0 && (
+            {openTaskCount > 0 && (
               <DetailField icon={<CheckSquare size={13} />}>
-                {openTasks} open task{openTasks === 1 ? "" : "s"}
+                {openTaskCount} open task{openTaskCount === 1 ? "" : "s"}
               </DetailField>
             )}
           </div>
@@ -223,12 +248,18 @@ export function CustomerDrawer({
           >
             Conversations
           </SectionHeader>
-          {conversations.length > 0 ? (
+          {!loaded ? (
+            <div className="mt-1.5 flex flex-col gap-2" aria-hidden>
+              <div className="h-[42px] animate-pulse rounded-card bg-surface-2" />
+              <div className="h-[42px] animate-pulse rounded-card bg-surface-2" />
+            </div>
+          ) : conversations.length > 0 ? (
             <div className="mt-1.5 flex flex-col gap-2">
               {conversations.map((c) => (
-                <div
+                <Link
                   key={c.id}
-                  className="surfaced flex items-center gap-3 px-3 py-2.5"
+                  href={`/library/${c.id}`}
+                  className="surfaced rise-on-hover flex items-center gap-3 px-3 py-2.5"
                 >
                   <span className="flex h-5 shrink-0 items-end gap-[2px]" aria-hidden>
                     {c.wave.slice(0, 9).map((v, i) => (
@@ -245,7 +276,7 @@ export function CustomerDrawer({
                   <span className="shrink-0 font-mono text-[12.5px] font-semibold text-ink-2 tabular-nums">
                     {c.when} · {c.duration}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (

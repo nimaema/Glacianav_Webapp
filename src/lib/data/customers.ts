@@ -9,7 +9,7 @@
 // still import the *types* from fixtures.ts (harmless — pure TS types, no
 // fixture data), just not the static `customers`/`segments`/etc arrays.
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   activities,
@@ -120,7 +120,7 @@ export async function getCustomerRoomData(customerId: string): Promise<CustomerR
   const [conversationRows, conversationTaskRows, allContactLinkRows, openTaskRows, traceRows, chapterRows, allAssigneeRows] =
     conversationIds.length > 0
       ? await Promise.all([
-          db.select().from(conversations).where(inArray(conversations.id, conversationIds)),
+          db.select().from(conversations).where(and(inArray(conversations.id, conversationIds), isNull(conversations.deletedAt))),
           db.select().from(tasks).where(inArray(tasks.conversationId, conversationIds)),
           db.select({ conversationId: conversationContacts.conversationId, contactId: conversationContacts.contactId }).from(conversationContacts).where(inArray(conversationContacts.conversationId, conversationIds)),
           db.select({ conversationId: tasks.conversationId }).from(tasks).where(and(eq(tasks.sourceType, "conversation"), eq(tasks.status, "open"), inArray(tasks.conversationId, conversationIds))),

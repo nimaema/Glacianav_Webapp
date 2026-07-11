@@ -38,6 +38,12 @@ import { NovaBlocks, TONE_VAR } from "@/components/shell/nova-answer-blocks";
 import { NovaMarkdown } from "@/components/shell/nova-markdown";
 import { NovaMark } from "@/components/shell/nova-mark";
 
+// Same pattern as command-palette.tsx's OPEN_PALETTE_EVENT — lets any leaf
+// component (an export menu, a card action) open the wing and hand her a
+// specific prompt without threading a callback down through the tree.
+export const OPEN_NOVA_EVENT = "gn:open-nova";
+export type OpenNovaDetail = { prompt: string };
+
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
@@ -493,9 +499,9 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
             },
             {
               icon: FileText,
-              label: "Weekly report",
+              label: "Validation evidence pack",
               tone: "violet",
-              prompt: "Generate a PDF status report of the pipeline",
+              prompt: "Generate the validation evidence pack",
             },
           ],
     [scopeCustomer, scopedOpenTasks, totalOpenTasks, hottestAccount],
@@ -578,6 +584,21 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
       setSending(false);
     }
   };
+
+  // Lets an export menu (or any other leaf component) open the wing and
+  // hand her a specific prompt — e.g. "Generate a PDF of ..." — instead of
+  // implementing its own export logic. Re-subscribes on every `send`
+  // identity change so the handler never closes over stale state.
+  useEffect(() => {
+    const onOpenNova = (e: Event) => {
+      const detail = (e as CustomEvent<OpenNovaDetail>).detail;
+      if (!detail?.prompt) return;
+      setOpen(true);
+      void send(detail.prompt);
+    };
+    window.addEventListener(OPEN_NOVA_EVENT, onOpenNova);
+    return () => window.removeEventListener(OPEN_NOVA_EVENT, onOpenNova);
+  }, [send]);
 
   const cancelActiveJob = async () => {
     if (!activeJob) return;

@@ -191,6 +191,11 @@ export const conversations = pgTable("conversations", {
   aiTags: text("ai_tags").array().default([]),
   audioUrl: text("audio_url"), // Supabase Storage path once capture lands
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  // Soft delete: recordings/notes are often unrepeatable interviews, so
+  // "Delete" moves a row here instead of cascading it away immediately.
+  // Every read query MUST filter isNull(deletedAt); a short client-side
+  // "Undo" window un-sets it before that's ever a concern in practice.
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export const conversationParticipants = pgTable(
@@ -364,6 +369,21 @@ export const novaJobs = pgTable("nova_jobs", {
   leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
   startedAt: timestamp("started_at", { withTimezone: true }),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// One connected Google account per profile, drive.file scope only — the
+// export flow can create/see files IT creates, nothing else in the user's
+// Drive. accessToken is short-lived and refreshed on demand via
+// refreshToken; expiresAt tracks when that's due.
+export const googleAccounts = pgTable("google_accounts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  profileId: uuid("profile_id").notNull().unique().references(() => profiles.id, { onDelete: "cascade" }),
+  email: text("email"),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

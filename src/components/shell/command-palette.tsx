@@ -20,7 +20,7 @@ import {
   UserPlus,
   type Icon,
 } from "@phosphor-icons/react";
-import { contacts, customerById, customers, segmentById } from "@/lib/fixtures";
+import { segmentById, type Contact, type Customer } from "@/lib/fixtures";
 
 export const OPEN_PALETTE_EVENT = "gn:open-palette";
 
@@ -47,43 +47,45 @@ const DESTINATIONS: Item[] = [
   { id: "go-settings", group: "Go to", label: "Settings", icon: Gear, href: "/settings" },
 ];
 
-const CUSTOMER_ITEMS: Item[] = customers.map((c) => ({
-  id: `customer-${c.id}`,
-  group: "Customers",
-  label: c.name,
-  sub: segmentById(c.segmentId).name,
-  icon: Buildings,
-  href: `/customers?c=${c.id}`,
-}));
-
-const CONTACT_ITEMS: Item[] = contacts.map((p) => {
-  const account = p.customerId ? customerById(p.customerId) : undefined;
-  return {
-    id: `contact-${p.id}`,
-    group: "Contacts",
-    label: p.name,
-    sub: account?.name,
-    icon: IdentificationCard,
-    href: account ? `/customers/${account.id}` : "/contacts",
-  };
-});
-
-// Create actions mirror the + New menu; they gain real behavior with capture.
+// Create actions mirror the + New menu; "Upload audio" deep-links to
+// /record with ?mode=upload so it lands directly on the Upload tab.
 const ACTIONS: Item[] = [
   { id: "act-record", group: "Create", label: "Record a conversation", icon: Microphone, href: "/record" },
-  { id: "act-upload", group: "Create", label: "Upload audio", icon: UploadSimple },
+  { id: "act-upload", group: "Create", label: "Upload audio", icon: UploadSimple, href: "/record?mode=upload" },
   { id: "act-customer", group: "Create", label: "New customer", icon: UserPlus, href: "/customers/new" },
   { id: "act-note", group: "Create", label: "New note", icon: NotePencil, href: "/library?new=note" },
 ];
 
-const ALL_ITEMS = [...DESTINATIONS, ...ACTIONS, ...CUSTOMER_ITEMS, ...CONTACT_ITEMS];
-
-export function CommandPalette() {
+export function CommandPalette({ customers, contacts }: { customers: Customer[]; contacts: Contact[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+
+  const allItems = useMemo(() => {
+    const customerById = new Map(customers.map((c) => [c.id, c]));
+    const customerItems: Item[] = customers.map((c) => ({
+      id: `customer-${c.id}`,
+      group: "Customers",
+      label: c.name,
+      sub: segmentById(c.segmentId).name,
+      icon: Buildings,
+      href: `/customers?c=${c.id}`,
+    }));
+    const contactItems: Item[] = contacts.map((p) => {
+      const account = p.customerId ? customerById.get(p.customerId) : undefined;
+      return {
+        id: `contact-${p.id}`,
+        group: "Contacts",
+        label: p.name,
+        sub: account?.name,
+        icon: IdentificationCard,
+        href: account ? `/customers/${account.id}` : "/contacts",
+      };
+    });
+    return [...DESTINATIONS, ...ACTIONS, ...customerItems, ...contactItems];
+  }, [customers, contacts]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -109,17 +111,21 @@ export function CommandPalette() {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return ALL_ITEMS;
-    return ALL_ITEMS.filter(
+    if (!q) return allItems;
+    return allItems.filter(
       (i) =>
         i.label.toLowerCase().includes(q) || i.sub?.toLowerCase().includes(q),
     );
-  }, [query]);
+  }, [query, allItems]);
 
+  // Pre-existing crash, found while browser-verifying real search data:
+  // a query with zero matches across every group left `id` undefined, and
+  // `#${CSS.escape("")}` is `"#"` alone — not a valid selector, so
+  // querySelector threw instead of just finding nothing.
   useEffect(() => {
-    listRef.current
-      ?.querySelector(`#${CSS.escape(results[active]?.id ?? "")}`)
-      ?.scrollIntoView({ block: "nearest" });
+    const id = results[active]?.id;
+    if (!id) return;
+    listRef.current?.querySelector(`#${CSS.escape(id)}`)?.scrollIntoView({ block: "nearest" });
   }, [active, results]);
 
   if (!open) return null;
