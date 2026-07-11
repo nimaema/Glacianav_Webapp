@@ -11,23 +11,24 @@ import remarkGfm from "remark-gfm";
  * (Nova is told to reserve them for the one key insight or warning).
  */
 export function NovaMarkdown({ content, tone }: { content: string; tone: "user" | "assistant" }) {
+  // Both tones sit on light surfaces now — the user's queries in a
+  // recessed block, Nova's readouts straight on the paper — so styling
+  // is ink-based throughout; the user's entries are just set smaller.
   const isUser = tone === "user";
-  const link = isUser
-    ? "text-white underline underline-offset-2"
-    : "font-semibold text-accent underline underline-offset-2 hover:text-accent-strong";
-  const inlineCode = isUser
-    ? "rounded bg-white/15 px-1 py-0.5 font-mono text-[12.5px]"
-    : "rounded bg-[rgba(23,32,43,0.06)] px-1 py-0.5 font-mono text-[12.5px] text-ink";
+  const link = "font-semibold text-accent underline underline-offset-2 hover:text-accent-strong";
+  const inlineCode = "rounded bg-[rgba(23,32,43,0.06)] px-1 py-0.5 font-mono text-[12.5px] text-ink";
 
   return (
-    <div className="whitespace-pre-wrap text-[14px] leading-relaxed [&>*+*]:mt-2.5">
+    <div
+      className={`whitespace-pre-wrap leading-relaxed [&>*+*]:mt-2.5 ${
+        isUser ? "text-[13.5px] text-ink" : "text-[14px] text-ink"
+      }`}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           p: ({ children }) => <p>{children}</p>,
-          strong: ({ children }) => (
-            <strong className={isUser ? "font-semibold" : "font-semibold text-ink"}>{children}</strong>
-          ),
+          strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
           em: ({ children }) => <em className="italic">{children}</em>,
           a: ({ children, href }) => (
             <a href={href} target="_blank" rel="noreferrer" className={link}>
@@ -66,26 +67,18 @@ export function NovaMarkdown({ content, tone }: { content: string; tone: "user" 
             <span
               aria-hidden
               className={`relative top-[1px] inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] text-[9px] font-bold ${
-                checked
-                  ? "bg-data-green text-white"
-                  : isUser
-                    ? "border border-white/50"
-                    : "border border-ink/30"
+                checked ? "bg-data-green text-white" : "border border-ink/30"
               }`}
             >
               {checked ? "✓" : ""}
             </span>
           ),
           blockquote: ({ children }) => (
-            <blockquote
-              className={`rounded-[10px] px-3 py-2 [&>*+*]:mt-1.5 ${
-                isUser ? "bg-white/12" : "bg-accent-soft text-ink"
-              }`}
-            >
+            <blockquote className="rounded-[10px] bg-accent-soft px-3 py-2 text-ink [&>*+*]:mt-1.5">
               {children}
             </blockquote>
           ),
-          hr: () => <hr className={isUser ? "border-white/20" : "border-line-2"} />,
+          hr: () => <hr className="border-line-2" />,
           pre: ({ children }) => <>{children}</>,
           code: ({ className, children }) => {
             const text = String(children ?? "");
@@ -102,20 +95,14 @@ export function NovaMarkdown({ content, tone }: { content: string; tone: "user" 
               <table className="w-full border-collapse text-[13px]">{children}</table>
             </div>
           ),
-          thead: ({ children }) => <thead className={isUser ? "bg-white/10" : "bg-surface-2"}>{children}</thead>,
+          thead: ({ children }) => <thead className="bg-surface-2">{children}</thead>,
           th: ({ children }) => (
-            <th
-              className={`whitespace-nowrap px-2.5 py-1.5 text-left font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] ${
-                isUser ? "text-white/85" : "text-ink-2"
-              }`}
-            >
+            <th className="whitespace-nowrap px-2.5 py-1.5 text-left font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink-2">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className={`border-t px-2.5 py-1.5 align-top ${isUser ? "border-white/15" : "border-line-2"}`}>
-              {children}
-            </td>
+            <td className="border-t border-line-2 px-2.5 py-1.5 align-top">{children}</td>
           ),
         }}
       >

@@ -136,12 +136,21 @@ instead.
 Nova's mark is a four-ray stellar nova with a tilted orbital ring
 (`nova-mark.tsx`) — hand-rolled SVG, permitted as part of the brand-mark
 exception alongside the rail's pressure-ring glyph. It wears the aurora
-gradient (§5). In chat, Nova's replies are structured content, not plain
-bubbles: markdown renders fully (headings, tables, task lists, one
-callout max), tool runs show as green/red receipt chips, generated files
-show as format-colored artifact cards with a download affordance, and
-destructive confirmations are danger-tinted cards with an explicit
-Confirm / Keep it choice.
+gradient (§5).
+
+Nova's panel is an **observation log, not a bubble chat**. The user's
+queries sit in recessed input blocks (`.recessed` — queries are input)
+under a mono "YOU · HH:MM" kicker; Nova's replies are readouts printed
+straight on the white paper under her mark and a mono "NOVA · HH:MM"
+kicker; exchanges are separated by hairline rules. No colored chat
+bubbles, no per-message avatar orbs — the aurora stays on the mark and
+the closed-state orb only. Markdown renders fully (headings, tables,
+task lists, one callout max), tool runs print as mono log lines with a
+green/red state icon, generated files show as format-colored artifact
+cards with a download affordance, and destructive confirmations are
+danger-tinted cards with an explicit Confirm / Keep it choice. The
+empty state is a briefing, not a greeting: real workspace numbers and
+prepared queries derived from live data, never canned suggestion pills.
 
 ## 8. Typography and copy
 

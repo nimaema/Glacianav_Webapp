@@ -17,7 +17,6 @@ import {
   FileZip,
   Paperclip,
   PaperPlaneTilt,
-  Sparkle,
   ShieldWarning,
   X,
   XCircle,
@@ -37,11 +36,17 @@ import { NovaMark } from "@/components/shell/nova-mark";
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+  at: number;
   actions?: NovaActionLog[];
   files?: NovaFile[];
   confirmations?: NovaConfirmation[];
   pendingFileName?: string;
 };
+
+// The log's time voice: 24h HH:MM, set in mono next to each entry.
+function fmtTime(at: number) {
+  return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+}
 
 // ─── File cards ───────────────────────────────────────────────────────
 // Format-specific icon + data-palette color, so a returned file reads as
@@ -133,24 +138,21 @@ function FileCard({ file }: { file: NovaFile }) {
 }
 
 // ─── Tool receipts ────────────────────────────────────────────────────
+// Mutations print as mono log lines — the instrument recording what it
+// did — not as filled chips competing with the reply itself.
 function ActionReceipts({ actions }: { actions: NovaActionLog[] }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1.5 border-t border-line-2 pt-2">
       {actions.map((a, i) => (
-        <div
-          key={i}
-          className={`flex items-start gap-2 rounded-[10px] px-2.5 py-1.5 text-[12.5px] font-semibold ${
-            a.ok ? "bg-data-green/10 text-ink" : "bg-danger/8 text-ink"
-          }`}
-        >
+        <div key={i} className="flex items-start gap-2 font-mono text-[12px] leading-relaxed">
           {a.ok ? (
-            <CheckCircle size={15} weight="fill" className="mt-px shrink-0 text-data-green" />
+            <CheckCircle size={14} weight="fill" className="mt-[2px] shrink-0 text-data-green" />
           ) : (
-            <XCircle size={15} weight="fill" className="mt-px shrink-0 text-danger" />
+            <XCircle size={14} weight="fill" className="mt-[2px] shrink-0 text-danger" />
           )}
-          <span className="min-w-0">
+          <span className="min-w-0 font-semibold text-ink">
             {a.label}
-            {a.detail && <span className="font-normal text-ink-2"> · {a.detail}</span>}
+            {a.detail && <span className="font-normal text-ink-3"> — {a.detail}</span>}
           </span>
         </div>
       ))}
@@ -214,44 +216,32 @@ function workingCopy(stage: string) {
   };
 }
 
+// A working task is a log entry still being written: the mark breathes
+// (state-conveying motion only, DESIGN.md §7) over a live mono kicker.
 function WorkingRow({ stage, onCancel }: { stage: string; onCancel: () => void }) {
   const copy = workingCopy(stage);
   const isCancelling = stage.toLowerCase().includes("cancel");
   return (
-    <div
-      className="anim-msg-in surfaced relative overflow-hidden p-3"
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
-    >
-      <div className="flex items-start gap-3">
-        <span className="nova-working-presence relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center">
-          <span className="nova-orb nova-orb-busy flex h-9 w-9 items-center justify-center rounded-pill">
-            <span className="nova-think-mark flex">
-              <NovaMark size={17} tone="white" />
-            </span>
-          </span>
-          <span aria-hidden className="nova-working-spark nova-working-spark-a" />
-          <span aria-hidden className="nova-working-spark nova-working-spark-b" />
+    <div className="anim-msg-in flex flex-col gap-2" role="status" aria-live="polite" aria-atomic="true">
+      <p className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-accent-strong">
+        <span className="nova-think-mark flex" aria-hidden>
+          <NovaMark size={13} />
         </span>
-        <div key={stage} className="anim-nova-stage min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.09em] text-accent-strong">
-            <Sparkle size={11} weight="fill" aria-hidden />
-            {copy.label}
-          </p>
-          <p className="mt-1 text-[14px] font-semibold leading-snug text-ink">{copy.title}</p>
-          <p className="mt-1 max-w-[34ch] text-[12.5px] leading-[1.45] text-ink-2">{copy.detail}</p>
-        </div>
+        Nova · {copy.label}
+      </p>
+      <div key={stage} className="anim-nova-stage">
+        <p className="text-[14px] font-semibold leading-snug text-ink">{copy.title}</p>
+        <p className="mt-0.5 max-w-[36ch] text-[12.5px] leading-[1.45] text-ink-2">{copy.detail}</p>
       </div>
-      <div className="mt-2.5 flex items-center justify-between border-t border-line-2 pt-2">
+      <div className="flex items-center gap-3">
         <span className="text-[11.5px] text-ink-3">
-          {isCancelling ? "Nova will close this safely." : "This task keeps running in the background."}
+          {isCancelling ? "Nova will close this safely." : "Keeps running if you close this panel."}
         </span>
         {!isCancelling && (
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-8 cursor-pointer rounded-control px-2.5 text-[11.5px] font-bold text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-danger"
+            className="min-h-8 cursor-pointer rounded-control px-2 text-[11.5px] font-bold text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-danger"
           >
             Cancel task
           </button>
@@ -259,12 +249,6 @@ function WorkingRow({ stage, onCancel }: { stage: string; onCancel: () => void }
       </div>
     </div>
   );
-}
-
-// ─── Welcome state ────────────────────────────────────────────────────
-function greeting() {
-  const h = new Date().getHours();
-  return h < 5 ? "Working late?" : h < 12 ? "Morning." : h < 18 ? "Afternoon." : "Evening.";
 }
 
 export function NovaDock({ context, currentUserId }: { context: NovaContextData; currentUserId: string }) {
@@ -316,7 +300,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
       const restored = { id: saved.id, question: saved.question };
       setActiveJob(restored);
       setSending(true);
-      setMessages((current) => current.length ? current : [{ role: "user", content: restored.question }]);
+      setMessages((current) => current.length ? current : [{ role: "user", content: restored.question, at: Date.now() }]);
     } catch {
       window.localStorage.removeItem("glacianav:nova-active-job");
     }
@@ -351,6 +335,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
           if (response.status === 401 || response.status === 404) {
             setMessages((current) => [...current, {
               role: "assistant",
+              at: Date.now(),
               content: response.status === 401
                 ? "Sign in again to continue this task."
                 : "This saved Nova task is no longer available.",
@@ -366,6 +351,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
           const result = job.response;
           setMessages((current) => [...current, {
             role: "assistant",
+            at: Date.now(),
             content: result.fileParseNote ? `${result.answer}\n\n${result.fileParseNote}` : result.answer,
             actions: result.actions,
             files: result.files,
@@ -377,6 +363,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
         if (job.status === "failed" || job.status === "cancelled") {
           setMessages((current) => [...current, {
             role: "assistant",
+            at: Date.now(),
             content: job.status === "cancelled"
               ? "Task cancelled. Nothing else was changed."
               : `I couldn’t finish this task: ${job.error || "unknown error"}`,
@@ -396,22 +383,42 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     };
   }, [activeJob]);
 
+  // The briefing is built from live workspace numbers, and the prepared
+  // queries reference real accounts and real counts — never canned copy.
+  const totalOpenTasks = useMemo(
+    () => Object.values(context.openTaskCountByCustomer).reduce((sum, n) => sum + n, 0),
+    [context.openTaskCountByCustomer],
+  );
+  const scopedOpenTasks = scopeCustomer ? (context.openTaskCountByCustomer[scopeCustomer.id] ?? 0) : 0;
+  const hottestAccount = useMemo(() => {
+    let best: { name: string; count: number } | undefined;
+    for (const c of context.customers) {
+      const count = context.openTaskCountByCustomer[c.id] ?? 0;
+      if (count > 0 && (!best || count > best.count)) best = { name: c.name, count };
+    }
+    return best;
+  }, [context.customers, context.openTaskCountByCustomer]);
+
   const suggestions = useMemo(
     () =>
       scopeCustomer
         ? [
             `Sum up where we stand with ${scopeCustomer.name}`,
+            scopedOpenTasks > 0
+              ? `Plan the ${scopedOpenTasks} open task${scopedOpenTasks === 1 ? "" : "s"} on this account`
+              : "Create a follow-up task for this account",
             "What did they say in the last conversation?",
-            "Create a follow-up task for this account",
             "Draft a follow-up email I can send",
           ]
         : [
-            "What needs attention this week?",
-            "Summarize the latest recording",
-            "Generate a PDF report of open tasks",
-            "How many conversations are shared with the team?",
+            totalOpenTasks > 0
+              ? `Walk me through the ${totalOpenTasks} open tasks`
+              : "What needs attention this week?",
+            hottestAccount ? `Where do we stand with ${hottestAccount.name}?` : "Summarize the latest recording",
+            "What did we decide in the last conversation?",
+            "Generate a PDF status report of the pipeline",
           ],
-    [scopeCustomer],
+    [scopeCustomer, scopedOpenTasks, totalOpenTasks, hottestAccount],
   );
 
   const autogrow = () => {
@@ -425,7 +432,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     const text = (preset ?? draft).trim();
     if ((!text && !pendingFile) || sending) return;
     const file = pendingFile;
-    const userMsg: ChatMessage = { role: "user", content: text || `(attached ${file?.name})`, pendingFileName: file?.name };
+    const userMsg: ChatMessage = { role: "user", content: text || `(attached ${file?.name})`, at: Date.now(), pendingFileName: file?.name };
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
 
     setMessages((m) => [...m, userMsg]);
@@ -452,7 +459,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     } catch (e) {
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: `Something went wrong on my end: ${e instanceof Error ? e.message : "unknown error"}. Try that once more.` },
+        { role: "assistant", at: Date.now(), content: `Something went wrong on my end: ${e instanceof Error ? e.message : "unknown error"}. Try that once more.` },
       ]);
       setSending(false);
     }
@@ -532,13 +539,13 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
             </span>
             <div className="min-w-0 flex-1 leading-tight">
               <p className="text-[15px] font-semibold tracking-[-0.01em] text-ink">Nova</p>
-              <p className="truncate text-[11.5px] text-ink-3">
+              <p className="mt-0.5 truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink-3">
                 {scopeCustomer ? (
                   <>
-                    Focused on <span className="font-semibold text-accent">{scopeCustomer.name}</span>
+                    Scope · <span className="text-accent-strong">{scopeCustomer.name}</span>
                   </>
                 ) : (
-                  "Workspace copilot"
+                  "Scope · Whole workspace"
                 )}
               </p>
             </div>
@@ -563,30 +570,43 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
             </button>
           </div>
 
-          {/* Conversation */}
-          <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-page px-4 py-4">
+          {/* The log — queries as recessed input blocks, Nova's readouts
+              printed straight on the paper, exchanges ruled apart. */}
+          <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
             {messages.length === 0 && (
-              <div className="anim-msg-in flex flex-col items-start gap-3 pt-2">
-                <NovaMark size={34} />
-                <div>
-                  <p className="text-[16px] font-semibold tracking-[-0.01em] text-ink">
-                    {`${greeting()} I’m Nova.`}
-                  </p>
-                  <p className="mt-1 max-w-[36ch] text-[13.5px] leading-relaxed text-ink-2">
-                    {scopeCustomer
-                      ? `I can see everything on ${scopeCustomer.name} — conversations, tasks, notes. Ask away, or hand me a chore.`
-                      : "I can read and work the whole workspace — customers, conversations, tasks, calendar. I also take files in and hand files back."}
-                  </p>
+              <div className="anim-msg-in flex flex-col gap-4 pt-1">
+                <div className="flex items-start gap-2.5">
+                  <NovaMark size={26} className="mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-ink-3">
+                      The picture · {fmtTime(Date.now())}
+                    </p>
+                    <p className="mt-1 text-[15px] font-semibold leading-snug tracking-[-0.01em] text-ink">
+                      {scopeCustomer
+                        ? `${scopeCustomer.name} — ${scopedOpenTasks} open task${scopedOpenTasks === 1 ? "" : "s"} on this account.`
+                        : `${context.customers.length} account${context.customers.length === 1 ? "" : "s"} on the chart · ${totalOpenTasks} open task${totalOpenTasks === 1 ? "" : "s"}.`}
+                    </p>
+                    <p className="mt-1.5 max-w-[38ch] text-[13px] leading-relaxed text-ink-2">
+                      {scopeCustomer
+                        ? `I can read everything filed on ${scopeCustomer.name} and work the records — or take a file in and hand one back.`
+                        : "I read every conversation, work the records, and trade files. Ask, or hand me a chore."}
+                    </p>
+                  </div>
                 </div>
-                <div className="mt-1 flex flex-col items-start gap-1.5">
-                  {suggestions.map((s) => (
+                <div className="overflow-hidden rounded-control border border-line-2">
+                  {suggestions.map((s, idx) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => void send(s)}
-                      className="cursor-pointer rounded-pill border border-line bg-surface px-3 py-1.5 text-left text-[13px] font-semibold text-ink-2 transition-colors duration-150 hover:border-accent/40 hover:text-accent-strong"
+                      className={`flex w-full cursor-pointer items-baseline gap-2 px-3 py-2 text-left text-[13px] font-medium text-ink-2 transition-colors duration-150 hover:bg-surface-2 hover:text-ink ${
+                        idx > 0 ? "border-t border-line-2" : ""
+                      }`}
                     >
-                      {s}
+                      <span aria-hidden className="font-mono text-[11px] font-bold text-accent">
+                        ▸
+                      </span>
+                      <span className="min-w-0">{s}</span>
                     </button>
                   ))}
                 </div>
@@ -595,26 +615,28 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
 
             {messages.map((m, i) =>
               m.role === "user" ? (
-                <div key={i} className="anim-msg-in flex justify-end">
-                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-accent px-3.5 py-2.5 text-white">
-                    {m.pendingFileName && (
-                      <p className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-white/80">
-                        <Paperclip size={12} />
-                        {m.pendingFileName}
-                      </p>
-                    )}
+                <div key={i} className={`anim-msg-in ${i > 0 ? "border-t border-line-2 pt-4" : ""}`}>
+                  <div className="recessed px-3 py-2">
+                    <p className="mb-1 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink-3">
+                      You · {fmtTime(m.at)}
+                      {m.pendingFileName && (
+                        <span className="flex min-w-0 items-center gap-1 truncate normal-case tracking-normal">
+                          <Paperclip size={11} className="shrink-0" />
+                          {m.pendingFileName}
+                        </span>
+                      )}
+                    </p>
                     <NovaMarkdown content={m.content} tone="user" />
                   </div>
                 </div>
               ) : (
-                <div key={i} className="anim-msg-in flex items-start gap-2.5">
-                  <span className="nova-orb mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-pill">
-                    <NovaMark size={14} tone="white" />
-                  </span>
-                  <div className="flex min-w-0 max-w-[88%] flex-col gap-2.5">
-                    <div className="rounded-2xl rounded-tl-md border border-line bg-surface px-3.5 py-2.5 text-ink">
-                      <NovaMarkdown content={m.content} tone="assistant" />
-                    </div>
+                <div key={i} className="anim-msg-in flex flex-col gap-2">
+                  <p className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink-3">
+                    <NovaMark size={13} className="shrink-0" />
+                    Nova · {fmtTime(m.at)}
+                  </p>
+                  <div className="flex min-w-0 flex-col gap-2.5">
+                    <NovaMarkdown content={m.content} tone="assistant" />
                     {m.actions && m.actions.length > 0 && <ActionReceipts actions={m.actions} />}
                     {m.files && m.files.length > 0 && (
                       <div className="flex flex-col gap-1.5">
@@ -715,7 +737,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                     void send();
                   }
                 }}
-                placeholder={scopeCustomer ? `Ask about ${scopeCustomer.name}…` : "Ask Nova anything…"}
+                placeholder={scopeCustomer ? `Ask about ${scopeCustomer.name}, or hand me a chore…` : "Ask, or hand me a chore…"}
                 rows={1}
                 className="max-h-[120px] w-full resize-none self-center bg-transparent px-1 py-1.5 text-[14px] leading-snug text-ink outline-none placeholder:text-ink-3"
               />

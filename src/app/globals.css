@@ -144,29 +144,7 @@
     animation: nova-panel-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .anim-msg-in { animation: msg-in 200ms ease-out both; }
-  .nova-think-dot { animation: nova-dot 1.05s ease-in-out infinite; }
-  .nova-think-dot:nth-child(2) { animation-delay: 0.14s; }
-  .nova-think-dot:nth-child(3) { animation-delay: 0.28s; }
   .nova-think-mark { animation: nova-breathe 1.6s ease-in-out infinite; }
-  .nova-working-presence { isolation: isolate; }
-  .nova-working-spark {
-    position: absolute;
-    z-index: -1;
-    width: 5px;
-    height: 5px;
-    border-radius: var(--radius-pill);
-    background: var(--aurora-1);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--aurora-1) 10%, transparent);
-    animation: nova-spark 1.8s ease-in-out infinite;
-  }
-  .nova-working-spark-a { right: -1px; top: 2px; }
-  .nova-working-spark-b {
-    bottom: 1px;
-    left: 1px;
-    background: var(--aurora-3);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--aurora-3) 10%, transparent);
-    animation-delay: 0.6s;
-  }
   .anim-nova-stage { animation: nova-stage-in 500ms ease-out both; }
 
   /* ─── Login choreography ────────────────────────────────────────
@@ -192,9 +170,7 @@
 @keyframes nova-panel-in { from { transform: translateY(10px) scale(0.97); opacity: 0; } }
 @keyframes msg-in { from { transform: translateY(6px); opacity: 0; } }
 @keyframes nova-drift { 0%, 100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
-@keyframes nova-dot { 0%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-3px); opacity: 1; } }
 @keyframes nova-breathe { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.12); opacity: 1; } }
-@keyframes nova-spark { 0%, 100% { opacity: 0.28; } 50% { opacity: 1; } }
 @keyframes nova-stage-in { from { opacity: 0; } }
 @keyframes login-rise { from { transform: translateY(14px); opacity: 0; } }
 @keyframes login-aurora-drift { from { background-position: 0% 0%; } to { background-position: 100% 100%; } }
