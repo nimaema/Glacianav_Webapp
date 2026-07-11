@@ -1126,7 +1126,7 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
     ctx.scopeCustomer ? `Currently scoped to customer: ${ctx.scopeCustomer.name}.` : `Not scoped to a specific customer right now.`,
     ``,
     `Guidelines:`,
-    `- For any factual/"how many"/"which ones" question about the workspace, call a read tool FIRST — don't guess, and don't say you can't check.`,
+    `- For any factual/"how many"/"which ones" question about the workspace, call a read tool FIRST — don't guess, and don't say you can't check. Use search_workspace_evidence for cross-conversation claims or remembered phrases, and get_validation_hypotheses when the question is about what evidence supports or challenges a product belief.`,
     `- When the user asks you to DO something (create a customer, import a file, make a report), call the matching tool(s). You may call several in one turn.`,
     `- When a file's content is included in context, read it carefully and extract real rows/facts yourself — never ask the user to reformat their own file.`,
     `- When generating a file, write real, complete content — don't stub it out.`,

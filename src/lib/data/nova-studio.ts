@@ -6,25 +6,12 @@ import {
   calendarEvents,
   conversations,
   customers,
-  novaJobs,
-  profiles,
   tasks,
   traceItems,
   utterances,
   validationNotes,
 } from "@/db/schema";
 import type { Profile } from "@/lib/auth/ensure-profile";
-
-export type NovaStudioJob = {
-  id: string;
-  question: string;
-  owner: string;
-  status: string;
-  stage: string;
-  progress: number;
-  createdAt: string;
-  durationSeconds?: number;
-};
 
 export type NovaStudioMeeting = {
   title: string;
@@ -44,8 +31,6 @@ export type NovaStudioHypothesis = {
 };
 
 export type NovaStudioData = {
-  jobs: NovaStudioJob[];
-  queue: { active: number; queued: number; attention: number; completedToday: number };
   meeting: NovaStudioMeeting;
   hypotheses: NovaStudioHypothesis[];
 };
@@ -60,25 +45,15 @@ export type WorkspaceSearchResult = {
   timestampMs?: number;
 };
 
-function elapsedSeconds(start?: Date | null, end?: Date | null): number | undefined {
-  if (!start) return undefined;
-  return Math.max(0, Math.round(((end ?? new Date()).getTime() - start.getTime()) / 1_000));
-}
+type NovaViewer = Pick<Profile, "id" | "role">;
 
-export async function getNovaStudioData(profile: Profile): Promise<NovaStudioData> {
+export async function getNovaStudioData(profile: NovaViewer): Promise<NovaStudioData> {
   const now = new Date();
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const jobFilter = profile.role === "admin" ? undefined : eq(novaJobs.authorId, profile.id);
   const readableConversation = profile.role === "admin"
     ? isNull(conversations.deletedAt)
     : and(isNull(conversations.deletedAt), or(eq(conversations.shared, true), eq(conversations.authorId, profile.id)));
 
-  const [jobRows, ownerRows, upcomingRows, recentRows, taskRows, customerRows, noteRows, traceRows] = await Promise.all([
-    jobFilter
-      ? db.select().from(novaJobs).where(jobFilter).orderBy(desc(novaJobs.createdAt)).limit(20)
-      : db.select().from(novaJobs).orderBy(desc(novaJobs.createdAt)).limit(20),
-    db.select({ id: profiles.id, name: profiles.name }).from(profiles),
+  const [upcomingRows, recentRows, taskRows, customerRows, noteRows, traceRows] = await Promise.all([
     db.select().from(calendarEvents).where(and(eq(calendarEvents.ownerId, profile.id), gte(calendarEvents.startAt, now))).orderBy(calendarEvents.startAt).limit(1),
     db.select({ id: conversations.id, title: conversations.title, summary: conversations.summary, createdAt: conversations.createdAt }).from(conversations).where(readableConversation).orderBy(desc(conversations.createdAt)).limit(1),
     db.select({ task: tasks.task, status: tasks.status, customerId: tasks.customerId, conversationId: tasks.conversationId }).from(tasks).where(eq(tasks.status, "open")).orderBy(desc(tasks.createdAt)).limit(20),
@@ -93,17 +68,6 @@ export async function getNovaStudioData(profile: Profile): Promise<NovaStudioDat
       .limit(18),
   ]);
 
-  const ownerById = new Map(ownerRows.map((owner) => [owner.id, owner.name]));
-  const jobs = jobRows.map((job) => ({
-    id: job.id,
-    question: job.question,
-    owner: ownerById.get(job.authorId) ?? "Workspace member",
-    status: job.status,
-    stage: job.stage,
-    progress: job.progress,
-    createdAt: job.createdAt.toISOString(),
-    durationSeconds: elapsedSeconds(job.startedAt, job.finishedAt),
-  }));
   const upcoming = upcomingRows[0];
   const recent = recentRows[0];
   const meetingTasks = taskRows
@@ -150,13 +114,6 @@ export async function getNovaStudioData(profile: Profile): Promise<NovaStudioDat
   })();
 
   return {
-    jobs,
-    queue: {
-      active: jobRows.filter((job) => job.status === "running").length,
-      queued: jobRows.filter((job) => job.status === "queued").length,
-      attention: jobRows.filter((job) => job.status === "failed").length,
-      completedToday: jobRows.filter((job) => job.status === "completed" && job.finishedAt && job.finishedAt >= today).length,
-    },
     meeting: {
       title: upcoming?.title ?? "No upcoming meeting",
       startAt: upcoming?.startAt?.toISOString(),
@@ -172,7 +129,7 @@ function searchPattern(query: string): string {
   return `%${query.trim().replace(/[\\%_]/g, (character) => `\\${character}`).slice(0, 160)}%`;
 }
 
-export async function searchNovaWorkspace(profile: Profile, query: string): Promise<WorkspaceSearchResult[]> {
+export async function searchNovaWorkspace(profile: NovaViewer, query: string): Promise<WorkspaceSearchResult[]> {
   const pattern = searchPattern(query);
   const visibility = profile.role === "admin"
     ? isNull(conversations.deletedAt)

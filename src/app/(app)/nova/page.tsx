@@ -9,5 +9,5 @@ export default async function NovaStudioPage() {
   const profile = await getCurrentProfile();
   if (!profile?.active) redirect("/login");
   const data = await getNovaStudioData(profile);
-  return <NovaStudioView data={data} isAdmin={profile.role === "admin"} />;
+  return <NovaStudioView data={data} />;
 }
