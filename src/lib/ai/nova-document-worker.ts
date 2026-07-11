@@ -1,8 +1,6 @@
 import "server-only";
 
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { runNovaSandboxJob } from "@/lib/ai/nova-sandbox";
+import { renderNativeDocumentPdf } from "@/lib/ai/nova-native-pdf";
 
 export const NOVA_DOCUMENT_PRESETS = [
   "business_brief",
@@ -72,61 +70,17 @@ function validateSpec(spec: NovaDocumentSpec): NovaDocumentSpec {
 }
 
 
-/** Runs the fixed PDF renderer inside the same networkless worker used for all Nova scripts. */
+/** Renders model-authored content with fixed, trusted application code. */
 export async function generateNovaPdf(input: NovaDocumentSpec): Promise<GeneratedNovaDocument> {
   const spec = validateSpec(input);
-  const workerSource = await readFile(
-    resolve(process.cwd(), "scripts", "nova_document_worker.py"),
-    "utf8",
-  );
-  const result = await runNovaSandboxJob({
-    purpose: `Render designed PDF: ${spec.title}`,
-    code: workerSource,
-    args: ["--input", "document.json", "--output", "document.pdf"],
-    inputFiles: [
-      {
-        filename: "document.json",
-        mimeType: "application/json",
-        dataBase64: Buffer.from(
-          JSON.stringify({
-            title: spec.title,
-            subtitle: spec.subtitle,
-            document_type: spec.documentType,
-            audience: spec.audience,
-            preset: spec.preset,
-            layout: spec.layout,
-            content: spec.content,
-          }),
-          "utf8",
-        ).toString("base64"),
-      },
-    ],
-    expectedOutputs: ["document.pdf"],
-    // The fixed renderer normally finishes in seconds. A shorter deadline
-    // prevents a missing or unhealthy sandbox worker from holding a queue
-    // lane for several minutes.
-    timeoutSeconds: 60,
-  });
-  const output = result.files[0];
-  if (!output || output.mimeType !== "application/pdf") {
-    throw new Error("The isolated renderer did not return a PDF.");
-  }
-  const metadata = (() => {
-    try {
-      return JSON.parse(result.stdout.trim().split("\n").at(-1) || "{}") as {
-        pages?: number;
-      };
-    } catch {
-      return {};
-    }
-  })();
+  const rendered = renderNativeDocumentPdf(spec);
 
   return {
     filename: spec.filename,
     mimeType: "application/pdf",
-    dataBase64: output.dataBase64,
-    byteSize: output.byteSize,
-    pageCount: Math.max(1, metadata.pages ?? 1),
+    dataBase64: rendered.dataBase64,
+    byteSize: rendered.byteSize,
+    pageCount: rendered.pageCount,
     preset: spec.preset,
     layout: spec.layout,
   };
