@@ -47,28 +47,26 @@ type ChatMessage = {
   pendingFileName?: string;
 };
 
-// The log's time voice: 24h HH:MM, set in mono next to each entry.
+// The trace's time voice: 24h HH:MM, set in mono next to each node.
 function fmtTime(at: number) {
   return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 // ─── File cards ───────────────────────────────────────────────────────
-// Format-specific icon + data-palette color, so a returned file reads as
-// a real artifact, not another text row.
 const FORMAT_META: Record<NovaFileFormat, { icon: Icon; color: string; label: string }> = {
-  pdf: { icon: FilePdf, color: "var(--nv-coral)", label: "PDF" },
-  csv: { icon: FileCsv, color: "var(--nv-green)", label: "CSV" },
-  xlsx: { icon: FileXls, color: "var(--nv-green)", label: "XLSX" },
-  docx: { icon: FileDoc, color: "var(--nv-teal)", label: "DOCX" },
-  pptx: { icon: FilePpt, color: "var(--nv-coral)", label: "PPTX" },
-  markdown: { icon: FileText, color: "var(--nv-teal)", label: "MD" },
-  txt: { icon: FileText, color: "var(--nv-teal)", label: "TXT" },
-  json: { icon: FileCode, color: "var(--nv-violet)", label: "JSON" },
-  png: { icon: FileImage, color: "var(--nv-rose)", label: "PNG" },
-  jpg: { icon: FileImage, color: "var(--nv-rose)", label: "JPG" },
-  jpeg: { icon: FileImage, color: "var(--nv-rose)", label: "JPEG" },
-  svg: { icon: FileImage, color: "var(--nv-rose)", label: "SVG" },
-  zip: { icon: FileZip, color: "var(--nv-text-3)", label: "ZIP" },
+  pdf: { icon: FilePdf, color: "var(--nw-coral)", label: "PDF" },
+  csv: { icon: FileCsv, color: "var(--nw-green)", label: "CSV" },
+  xlsx: { icon: FileXls, color: "var(--nw-green)", label: "XLSX" },
+  docx: { icon: FileDoc, color: "var(--nw-teal)", label: "DOCX" },
+  pptx: { icon: FilePpt, color: "var(--nw-coral)", label: "PPTX" },
+  markdown: { icon: FileText, color: "var(--nw-teal)", label: "MD" },
+  txt: { icon: FileText, color: "var(--nw-teal)", label: "TXT" },
+  json: { icon: FileCode, color: "var(--nw-violet)", label: "JSON" },
+  png: { icon: FileImage, color: "var(--nw-rose)", label: "PNG" },
+  jpg: { icon: FileImage, color: "var(--nw-rose)", label: "JPG" },
+  jpeg: { icon: FileImage, color: "var(--nw-rose)", label: "JPEG" },
+  svg: { icon: FileImage, color: "var(--nw-rose)", label: "SVG" },
+  zip: { icon: FileZip, color: "var(--nw-ink-3)", label: "ZIP" },
 };
 
 function fmtBytes(n?: number) {
@@ -116,31 +114,28 @@ function FileCard({ file }: { file: NovaFile }) {
     <button
       type="button"
       onClick={() => downloadFile(file)}
-      className="group flex w-full cursor-pointer items-center gap-3 rounded-control p-2.5 text-left transition-colors duration-150"
-      style={{ background: "var(--nv-bg-2)" }}
+      className="group flex w-full cursor-pointer items-center gap-3 rounded-[12px] bg-white p-2.5 text-left transition-transform duration-150 hover:-translate-y-0.5"
+      style={{ border: "1px solid var(--nw-line)" }}
     >
       <span
         aria-hidden
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
-        style={{ background: `color-mix(in srgb, ${meta.color} 20%, var(--nv-bg-3))`, color: meta.color }}
+        style={{ background: `color-mix(in srgb, ${meta.color} 12%, white)`, color: meta.color }}
       >
         <IconEl size={19} weight="fill" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13.5px] font-semibold" style={{ color: "var(--nv-text)" }}>
+        <span className="block truncate text-[13.5px] font-semibold" style={{ color: "var(--nw-ink)" }}>
           {file.filename}.{file.format === "markdown" ? "md" : file.format}
         </span>
-        <span
-          className="block font-mono text-[10px] font-semibold uppercase tracking-[0.08em]"
-          style={{ color: "var(--nv-text-3)" }}
-        >
+        <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--nw-ink-3)" }}>
           {meta.label}
           {size ? ` · ${size}` : ""}
         </span>
       </span>
       <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill"
-        style={{ background: "color-mix(in srgb, var(--nv-teal) 18%, var(--nv-bg-3))", color: "var(--nv-teal)" }}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill text-white"
+        style={{ background: "var(--nw-teal)" }}
       >
         <DownloadSimple size={15} weight="bold" />
       </span>
@@ -148,23 +143,21 @@ function FileCard({ file }: { file: NovaFile }) {
   );
 }
 
-// ─── Tool receipts ────────────────────────────────────────────────────
-// Mutations print as mono log lines — the instrument recording what it
-// did — not as filled chips competing with the reply itself.
+// ─── Tool receipts: mono trace lines ──────────────────────────────────
 function ActionReceipts({ actions }: { actions: NovaActionLog[] }) {
   return (
-    <div className="flex flex-col gap-1.5 pt-2" style={{ borderTop: "1px solid var(--nv-line-2)" }}>
+    <div className="flex flex-col gap-1.5 pt-2" style={{ borderTop: "1px solid var(--nw-line-2)" }}>
       {actions.map((a, i) => (
         <div key={i} className="flex items-start gap-2 font-mono text-[12px] leading-relaxed">
           {a.ok ? (
-            <CheckCircle size={14} weight="fill" className="mt-[2px] shrink-0" style={{ color: "var(--nv-green)" }} />
+            <CheckCircle size={14} weight="fill" className="mt-[2px] shrink-0" style={{ color: "var(--nw-green)" }} />
           ) : (
-            <XCircle size={14} weight="fill" className="mt-[2px] shrink-0" style={{ color: "var(--nv-danger)" }} />
+            <XCircle size={14} weight="fill" className="mt-[2px] shrink-0" style={{ color: "var(--nw-danger)" }} />
           )}
-          <span className="min-w-0 font-semibold" style={{ color: "var(--nv-text)" }}>
+          <span className="min-w-0 font-semibold" style={{ color: "var(--nw-ink)" }}>
             {a.label}
             {a.detail && (
-              <span className="font-normal" style={{ color: "var(--nv-text-3)" }}>
+              <span className="font-normal" style={{ color: "var(--nw-ink-3)" }}>
                 {" "}
                 — {a.detail}
               </span>
@@ -177,95 +170,61 @@ function ActionReceipts({ actions }: { actions: NovaActionLog[] }) {
 }
 
 // ─── Working state ────────────────────────────────────────────────────
-// The queue reports coarse stages, not measurable completion. Translate
-// those real states into natural language instead of showing a fake percent.
 function workingCopy(stage: string) {
   const normalized = stage.toLowerCase();
   if (normalized.includes("upload") || normalized.includes("attachment")) {
     return {
       label: "Preparing your request",
       title: normalized.includes("reading") ? "Reading your file" : "Securing your attachment",
-      detail: normalized.includes("reading")
-        ? "Nova is working through the file before deciding what it needs."
-        : "Keeping the file private while it moves into Nova’s workspace.",
     };
   }
   if (normalized.includes("queue") || normalized.includes("submit")) {
-    return {
-      label: "Task received",
-      title: "Nova has it",
-      detail: "She’ll begin as soon as the workspace is ready.",
-    };
+    return { label: "Task received", title: "Nova has it" };
   }
   if (normalized.includes("preparing") || normalized.includes("context")) {
-    return {
-      label: "Getting oriented",
-      title: "Gathering the right context",
-      detail: "Nova is finding the workspace details that matter for this request.",
-    };
+    return { label: "Getting oriented", title: "Gathering the right context" };
   }
   if (normalized.includes("securing") || normalized.includes("result")) {
-    return {
-      label: "Nearly there",
-      title: "Finishing the handoff",
-      detail: "Nova is checking and securing the result before returning it.",
-    };
+    return { label: "Nearly there", title: "Finishing the handoff" };
   }
   if (normalized.includes("retry")) {
-    return {
-      label: "Taking another pass",
-      title: "Nova is retrying safely",
-      detail: "A temporary issue interrupted the first attempt; your task is still intact.",
-    };
+    return { label: "Taking another pass", title: "Nova is retrying safely" };
   }
   if (normalized.includes("cancel")) {
-    return {
-      label: "Wrapping up",
-      title: "Stopping the task safely",
-      detail: "Nova is closing the background work now.",
-    };
+    return { label: "Wrapping up", title: "Stopping the task safely" };
   }
-  return {
-    label: "Working in the background",
-    title: "Nova is thinking it through",
-    detail: "You can keep browsing or close this panel—she’ll be here when it’s ready.",
-  };
+  return { label: "Composing", title: "Nova is thinking it through" };
 }
 
-// A working task is a log entry still being written: the mark breathes
-// (state-conveying motion only, DESIGN.md §7) over a live mono kicker.
-function WorkingRow({ stage, onCancel }: { stage: string; onCancel: () => void }) {
+// While a request is in flight, a comet travels this segment of the
+// spine and shimmer lines stand where the readout will resolve —
+// state-conveying motion only (DESIGN.md §7).
+function WorkingEntry({ stage, onCancel }: { stage: string; onCancel: () => void }) {
   const copy = workingCopy(stage);
   const isCancelling = stage.toLowerCase().includes("cancel");
   return (
-    <div className="anim-msg-in flex flex-col gap-2" role="status" aria-live="polite" aria-atomic="true">
-      <p
-        className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em]"
-        style={{ color: "var(--nv-teal)" }}
-      >
-        <span className="nova-think-mark flex" aria-hidden>
-          <NovaMark size={13} />
-        </span>
+    <div className="relative" role="status" aria-live="polite" aria-atomic="true">
+      <span className="nova-comet" aria-hidden />
+      <p className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nw-teal)" }}>
         Nova · {copy.label}
       </p>
-      <div key={stage} className="anim-nova-stage">
-        <p className="text-[14px] font-semibold leading-snug" style={{ color: "var(--nv-text)" }}>
-          {copy.title}
-        </p>
-        <p className="mt-0.5 max-w-[36ch] text-[12.5px] leading-[1.45]" style={{ color: "var(--nv-text-2)" }}>
-          {copy.detail}
-        </p>
+      <p key={stage} className="anim-nova-stage mt-1.5 text-[14px] font-semibold leading-snug" style={{ color: "var(--nw-ink)" }}>
+        {copy.title}
+      </p>
+      <div className="mt-2.5 flex flex-col gap-1.5" aria-hidden>
+        <span className="nova-shimmer h-3 w-4/5" />
+        <span className="nova-shimmer h-3 w-3/5" />
       </div>
-      <div className="flex items-center gap-3">
-        <span className="text-[11.5px]" style={{ color: "var(--nv-text-3)" }}>
+      <div className="mt-2.5 flex items-center gap-3">
+        <span className="text-[11.5px]" style={{ color: "var(--nw-ink-3)" }}>
           {isCancelling ? "Nova will close this safely." : "Keeps running if you close this panel."}
         </span>
         {!isCancelling && (
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-8 cursor-pointer rounded-control px-2 text-[11.5px] font-bold transition-colors duration-150 hover:text-[color:var(--nv-coral)]"
-            style={{ color: "var(--nv-text-3)" }}
+            className="min-h-8 cursor-pointer rounded-control px-2 text-[11.5px] font-bold transition-colors duration-150 hover:text-[color:var(--nw-coral)]"
+            style={{ color: "var(--nw-ink-3)" }}
           >
             Cancel task
           </button>
@@ -295,9 +254,8 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     return m ? context.customers.find((c) => c.id === m[1]) : undefined;
   })();
 
-  // Esc closes; the panel deliberately does NOT close on outside click —
-  // a chat with work in flight shouldn't vanish because the page was
-  // clicked. Only Esc, the orb, or the close button dismiss it.
+  // Esc closes; the wing deliberately does NOT close on outside click —
+  // work in flight shouldn't vanish because the page was clicked.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -411,8 +369,8 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     };
   }, [activeJob]);
 
-  // The briefing is built from live workspace numbers, and the prepared
-  // queries reference real accounts and real counts — never canned copy.
+  // The briefing and prepared queries come from live workspace numbers
+  // and real accounts — never canned copy.
   const totalOpenTasks = useMemo(
     () => Object.values(context.openTaskCountByCustomer).reduce((sum, n) => sum + n, 0),
     [context.openTaskCountByCustomer],
@@ -456,9 +414,8 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
             {
               kind: "stats",
               items: [
-                { label: "Account", value: scopeCustomer.name.slice(0, 14), tone: "teal" },
                 {
-                  label: "Open tasks",
+                  label: "Open tasks here",
                   value: String(scopedOpenTasks),
                   tone: scopedOpenTasks > 0 ? "gold" : "green",
                 },
@@ -588,227 +545,252 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     );
   };
 
+  // A trace entry: a node pinned to the spine + its content.
+  const Entry = ({
+    node,
+    children,
+    className = "",
+    style,
+  }: {
+    node: React.ReactNode;
+    children: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+  }) => (
+    <div className={`relative ${className}`} style={style}>
+      <span className="nova-node top-[1px]" aria-hidden>
+        {node}
+      </span>
+      {children}
+    </div>
+  );
+
   return (
-    <div className="fixed bottom-24 right-3 z-40 flex flex-col items-end gap-3 md:bottom-6 md:right-6">
+    <>
       {open && (
         <section
           aria-label="Nova assistant"
-          className="nova-night anim-nova-panel flex h-[min(680px,calc(100dvh-6.5rem))] w-[min(452px,calc(100vw-1.5rem))] flex-col overflow-hidden"
+          className="nova-wing anim-wing-in fixed inset-y-0 right-0 z-50 flex w-full flex-col md:w-[440px]"
         >
-          {/* Header — the window's sky */}
-          <div className="nova-sky flex shrink-0 items-center gap-2.5 px-4 py-3" style={{ borderBottom: "1px solid var(--nv-line)" }}>
-            <span className="nova-orb flex h-8 w-8 shrink-0 items-center justify-center rounded-pill">
-              <NovaMark size={17} tone="white" />
-            </span>
-            <div className="min-w-0 flex-1 leading-tight">
-              <p className="text-[15px] font-semibold tracking-[-0.01em]" style={{ color: "var(--nv-text)" }}>
-                Nova
-              </p>
-              <p className="mt-0.5 truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nv-text-3)" }}>
-                {scopeCustomer ? (
-                  <>
-                    Scope · <span style={{ color: "var(--nv-teal)" }}>{scopeCustomer.name}</span>
-                  </>
-                ) : (
-                  "Scope · Whole workspace"
+          {/* The sky band */}
+          <div className="nova-wing-sky shrink-0 px-5 pb-4 pt-4" style={{ borderBottom: "1px solid var(--nw-line)" }}>
+            <div className="flex items-center justify-between">
+              <span className="anim-wing-rise" style={{ animationDelay: "60ms" }}>
+                <NovaMark size={36} />
+              </span>
+              <div className="flex items-center gap-1">
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setMessages([])}
+                    aria-label="Start a new chat"
+                    title="New chat"
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-control transition-colors duration-150 hover:bg-white/70 hover:text-[color:var(--nw-ink)]"
+                    style={{ color: "var(--nw-ink-3)" }}
+                  >
+                    <ArrowCounterClockwise size={15} />
+                  </button>
                 )}
-              </p>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close Nova"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-control transition-colors duration-150 hover:bg-white/70 hover:text-[color:var(--nw-ink)]"
+                  style={{ color: "var(--nw-ink-3)" }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
-            {messages.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setMessages([])}
-                aria-label="Start a new chat"
-                title="New chat"
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-control transition-colors duration-150 hover:bg-[color:var(--nv-bg-2)] hover:text-[color:var(--nv-text)]"
-                style={{ color: "var(--nv-text-3)" }}
-              >
-                <ArrowCounterClockwise size={15} />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close Nova"
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-control transition-colors duration-150 hover:bg-[color:var(--nv-bg-2)] hover:text-[color:var(--nv-text)]"
-              style={{ color: "var(--nv-text-3)" }}
+            <p
+              className="anim-wing-rise mt-2 text-[22px] font-semibold leading-none tracking-[-0.02em]"
+              style={{ animationDelay: "120ms", color: "var(--nw-ink)" }}
             >
-              <X size={16} />
-            </button>
+              Nova
+            </p>
+            <p
+              className="anim-wing-rise mt-1.5 truncate font-mono text-[10px] font-bold uppercase tracking-[0.12em]"
+              style={{ animationDelay: "180ms", color: "var(--nw-ink-3)" }}
+            >
+              {scopeCustomer ? (
+                <>
+                  Scope · <span style={{ color: "var(--nw-teal)" }}>{scopeCustomer.name}</span>
+                </>
+              ) : (
+                "Scope · Whole workspace"
+              )}
+            </p>
           </div>
 
-          {/* The log — queries as raised input blocks, Nova's readouts
-              printed on the night surface, exchanges ruled apart. */}
-          <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
-            {messages.length === 0 && (
-              <div className="anim-msg-in flex flex-col gap-3.5 pt-1">
-                <div className="flex items-start gap-2.5">
-                  <NovaMark size={26} className="mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--nv-text-3)" }}>
+          {/* The trace — every exchange is a node on the spine */}
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <div className="relative flex min-h-full flex-col gap-6 pl-9">
+              <span className="nova-spine" aria-hidden />
+
+              {messages.length === 0 && (
+                <>
+                  <Entry
+                    node={<NovaMark size={15} />}
+                    className="anim-wing-rise"
+                    style={{ animationDelay: "160ms" }}
+                  >
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--nw-ink-3)" }}>
                       The picture · {fmtTime(Date.now())}
                     </p>
-                    <p className="mt-1 max-w-[38ch] text-[13px] leading-relaxed" style={{ color: "var(--nv-text-2)" }}>
+                    <p className="mt-1.5 text-[17px] font-semibold leading-snug tracking-[-0.015em]" style={{ color: "var(--nw-ink)" }}>
+                      {scopeCustomer
+                        ? `Reading ${scopeCustomer.name}.`
+                        : totalOpenTasks > 0
+                          ? "The chart is live — here’s where it stands."
+                          : "All quiet on the chart."}
+                    </p>
+                    <div className="mt-2.5">
+                      <NovaBlocks blocks={briefingBlocks} onPrompt={(q) => void send(q)} />
+                    </div>
+                    <p className="mt-2.5 max-w-[40ch] text-[13px] leading-relaxed" style={{ color: "var(--nw-ink-2)" }}>
                       {scopeCustomer
                         ? `I can read everything filed on ${scopeCustomer.name} and work the records — or take a file in and hand one back.`
-                        : "I read every conversation, work the records, and trade files. Ask, or hand me a chore."}
+                        : "I read every conversation, work the records, and trade files. Log an entry below, or start from one of these."}
                     </p>
-                  </div>
-                </div>
-                <NovaBlocks blocks={briefingBlocks} onPrompt={(q) => void send(q)} />
-                <div className="overflow-hidden rounded-control" style={{ border: "1px solid var(--nv-line-2)" }}>
+                  </Entry>
                   {suggestions.map((s, idx) => (
-                    <button
+                    <Entry
                       key={s}
-                      type="button"
-                      onClick={() => void send(s)}
-                      className="flex w-full cursor-pointer items-baseline gap-2 px-3 py-2 text-left text-[13px] font-medium transition-colors duration-150 hover:bg-[color:var(--nv-bg-2)] hover:text-[color:var(--nv-text)]"
-                      style={{
-                        color: "var(--nv-text-2)",
-                        borderTop: idx > 0 ? "1px solid var(--nv-line-2)" : undefined,
-                      }}
+                      node={<span className="nova-node-ghost" />}
+                      className="anim-wing-rise"
+                      style={{ animationDelay: `${260 + idx * 70}ms` }}
                     >
-                      <span aria-hidden className="font-mono text-[11px] font-bold" style={{ color: "var(--nv-teal)" }}>
-                        ▸
-                      </span>
-                      <span className="min-w-0">{s}</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => void send(s)}
+                        className="-my-1 cursor-pointer rounded-control px-1 py-1 text-left text-[13.5px] font-medium transition-colors duration-150 hover:text-[color:var(--nw-teal-deep)]"
+                        style={{ color: "var(--nw-ink-2)" }}
+                      >
+                        {s}
+                      </button>
+                    </Entry>
                   ))}
-                </div>
-              </div>
-            )}
+                </>
+              )}
 
-            {messages.map((m, i) =>
-              m.role === "user" ? (
-                <div key={i} className="anim-msg-in" style={i > 0 ? { borderTop: "1px solid var(--nv-line-2)", paddingTop: 16 } : undefined}>
-                  <div className="rounded-control px-3 py-2" style={{ background: "var(--nv-bg-2)" }}>
-                    <p className="mb-1 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nv-text-3)" }}>
+              {messages.map((m, i) =>
+                m.role === "user" ? (
+                  <Entry key={i} node={<span className="nova-node-port" />} className="anim-wing-rise">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nw-ink-3)" }}>
                       You · {fmtTime(m.at)}
                       {m.pendingFileName && (
-                        <span className="flex min-w-0 items-center gap-1 truncate normal-case tracking-normal">
+                        <span className="ml-2 inline-flex max-w-[60%] items-center gap-1 truncate align-bottom normal-case tracking-normal">
                           <Paperclip size={11} className="shrink-0" />
                           {m.pendingFileName}
                         </span>
                       )}
                     </p>
-                    <NovaMarkdown content={m.content} tone="user" />
-                  </div>
-                </div>
-              ) : (
-                <div key={i} className="anim-msg-in flex flex-col gap-2">
-                  <p className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nv-text-3)" }}>
-                    <NovaMark size={13} className="shrink-0" />
-                    Nova · {fmtTime(m.at)}
-                  </p>
-                  <div className="flex min-w-0 flex-col gap-2.5">
-                    {m.headline && (
-                      <p className="text-[15px] font-semibold leading-snug tracking-[-0.01em]" style={{ color: "var(--nv-text)" }}>
-                        {m.headline}
-                      </p>
-                    )}
-                    {m.content.trim() && <NovaMarkdown content={m.content} tone="assistant" />}
-                    {m.blocks && m.blocks.length > 0 && <NovaBlocks blocks={m.blocks} onPrompt={(q) => void send(q)} />}
-                    {m.actions && m.actions.length > 0 && <ActionReceipts actions={m.actions} />}
-                    {m.files && m.files.length > 0 && (
-                      <div className="flex flex-col gap-1.5">
-                        {m.files.map((f, fi) => (
-                          <FileCard key={fi} file={f} />
-                        ))}
-                      </div>
-                    )}
-                    {m.confirmations && m.confirmations.length > 0 && (
-                      <div className="flex flex-col gap-2">
-                        {m.confirmations.map((confirmation) => (
-                          <div
-                            key={confirmation.token}
-                            className="rounded-control p-3"
-                            style={{
-                              background: "color-mix(in srgb, var(--nv-danger) 12%, var(--nv-bg-2))",
-                              border: "1px solid color-mix(in srgb, var(--nv-danger) 32%, transparent)",
-                            }}
-                          >
-                            <p className="flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--nv-danger)" }}>
-                              <ShieldWarning size={14} weight="fill" />
-                              {confirmation.label}
-                            </p>
-                            <p className="mt-1 text-[12.5px] leading-relaxed" style={{ color: "var(--nv-text-2)" }}>
-                              {confirmation.detail}
-                            </p>
-                            <div className="mt-2.5 flex items-center gap-2">
-                              <button
-                                type="button"
-                                disabled={confirmingToken !== null}
-                                onClick={() => void confirmAction(i, confirmation)}
-                                className="cursor-pointer rounded-control px-3 py-1.5 text-[12.5px] font-bold text-white transition-opacity duration-150 hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
-                                style={{ background: "var(--nv-danger)" }}
-                              >
-                                {confirmingToken === confirmation.token ? "Checking permission…" : "Confirm"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => dismissConfirmation(i, confirmation.token)}
-                                className="cursor-pointer rounded-control px-2.5 py-1.5 text-[12.5px] font-bold transition-colors duration-150 hover:bg-[color:var(--nv-bg-3)]"
-                                style={{ color: "var(--nv-text-2)" }}
-                              >
-                                Keep it
-                              </button>
+                    <div className="mt-1" style={{ color: "var(--nw-ink-2)" }}>
+                      <NovaMarkdown content={m.content} tone="user" />
+                    </div>
+                  </Entry>
+                ) : (
+                  <Entry key={i} node={<NovaMark size={15} />} className="anim-wing-rise">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nw-ink-3)" }}>
+                      Nova · {fmtTime(m.at)}
+                    </p>
+                    <div className="mt-1.5 flex min-w-0 flex-col gap-2.5">
+                      {m.headline && (
+                        <p className="anim-resolve text-[17px] font-semibold leading-snug tracking-[-0.015em]" style={{ color: "var(--nw-ink)" }}>
+                          {m.headline}
+                        </p>
+                      )}
+                      {m.content.trim() && <NovaMarkdown content={m.content} tone="assistant" />}
+                      {m.blocks && m.blocks.length > 0 && (
+                        <NovaBlocks blocks={m.blocks} onPrompt={(q) => void send(q)} stagger={i === messages.length - 1} />
+                      )}
+                      {m.actions && m.actions.length > 0 && <ActionReceipts actions={m.actions} />}
+                      {m.files && m.files.length > 0 && (
+                        <div className="flex flex-col gap-1.5">
+                          {m.files.map((f, fi) => (
+                            <FileCard key={fi} file={f} />
+                          ))}
+                        </div>
+                      )}
+                      {m.confirmations && m.confirmations.length > 0 && (
+                        <div className="flex flex-col gap-2">
+                          {m.confirmations.map((confirmation) => (
+                            <div
+                              key={confirmation.token}
+                              className="rounded-[12px] p-3"
+                              style={{
+                                background: "color-mix(in srgb, var(--nw-danger) 7%, white)",
+                                border: "1px solid color-mix(in srgb, var(--nw-danger) 28%, transparent)",
+                              }}
+                            >
+                              <p className="flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--nw-danger)" }}>
+                                <ShieldWarning size={14} weight="fill" />
+                                {confirmation.label}
+                              </p>
+                              <p className="mt-1 text-[12.5px] leading-relaxed" style={{ color: "var(--nw-ink-2)" }}>
+                                {confirmation.detail}
+                              </p>
+                              <div className="mt-2.5 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  disabled={confirmingToken !== null}
+                                  onClick={() => void confirmAction(i, confirmation)}
+                                  className="cursor-pointer rounded-control px-3 py-1.5 text-[12.5px] font-bold text-white transition-opacity duration-150 hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+                                  style={{ background: "var(--nw-danger)" }}
+                                >
+                                  {confirmingToken === confirmation.token ? "Checking permission…" : "Confirm"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => dismissConfirmation(i, confirmation.token)}
+                                  className="cursor-pointer rounded-control px-2.5 py-1.5 text-[12.5px] font-bold transition-colors duration-150 hover:bg-[color:var(--nw-bg-2)]"
+                                  style={{ color: "var(--nw-ink-2)" }}
+                                >
+                                  Keep it
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ),
-            )}
-            {sending && <WorkingRow stage={jobStage} onCancel={() => void cancelActiveJob()} />}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </Entry>
+                ),
+              )}
+              {sending && <WorkingEntry stage={jobStage} onCancel={() => void cancelActiveJob()} />}
+            </div>
           </div>
 
-          {/* Composer */}
-          <div className="shrink-0 p-3" style={{ borderTop: "1px solid var(--nv-line)" }}>
+          {/* The prompt line */}
+          <div
+            className="shrink-0 px-5 pt-3 pb-[max(0.9rem,env(safe-area-inset-bottom))]"
+            style={{ borderTop: "1px solid var(--nw-line)" }}
+          >
             {pendingFile && (
               <div
-                className="anim-msg-in mb-2 flex items-center gap-2 rounded-control px-3 py-1.5 text-[12.5px] font-semibold"
-                style={{ background: "var(--nv-bg-2)", color: "var(--nv-text-2)" }}
+                className="anim-wing-rise mb-2 flex items-center gap-2 rounded-control px-3 py-1.5 text-[12.5px] font-semibold"
+                style={{ background: "var(--nw-bg-2)", color: "var(--nw-ink-2)" }}
               >
-                <Paperclip size={13} className="shrink-0" style={{ color: "var(--nv-teal)" }} />
+                <Paperclip size={13} className="shrink-0" style={{ color: "var(--nw-teal)" }} />
                 <span className="min-w-0 flex-1 truncate">{pendingFile.name}</span>
-                <span className="shrink-0 font-mono text-[10px]" style={{ color: "var(--nv-text-3)" }}>
+                <span className="shrink-0 font-mono text-[10px]" style={{ color: "var(--nw-ink-3)" }}>
                   {fmtBytes(pendingFile.size)}
                 </span>
                 <button
                   type="button"
                   onClick={() => setPendingFile(null)}
                   aria-label="Remove attached file"
-                  className="shrink-0 cursor-pointer hover:text-[color:var(--nv-text)]"
-                  style={{ color: "var(--nv-text-3)" }}
+                  className="shrink-0 cursor-pointer hover:text-[color:var(--nw-ink)]"
+                  style={{ color: "var(--nw-ink-3)" }}
                 >
                   <X size={13} />
                 </button>
               </div>
             )}
-            <div className="flex items-end gap-1.5 rounded-control p-1.5" style={{ background: "var(--nv-bg-2)" }}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv,.ods,.docx,.odt,.pptx,.pdf,.txt,.md,.json,.png,.jpg,.jpeg,.svg,.zip"
-                className="sr-only"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) setPendingFile(file);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                aria-label="Attach a file"
-                title="Attach a file"
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] transition-colors duration-150 hover:bg-[color:var(--nv-bg-3)] hover:text-[color:var(--nv-text)]"
-                style={{ color: "var(--nv-text-3)" }}
-              >
-                <Paperclip size={16} />
-              </button>
+            <div className="flex items-end gap-2">
+              <span aria-hidden className="pb-2.5 font-mono text-[13px] font-bold" style={{ color: "var(--nw-teal)" }}>
+                ▸
+              </span>
               <label className="sr-only" htmlFor="nova-input">
                 Ask Nova
               </label>
@@ -828,16 +810,37 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                 }}
                 placeholder={scopeCustomer ? `Ask about ${scopeCustomer.name}, or hand me a chore…` : "Ask, or hand me a chore…"}
                 rows={1}
-                className="max-h-[120px] w-full resize-none self-center bg-transparent px-1 py-1.5 text-[14px] leading-snug outline-none placeholder:text-[color:var(--nv-text-3)]"
-                style={{ color: "var(--nv-text)" }}
+                className="max-h-[120px] w-full resize-none self-center bg-transparent py-2 text-[14px] leading-snug outline-none placeholder:text-[color:var(--nw-ink-3)]"
+                style={{ color: "var(--nw-ink)" }}
               />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv,.ods,.docx,.odt,.pptx,.pdf,.txt,.md,.json,.png,.jpg,.jpeg,.svg,.zip"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setPendingFile(file);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Attach a file"
+                title="Attach a file"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-control transition-colors duration-150 hover:bg-[color:var(--nw-bg-2)] hover:text-[color:var(--nw-ink)]"
+                style={{ color: "var(--nw-ink-3)" }}
+              >
+                <Paperclip size={16} />
+              </button>
               <button
                 type="button"
                 onClick={() => void send()}
                 disabled={sending || (!draft.trim() && !pendingFile)}
                 aria-label="Send"
-                className="nova-glow-teal flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] transition-opacity duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none"
-                style={{ background: "var(--nv-teal)", color: "#06251f" }}
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-pill text-white transition-transform duration-150 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0"
+                style={{ background: "var(--nw-teal)" }}
               >
                 <PaperPlaneTilt size={15} weight="bold" />
               </button>
@@ -846,18 +849,20 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
         </section>
       )}
 
-      {/* The orb */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-label={open ? "Close Nova" : "Open Nova"}
-        className={`nova-orb rise-on-hover flex h-13 w-13 cursor-pointer items-center justify-center rounded-pill text-white shadow-[0_14px_28px_-14px_rgba(23,32,43,0.45)] ${
-          sending ? "nova-orb-busy" : ""
-        }`}
-      >
-        {open ? <X size={20} weight="bold" /> : <NovaMark size={26} tone="white" />}
-      </button>
-    </div>
+      {/* The orb — closed-state trigger only; the wing replaces it while open */}
+      {!open && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-expanded={open}
+          aria-label="Open Nova"
+          className={`nova-orb rise-on-hover fixed bottom-24 right-3 z-40 flex h-13 w-13 cursor-pointer items-center justify-center rounded-pill text-white shadow-[0_14px_28px_-14px_rgba(23,32,43,0.45)] md:bottom-6 md:right-6 ${
+            sending ? "nova-orb-busy" : ""
+          }`}
+        >
+          <NovaMark size={26} tone="white" />
+        </button>
+      )}
+    </>
   );
 }

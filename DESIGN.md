@@ -12,9 +12,8 @@ This file is the gate: no UI ships that violates it.
 
 - The whole app is light. The shell (rail + topbar) is not distinguished from
   content by darkness — it reads as a distinct zone through a hairline border
-  and a subtle tonal shift (`--shell` vs `--page`), nothing more. The single
-  sanctioned exception is Nova's Night Window (§7c): the assistant's dock is
-  the one dark surface in the product, and nothing else may borrow that.
+  and a subtle tonal shift (`--shell` vs `--page`), nothing more. This holds
+  everywhere, including Nova's Wing (§7c) — there is no dark surface anywhere.
 - Validation stages get a literal meteorological glyph system: Interview is a
   cold front, Review is a warm front, Decision is an occluded front, Signed is
   a high-pressure system. This is the one deliberate hand-rolled-icon
@@ -140,45 +139,60 @@ Nova's mark is a four-ray stellar nova with a tilted orbital ring
 exception alongside the rail's pressure-ring glyph. It wears the aurora
 gradient (§5).
 
-### 7c. Nova's Night Window
+### 7c. Nova's Wing
 
-Nova is a star, and her dock is the one place the instrument looks at
-the night sky: the app's **single sanctioned dark surface**, styled
-entirely from the `--nv-*` tokens scoped on `.nova-night` in
-`globals.css` — never from the light tokens, and the light app never
-borrows the night tokens back. Surfaces `#0C1424 / #142038 / #1B2A49`,
-text `#EAF1FC / #AEBFDA / #8296B4`, hairlines in translucent slate. On
-the night surface the aurora palette glows at full saturation instead
-of paper-wash percentages: **teal `#34D9C4` is Nova's own interactive
-accent** (send, links, focus rings, next-move chips — the app's flat
-blue never appears inside the window), with violet `#9AA0F4`, rose
-`#EE9CC3`, green `#4AD695`, coral `#FF8E73`, gold `#EEC568` as the
-window's tone palette. A static aurora glow (`.nova-sky`) sits along
-the header's top edge — ambient, never animated while idle; motion
-stays state-conveying only (§7).
+Nova is not a floating chat card: she is a **full-height wing that
+sweeps in from the right edge** of the instrument (`.nova-wing`,
+fixed inset-y-0 right-0, 440px on desktop, full-width on mobile),
+light and pearlescent like the rest of the app. She has her own scoped
+token set (`--nw-*` in `globals.css`): near-white surfaces
+`#FCFDFF / #F3F6FC / #E9EEF8`, ink text, and **deep teal `#0E8C7F` as
+Nova's own interactive color** — send, links, focus, next-move chips;
+the app's flat blue never appears inside the wing, and the wing's
+tokens never leak back out. Tone palette (all AA-grade on white):
+violet `#5D5FC7`, rose `#B85F8E`, green `#1F9D5C`, coral `#C05430`,
+gold `#9C7311`.
 
-The window is an **observation log, not a bubble chat**: queries sit in
-raised `--nv-bg-2` blocks under a mono "YOU · HH:MM" kicker, Nova's
-replies print straight on the night surface under her mark and a mono
-"NOVA · HH:MM" kicker, exchanges rule apart with hairlines. The empty
-state is a briefing — live workspace numbers rendered as stat cells
-plus prepared queries derived from real data, never canned pills.
+**The sky band.** The wing's header is Nova's sanctioned aurora spot
+(§5) at full pearlescence — mother-of-pearl washes over white
+(`.nova-wing-sky`), with her mark large and a display-size "Nova"
+wordmark. On open, a single white sheen sweeps across it once as part
+of the entrance; idle, the sky is still.
+
+**The spine.** The conversation is a **trace, not a bubble chat**: an
+aurora-gradient thread (`.nova-spine`) draws top-to-bottom on open and
+every exchange pins to it as a node — hollow ports for the user's
+entries, Nova's star for her readouts, dashed ghost nodes for the
+prepared queries in the empty state. Entries carry mono
+"YOU / NOVA · HH:MM" kickers and print straight on the paper — no
+colored bubbles, no per-message avatars.
+
+**Motion choreography** (all state- or entrance-conveying, §7; reduced
+motion collapses everything): the wing sweeps in (340ms), the spine
+draws (600ms), sky contents and entries rise in a stagger; headlines
+resolve blur→sharp (`.anim-resolve`); while a request is in flight a
+**comet travels the spine** and shimmer lines stand where the readout
+will land; the next-move chip pulses its teal glow exactly once when
+it appears. Nothing loops while idle.
 
 **Structured answers.** Substantive readings arrive as typed blocks
 (`nova-blocks.ts` protocol, composed by the agent's `present_answer`
-tool, rendered by `nova-answer-blocks.tsx`): a bold one-line headline;
-**stat cells** (mono colored number + small mono label); **entity
+tool, rendered by `nova-answer-blocks.tsx`), rising in a stagger on
+the newest reply: a display-weight one-line headline; **stat cells**
+(21px colored number, tone-dot mono label, white card); **entity
 cards** (tone dot, title, the-one-thing-that-matters subtitle, meta
 chips); **task rows** (checkbox squares, who/due in mono); at most one
 **callout** (info=teal, win=green, warn=gold, risk=coral — tinted
-panel, colored icon kicker); and at most one **next-move chip** (teal
-pill, tap sends its prompt back to Nova) which replaces the prose
-closing offer. Tones carry meaning (green=healthy, coral=problem,
-gold=watch), never decoration. Tool runs print as mono log lines with
-green/red state icons; files are format-colored artifact cards;
-destructive confirmations are danger-tinted cards with an explicit
-Confirm / Keep it choice. Plain markdown remains the fallback for
-quick facts and casual turns.
+white panel, colored icon kicker); and at most one **next-move chip**
+(solid teal pill, tap sends its prompt back to Nova) which replaces
+the prose closing offer. Tones carry meaning (green=healthy,
+coral=problem, gold=watch), never decoration. Tool runs print as mono
+trace lines with green/red state icons; files are format-colored
+artifact cards; destructive confirmations are danger-tinted cards with
+an explicit Confirm / Keep it choice. Plain markdown remains the
+fallback for quick facts and casual turns. The empty state is a
+briefing — live workspace numbers as stat cells plus prepared queries
+derived from real data, never canned pills.
 
 ## 8. Typography and copy
 
