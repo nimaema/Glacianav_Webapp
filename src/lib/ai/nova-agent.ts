@@ -152,6 +152,26 @@ function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+// Strip hidden characters that quietly corrupt copied contact data — soft
+// hyphens and zero-width spaces show up in spreadsheet emails (e.g.
+// "arc­tia.fi") and break the address without being visible.
+function stripHidden(value: string): string {
+  return value.replace(/[­​‌‍﻿]/g, "");
+}
+
+// Pull one clean email out of a messy cell: "x@y.fi <x@y.fi>",
+// "x@y.fi, +358 50 …", or a stray label around the address.
+function cleanEmail(raw: string): string {
+  const match = stripHidden(raw).match(/[^\s,;<>]+@[^\s,;<>]+\.[^\s,;<>]+/);
+  return match ? match[0].replace(/[.,;]+$/, "") : "";
+}
+
+// Pull a phone number out of a cell that may also hold an email or label.
+function cleanPhone(raw: string): string {
+  const match = stripHidden(raw).match(/\+?\d[\d()\s./-]{5,}\d/);
+  return match ? match[0].trim() : "";
+}
+
 function asksForLatestRecordingPdf(question: string) {
   const normalized = question.toLowerCase();
   return (
@@ -471,8 +491,8 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
       name,
       role: str(a.role) || undefined,
       customerId,
-      email: str(a.email) || undefined,
-      phone: str(a.phone) || undefined,
+      email: cleanEmail(str(a.email)) || undefined,
+      phone: cleanPhone(str(a.phone)) || undefined,
       linkedin: str(a.linkedin) || undefined,
     });
     return { label: "Created contact", detail: name, ok: true };
@@ -558,9 +578,19 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
       existingContacts.map((c) => `${c.name.toLowerCase()}|${(c.email ?? "").toLowerCase()}`),
     );
     const channels = new Set(["email", "phone", "linkedin"]);
+    // When a contact names a company that doesn't exist yet, create it (once)
+    // so the person links to a real account instead of dangling — this is what
+    // makes a flat people-list import into a proper company→contacts tree.
+    // On by default; Nova can pass false to leave unmatched names unlinked.
+    const createMissing = a.create_missing_companies !== false;
+    const defaultSegment = ctx.segments[0];
+    const defaultOwner = ctx.owners[0];
+    const defaultStage = ctx.stages[0]?.key ?? null;
+    const newCompanies: (typeof customers.$inferInsert)[] = [];
+    const createdCompanyId = new Map<string, string>();
+    const unmatchedCustomers = new Set<string>();
     const values: (typeof contacts.$inferInsert)[] = [];
     const stamp = Date.now().toString(36);
-    const unmatchedCustomers = new Set<string>();
     let skipped = 0;
     let index = 0;
     for (const row of rows) {
@@ -569,7 +599,7 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
         skipped++;
         continue;
       }
-      const email = str(row.email);
+      const email = cleanEmail(str(row.email));
       const key = `${name.toLowerCase()}|${email.toLowerCase()}`;
       if (seen.has(key)) {
         skipped++;
@@ -577,10 +607,27 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
       }
       seen.add(key);
       let customerId: string | undefined;
-      if (row.customer) {
-        const match = findByName(customerRows, str(row.customer));
+      const companyName = str(row.customer);
+      if (companyName) {
+        const lower = companyName.toLowerCase();
+        const match = findByName(customerRows, companyName);
         if (match) customerId = match.id;
-        else unmatchedCustomers.add(str(row.customer));
+        else if (createdCompanyId.has(lower)) customerId = createdCompanyId.get(lower);
+        else if (createMissing && defaultSegment && defaultOwner) {
+          const cid = `${slugify(companyName) || "company"}-${stamp}-co${newCompanies.length}`;
+          newCompanies.push({
+            id: cid,
+            name: companyName,
+            kind: "company",
+            segmentId: defaultSegment.id,
+            stage: defaultStage,
+            ownerId: defaultOwner.id,
+          });
+          createdCompanyId.set(lower, cid);
+          customerId = cid;
+        } else {
+          unmatchedCustomers.add(companyName);
+        }
       }
       const channel = str(row.preferred_channel).toLowerCase();
       values.push({
@@ -589,7 +636,7 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
         role: str(row.role) || undefined,
         customerId,
         email: email || undefined,
-        phone: str(row.phone) || undefined,
+        phone: cleanPhone(str(row.phone)) || undefined,
         linkedin: str(row.linkedin) || undefined,
         preferredChannel: channels.has(channel)
           ? (channel as "email" | "phone" | "linkedin")
@@ -600,10 +647,13 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
     if (values.length === 0) {
       throw new Error(`nothing to import — all ${rows.length} row(s) were empty or already exist`);
     }
+    // Create any new companies first so the contacts' customer_id references resolve.
+    if (newCompanies.length) await insertInChunks(customers, newCompanies);
     await insertInChunks(contacts, values);
     const notes = [
-      skipped ? `Skipped ${skipped} (empty or duplicate)` : "",
-      unmatchedCustomers.size ? `${unmatchedCustomers.size} unmatched company name(s) left unlinked` : "",
+      newCompanies.length ? `Created ${newCompanies.length} new compan${newCompanies.length === 1 ? "y" : "ies"} to link them under` : "",
+      skipped ? `skipped ${skipped} (no name or duplicate)` : "",
+      unmatchedCustomers.size ? `${unmatchedCustomers.size} company name(s) left unlinked` : "",
     ].filter(Boolean);
     return {
       label: `Imported ${values.length} contact${values.length === 1 ? "" : "s"}`,
@@ -1077,7 +1127,7 @@ const TOOL_SCHEMAS: ToolSchema[] = [
   ),
   fn(
     "bulk_create_contacts",
-    "Import MANY contacts (people) at once from an uploaded spreadsheet or list — e.g. a Contact.xlsx. Read every real row yourself from the file content already in context; do not ask the user to reformat it and do not use the Python lab for this (it cannot write to the workspace). Existing contacts and blank rows are skipped automatically.",
+    "Import MANY contacts (people) at once from an uploaded spreadsheet or list — e.g. a Contact.xlsx. Read every real row yourself from the file content already in context; do not ask the user to reformat it and do not use the Python lab for this (it cannot write to the workspace). Existing contacts and blank rows are skipped automatically, emails/phones are cleaned, and by default any company named in a row that doesn't exist yet is created so the person links to a real account.",
     {
       rows: {
         type: "array",
@@ -1086,15 +1136,16 @@ const TOOL_SCHEMAS: ToolSchema[] = [
           type: "object",
           properties: {
             name: p("string", "Full name — required."),
-            role: p("string", "Their role/title, if present."),
-            customer: p("string", "Company/customer name to link them to, if present (fuzzy match to an existing customer)."),
-            email: p("string", "Email, if present."),
+            role: p("string", "Their role/title, if present (e.g. \"Captain at Arctia\")."),
+            customer: p("string", "The person's company/employer, if known — even if it isn't its own row, extract it from a title like \"Captain at Arctia\". People at the same company all link to one account."),
+            email: p("string", "Email, if present. A messy cell like \"x@y.fi <x@y.fi>\" or \"x@y.fi, +358 …\" is cleaned automatically."),
             phone: p("string", "Phone, if present."),
             linkedin: p("string", "LinkedIn URL, if present."),
-            preferred_channel: p("string", '"email", "phone", or "linkedin", if known.'),
+            preferred_channel: p("string", 'Only the keyword "email", "phone", or "linkedin". Do NOT put an actual email/phone here — those go in the email/phone fields.'),
           },
         },
       },
+      create_missing_companies: p("boolean", "Default true: auto-create a company account for any employer named in a row that doesn't exist yet, and link the person to it. Pass false to leave unknown companies unlinked."),
     },
     ["rows"],
   ),
@@ -1252,10 +1303,12 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
     `- The hierarchy is: Segment → Customers (company or individual) → Contacts (the people at a company). Tasks, validation notes, and conversations also hang off customers.`,
     ``,
     `Importing a spreadsheet or list of records — the playbook:`,
-    `- The file's rows are already parsed into the text above. First CLASSIFY every row: a company (an organisation name, often with a website/industry/country), an individual customer (a lone validated person with no employer column), or a contact (a person whose row names a company that also appears in the file, or has a job title/email under an org).`,
-    `- Collapse duplicates: one company may appear across several people-rows. Create each company ONCE, then attach all of its people as separate contacts — never make the same company twice, and never turn a person into a company.`,
-    `- Create in dependency order so links resolve: (1) call bulk_create_customers for the companies AND individuals (set kind per row), THEN (2) call bulk_create_contacts for the people, setting each contact's "customer" to its company name so they link to the account you just made. A person whose company isn't in the file is created as an unlinked contact.`,
-    `- Infer the column mapping yourself; if it's ambiguous, state in one line how you read the columns and proceed — never ask the user to reformat their file. Finish with present_answer summarising how many companies, individuals, and contacts you created and how they were linked.`,
+    `- The file's rows are already parsed into the text above. Real sheets are usually a FLAT list of people, not tidy company/contact rows. Read the columns first and map them: a person's name; their role/title; their company; email; phone; owner; etc.`,
+    `- The company is often NOT its own row — it's embedded in a title like "Captain at Arctia" or "SVP, Icebreaking at Arctia", or it's absent. Extract the employer from the title when present and pass it as that contact's "customer". People who share an employer (six "at Arctia") all link to ONE Arctia account. Many rows will have no company at all — that's fine, they import as unlinked people.`,
+    `- Watch for overloaded columns. A column labelled Channel / Contact / Method usually holds the actual email or phone, not a keyword — route an address to email, a number to phone, and set preferred_channel only for the literal words email/phone/linkedin. Don't drop the address into preferred_channel.`,
+    `- The simplest correct path for a people-list is ONE bulk_create_contacts call: it cleans emails/phones and auto-creates any named company that doesn't exist yet, then links the person to it — so a flat list becomes a proper company→contacts tree in a single call. Use bulk_create_customers first only when the file genuinely has standalone company/individual rows with their own fields (segment, stage, website).`,
+    `- Never silently drop rows: report how many had no name (they can't become a contact) and how many companies you created. Columns the model has no field for — outreach status, dates, persona/profile codes, free-text notes — cannot live on a contact; say so in your summary rather than forcing them in.`,
+    `- Infer the mapping yourself; if it's ambiguous, state in one line how you read the columns and proceed — never ask the user to reformat their file. Finish with present_answer summarising companies created, contacts imported, how they linked, and anything you couldn't store.`,
     ``,
     `Guidelines:`,
     `- For any factual/"how many"/"which ones" question about the workspace, call a read tool FIRST — don't guess, and don't say you can't check. Use search_workspace_evidence for cross-conversation claims or remembered phrases, and get_validation_hypotheses when the question is about what evidence supports or challenges a product belief.`,
