@@ -16,6 +16,7 @@ export interface SyncResult {
   eventsAdded: number;
   eventsUpdated: number;
   eventsDeleted: number;
+  eventsFailed?: number;
   error?: string;
 }
 
@@ -71,6 +72,7 @@ export async function syncCalendarFeed(
     let eventsAdded = 0;
     let eventsUpdated = 0;
     let eventsDeleted = 0;
+    let eventsFailed = 0;
 
     // Get existing events for this feed
     const existingEvents = await db.query.calendarEvents.findMany({
@@ -82,11 +84,14 @@ export async function syncCalendarFeed(
     );
     const processedUids = new Set<string>();
 
-    // Upsert events from the feed
+    // Upsert events from the feed. Each event is isolated in its own try/catch
+    // so one malformed event (e.g. a missing field that trips a DB constraint)
+    // is logged and skipped instead of aborting the entire feed sync.
     for (const icsEvent of expandedEvents) {
       const uid = icsEvent.uid;
       processedUids.add(uid);
 
+      try {
       const existing = existingEventMap.get(uid);
 
       // Calculate event dates
@@ -134,23 +139,26 @@ export async function syncCalendarFeed(
         // Insert new event
         // Generate a proper UUID for the id
         const eventId = randomUUID();
-        try {
-          await db.insert(calendarEvents).values({
-            id: eventId,
-            feedId,
-            ownerId: feed.ownerId,
-            icsUid: uid,
-            title: icsEvent.summary,
-            startAt,
-            endAt,
-            allDay,
-            kind,
-          });
-          eventsAdded++;
-        } catch (insertError) {
-          console.error(`[Calendar Sync] Insert error for "${icsEvent.summary}":`, insertError);
-          throw insertError;
-        }
+        await db.insert(calendarEvents).values({
+          id: eventId,
+          feedId,
+          ownerId: feed.ownerId,
+          icsUid: uid,
+          title: icsEvent.summary,
+          startAt,
+          endAt,
+          allDay,
+          kind,
+        });
+        eventsAdded++;
+      }
+      } catch (eventError) {
+        // Isolate the failure to this event and keep syncing the rest.
+        eventsFailed++;
+        console.error(
+          `[Calendar Sync] Skipped event "${icsEvent.summary ?? "(untitled)"}" (uid=${uid}):`,
+          eventError instanceof Error ? eventError.message : eventError,
+        );
       }
     }
 
@@ -173,11 +181,16 @@ export async function syncCalendarFeed(
       .where(eq(calendarFeeds.id, feedId));
 
 
+    if (eventsFailed > 0) {
+      console.warn(`[Calendar Sync] Feed ${feedId}: ${eventsFailed} event(s) skipped due to errors.`);
+    }
+
     return {
       success: true,
       eventsAdded,
       eventsUpdated,
       eventsDeleted,
+      eventsFailed,
     };
 
   } catch (error) {

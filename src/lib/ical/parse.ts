@@ -1,6 +1,9 @@
 // ICS (iCalendar) parser for calendar feed synchronization
 // Handles VEVENT components, RRULE recurrence, and proper timezone handling
 
+import { DateTime } from "luxon";
+import { resolveIanaZone } from "./windows-timezones";
+
 export interface IcsEvent {
   uid: string; // ICS UID for idempotent sync
   summary: string; // Event title
@@ -26,49 +29,77 @@ export interface IcsCalendar {
 }
 
 /**
- * Parse ICS date/time string
+ * Extract the TZID parameter from an ICS property's key part.
+ * e.g. `DTSTART;TZID=FLE Standard Time` -> "FLE Standard Time".
+ * Handles both quoted (`TZID="..."`) and bare values, and TZID appearing
+ * alongside other parameters.
+ */
+function extractTzid(keyPart: string): string | undefined {
+  const match = keyPart.match(/TZID=(?:"([^"]+)"|([^;:]+))/i);
+  return match ? (match[1] || match[2]).trim() : undefined;
+}
+
+/**
+ * Parse ICS date/time string into a correct UTC instant.
  * Supports: YYYYMMDD, YYYYMMDDTHHMMSSZ, YYYYMMDDTHHMMSS
  * Also handles parameterized formats like DTSTART;VALUE=DATE:YYYYMMDD
  *
- * Note: For all-day events, DTEND is the exclusive end (first day NOT in the event).
- * Some feeds incorrectly use the same value for DTSTART and DTEND; the sync
- * service normalizes those zero-duration events to one day.
+ * Timezone resolution for timed values, in priority order:
+ *   1. `Z` suffix -> UTC.
+ *   2. `tzid` (from the property's TZID param) -> resolved via the Windows/IANA
+ *      map. Microsoft feeds use Windows names like "FLE Standard Time".
+ *   3. `fallbackZone` (the calendar's X-WR-TIMEZONE) for floating times.
+ *   4. UTC as a last resort so results are deterministic regardless of the
+ *      server's local timezone (the previous behaviour silently used the
+ *      server TZ, shifting every event by the server<->calendar offset).
+ *
+ * Note: For all-day events, DTEND is the exclusive end (first day NOT in the
+ * event). Some feeds incorrectly use the same value for DTSTART and DTEND; the
+ * sync service normalizes those zero-duration events to one day.
  */
-function parseIcsDate(dateStr: string, isAllDay: boolean): Date {
+function parseIcsDate(
+  dateStr: string,
+  isAllDay: boolean,
+  tzid?: string,
+  fallbackZone?: string,
+): Date {
   if (!dateStr) return new Date();
 
   // Remove parameters (e.g., TZID=America/New_York, VALUE=DATE)
   const clean = dateStr.split(':').pop() || dateStr;
 
-  if (isAllDay || clean.length === 8) {
-    // YYYYMMDD format (all-day event)
-    const year = parseInt(clean.slice(0, 4));
-    const month = parseInt(clean.slice(4, 6)) - 1;
-    const day = parseInt(clean.slice(6, 8));
-
-    return new Date(year, month, day, 0, 0, 0);
-  }
-
-  // YYYYMMDDTHHMMSS or YYYYMMDDTHHMMSSZ format
-  const hasTime = clean.includes('T');
-  if (!hasTime) {
-    const year = parseInt(clean.slice(0, 4));
-    const month = parseInt(clean.slice(4, 6)) - 1;
-    const day = parseInt(clean.slice(6, 8));
-    return new Date(year, month, day, 0, 0, 0);
-  }
-
   const year = parseInt(clean.slice(0, 4));
   const month = parseInt(clean.slice(4, 6)) - 1;
   const day = parseInt(clean.slice(6, 8));
+
+  const hasTime = clean.includes('T');
+  if (isAllDay || !hasTime || clean.length === 8) {
+    // Date-only / all-day: anchor at UTC midnight so the calendar date is
+    // stable regardless of server timezone.
+    return new Date(Date.UTC(year, month, day, 0, 0, 0));
+  }
+
   const hours = parseInt(clean.slice(9, 11));
   const minutes = parseInt(clean.slice(11, 13));
   const seconds = parseInt(clean.slice(13, 15)) || 0;
 
-  // Check for timezone (Z suffix = UTC)
-  const isUtc = clean.endsWith('Z');
-  const date = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-  return isUtc ? date : new Date(year, month, day, hours, minutes, seconds);
+  // 1. Explicit UTC.
+  if (clean.endsWith('Z')) {
+    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+  }
+
+  // 2/3. Named zone from the TZID param, else the calendar's default zone.
+  const zone = resolveIanaZone(tzid) || resolveIanaZone(fallbackZone);
+  if (zone) {
+    const dt = DateTime.fromObject(
+      { year, month: month + 1, day, hour: hours, minute: minutes, second: seconds },
+      { zone },
+    );
+    if (dt.isValid) return dt.toJSDate();
+  }
+
+  // 4. Deterministic fallback: treat the wall-clock time as UTC.
+  return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
 }
 
 /**
@@ -219,7 +250,21 @@ function expandRecurringEvent(
  * Parse ICS content string
  */
 export function parseIcs(icsContent: string): IcsCalendar {
-  const lines = icsContent.split(/\r\n|\n|\r/);
+  const rawLines = icsContent.split(/\r\n|\n|\r/);
+
+  // RFC 5545 line unfolding: a line broken across multiple physical lines is
+  // continued by a leading space or tab. Rejoin these into logical lines
+  // before parsing — otherwise long folded values (Google folds at 75 octets)
+  // get truncated, and a folded UID could make a valid event silently drop.
+  const lines: string[] = [];
+  for (const raw of rawLines) {
+    if (lines.length > 0 && (raw.startsWith(' ') || raw.startsWith('\t'))) {
+      lines[lines.length - 1] += raw.slice(1);
+    } else {
+      lines.push(raw);
+    }
+  }
+
   const calendar: IcsCalendar = { events: [] };
   let currentEvent: Partial<IcsEvent> | null = null;
   let inEvent = false;
@@ -229,13 +274,6 @@ export function parseIcs(icsContent: string): IcsCalendar {
 
     // Skip empty lines
     if (!line || line.trim() === '') continue;
-
-    // Handle multi-line values (indented lines start with space or tab)
-    if (line.startsWith(' ') || line.startsWith('\t')) {
-      // This is a continuation of the previous line
-      // For now, skip - proper handling would append to previous value
-      continue;
-    }
 
     const colonIndex = line.indexOf(':');
     if (colonIndex === -1) continue;
@@ -259,6 +297,12 @@ export function parseIcs(icsContent: string): IcsCalendar {
           // Calendar end
         } else if (value === 'VEVENT') {
           if (currentEvent && currentEvent.uid) {
+            // Untitled events are valid in ICS (Google exports them without a
+            // SUMMARY). Give them a placeholder title so downstream storage
+            // with a NOT NULL title column doesn't reject them.
+            if (!currentEvent.summary || !currentEvent.summary.trim()) {
+              currentEvent.summary = '(No title)';
+            }
             calendar.events.push(currentEvent as IcsEvent);
           }
           inEvent = false;
@@ -287,7 +331,7 @@ export function parseIcs(icsContent: string): IcsCalendar {
         if (inEvent && currentEvent) {
           // Check if VALUE=DATE parameter is present for all-day events
           const isAllDay = keyPart.includes('VALUE=DATE') || !value.includes('T');
-          currentEvent.start = parseIcsDate(value, isAllDay);
+          currentEvent.start = parseIcsDate(value, isAllDay, extractTzid(keyPart), calendar.timezone);
           currentEvent.allDay = isAllDay;
         }
         break;
@@ -295,7 +339,7 @@ export function parseIcs(icsContent: string): IcsCalendar {
         if (inEvent && currentEvent) {
           // Check if VALUE=DATE parameter is present for all-day events
           const isAllDay = keyPart.includes('VALUE=DATE') || !value.includes('T');
-          currentEvent.end = parseIcsDate(value, isAllDay);
+          currentEvent.end = parseIcsDate(value, isAllDay, extractTzid(keyPart), calendar.timezone);
         }
         break;
       case 'DURATION':
