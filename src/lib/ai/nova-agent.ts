@@ -5,9 +5,10 @@
 // tools. Workspace-scoped instead of single-recording-scoped.
 
 import "server-only";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
+import { getObjectBuffer } from "@/lib/storage";
 import {
   contacts,
   chapters,
@@ -15,6 +16,7 @@ import {
   conversationParticipants,
   conversations,
   customers,
+  novaJobs,
   profiles,
   segments,
   stages,
@@ -1385,7 +1387,8 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
     `- The file's rows are already parsed into the text above. Real sheets are usually a FLAT list of people, not tidy company/contact rows. Read the columns first and map them: a person's name; their role/title; their company; email; phone; owner; etc.`,
     `- The company is often NOT its own row — it's embedded in a title like "Captain at Arctia" or "SVP, Icebreaking at Arctia", or it's absent. Extract the employer from the title when present and pass it as that contact's "customer". People who share an employer (six "at Arctia") all link to ONE Arctia account. Many rows will have no company at all — that's fine, they import as unlinked people.`,
     `- Watch for overloaded columns. A column labelled Channel / Contact / Method usually holds the actual email or phone, not a keyword — route an address to email, a number to phone, and set preferred_channel only for the literal words email/phone/linkedin. Don't drop the address into preferred_channel.`,
-    `- ALWAYS import an attached spreadsheet with import_contacts_from_attachment — it parses every row in code, so counts and names are exact. NEVER transcribe rows from the file text yourself into bulk_create_* calls and NEVER state a company/person/count you have not seen in a tool result: on a long sheet you WILL misremember and invent names, which is unacceptable. Run import_contacts_from_attachment with preview=true first, present the exact counts it returns, and after the user approves call it again with preview=false. Reserve bulk_create_contacts/bulk_create_customers for a handful of records the user typed directly in chat, not file imports.`,
+    `- ALWAYS import an attached spreadsheet with import_contacts_from_attachment — it parses every row in code, so counts and names are exact. NEVER transcribe rows from the file text yourself into bulk_create_* calls and NEVER state a company/person/count you have not seen in a tool result: on a long sheet you WILL misremember and invent names, which is unacceptable. Reserve bulk_create_contacts/bulk_create_customers for a handful of records the user typed directly in chat, not file imports.`,
+    `- Import is a two-step, confirm-gated flow. FIRST call import_contacts_from_attachment with preview=true — this writes nothing; present the exact counts and roster it returns and wait. The actual write only happens through a Confirm control: when the user says to proceed, call it with preview=false, which does NOT write immediately — it surfaces a "Confirm import" control the user must tap. So NEVER say the import is "done", "complete", or that records were "added" until after that confirmation fires. If the user said "validate first", you especially must not write; just preview and wait.`,
     `- The preview tool returns an EXACT company→contacts roster. When you show companies and who belongs to them, use ONLY that roster verbatim (a present_answer table or entities block) — do not add, rename, or re-count companies, and do not fill gaps from memory. If the user asks a follow-up about a file already imported this session ("show me the companies", "who's at Arctia", "go ahead and add them"), the file is still available: call import_contacts_from_attachment again (preview=true to re-show, preview=false to write) rather than saying no file is attached.`,
     `- Outreach columns (status/state, contact dates, follow-up actions) are ACCOUNT-level and cannot live on a contact. When a person has a company, attach their outreach as a note on that company account with bulk_add_customer_notes, naming the person in each note ("Outreach — Tommy Berg (Captain): Approved, contacted 2.7."). An owner/"who" column maps to the customer's owner.`,
     `- Never silently drop rows: report how many had no name (they can't become a contact) and how many companies you created.`,
@@ -1435,6 +1438,28 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
 //   - Profile codes and State/When/Action outreach -> a timeline note on that
 //     person's account (company or individual), naming the person.
 // preview=true reports exactly what WOULD be created without writing anything.
+// Reload the author's most recent retained upload as an attachment — used by
+// the confirmed-write path, whose turn carries no attachment of its own.
+async function loadLatestAttachment(authorId: string): Promise<NovaAttachment | undefined> {
+  const [row] = await db
+    .select({
+      key: novaJobs.inputStorageKey,
+      name: novaJobs.inputFilename,
+      mime: novaJobs.inputMimeType,
+    })
+    .from(novaJobs)
+    .where(and(eq(novaJobs.authorId, authorId), isNotNull(novaJobs.inputStorageKey)))
+    .orderBy(desc(novaJobs.createdAt))
+    .limit(1);
+  if (!row?.key || !row.name) return undefined;
+  try {
+    const bytes = await getObjectBuffer(row.key);
+    return { filename: row.name, mimeType: row.mime ?? undefined, dataBase64: bytes.toString("base64") };
+  } catch {
+    return undefined;
+  }
+}
+
 type ImportSummary = { log: NovaActionLog; report: string };
 
 async function importContactsFromAttachment(
@@ -1816,11 +1841,35 @@ export async function runNovaAgent(input: {
         }
       } else if (call.function.name === "import_contacts_from_attachment") {
         try {
-          const result = await importContactsFromAttachment(ctx, input.attachment, {
-            preview: args.preview === true,
-          });
-          actions.push(result.log);
-          toolResult = result.report;
+          if (args.preview === true) {
+            // Read-only: parse and report, never writes.
+            const result = await importContactsFromAttachment(ctx, input.attachment, { preview: true });
+            actions.push(result.log);
+            toolResult = result.report;
+          } else {
+            // A WRITE is never executed inline — the model cannot bypass the
+            // user's "validate first". Run a preview for exact counts, then
+            // hand back a confirmation the user must tap; the write happens in
+            // executeConfirmedNovaAction only after that tap.
+            const preview = await importContactsFromAttachment(ctx, input.attachment, { preview: true });
+            const key = "import_contacts_from_attachment:write";
+            if (!pendingConfirmationKeys.has(key)) {
+              pendingConfirmationKeys.add(key);
+              confirmations.push({
+                label: "Confirm import",
+                detail: `Write ${preview.log.detail || "the parsed records"} to the workspace.`,
+                token: createNovaConfirmationToken({
+                  authorId: ctx.authorId,
+                  toolName: "import_contacts_from_attachment",
+                  args: { preview: false },
+                }),
+              });
+            }
+            actions.push(preview.log);
+            toolResult =
+              preview.report +
+              "\nA WRITE was requested but NOT performed — a confirmation control is now shown to the user. Do NOT say the import is done or complete. Tell the user to review and tap Confirm to write, and stop.";
+          }
         } catch (error) {
           const message = error instanceof Error ? error.message : "import failed";
           actions.push({ label: "Couldn't import the file", detail: message, ok: false });
@@ -1896,6 +1945,18 @@ export async function executeConfirmedNovaAction(
   const payload = consumeNovaConfirmationToken(token);
   if (payload.authorId !== authorId) {
     throw new Error("This confirmation belongs to a different workspace user.");
+  }
+  // The spreadsheet import write runs ONLY here, after the user tapped Confirm.
+  // Reload the author's retained upload (the confirm turn has no attachment)
+  // and perform the deterministic write.
+  if (payload.toolName === "import_contacts_from_attachment") {
+    const ctx = await loadContext(authorId);
+    const attachment = await loadLatestAttachment(authorId);
+    if (!attachment) {
+      throw new Error("The uploaded file is no longer available — re-attach it and preview again.");
+    }
+    const result = await importContactsFromAttachment(ctx, attachment, { preview: false });
+    return result.log;
   }
   if (!isDestructiveToolCall(payload.toolName, payload.args)) {
     throw new Error("This action does not use the destructive-action confirmation path.");

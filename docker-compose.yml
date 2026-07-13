@@ -61,6 +61,11 @@ services:
       - FOWNER
       - SETGID
       - SETUID
+      # The root supervisor must read the web-written 0600 job files (owned by
+      # a different uid); without DAC_OVERRIDE it gets EACCES on every job.
+      # The untrusted sandbox child still can't reach /jobs — it runs setuid to
+      # 1002 with no caps and the queue dir is 770 root:worker, which it isn't in.
+      - DAC_OVERRIDE
     security_opt:
       - no-new-privileges:true
     mem_limit: 2g
