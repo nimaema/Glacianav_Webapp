@@ -6,6 +6,7 @@
 
 import "server-only";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import {
   contacts,
@@ -422,6 +423,16 @@ async function conversationForManagement(ctx: Ctx, title: string) {
   return match;
 }
 
+// Insert many rows as a few multi-row statements instead of one INSERT per
+// row. Over the pooled Supabase connection (eu-west-1), per-statement latency
+// dominates a large import, so batching is the difference between a snappy
+// import and a multi-second stall.
+async function insertInChunks<V>(table: PgTable, values: V[], chunkSize = 200): Promise<void> {
+  for (let i = 0; i < values.length; i += chunkSize) {
+    await db.insert(table).values(values.slice(i, i + chunkSize) as never);
+  }
+}
+
 // ─── Executors ────────────────────────────────────────────────────────
 const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> = {
   async create_customer(ctx, a) {
@@ -471,12 +482,23 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
     const rows = Array.isArray(a.rows) ? (a.rows as Args[]) : [];
     if (rows.length === 0) throw new Error("no rows given");
     const defaultStage = ctx.stages[0]?.key ?? null;
-    let created = 0;
+    // Skip companies that already exist so a re-run of the same import is a
+    // no-op instead of a pile of duplicates.
+    const existing = await db.select({ name: customers.name }).from(customers);
+    const seen = new Set(existing.map((c) => c.name.toLowerCase()));
+    const customerValues: (typeof customers.$inferInsert)[] = [];
+    const contactValues: (typeof contacts.$inferInsert)[] = [];
+    const stamp = Date.now().toString(36);
     const skipped: string[] = [];
+    let index = 0;
     for (const row of rows) {
       const name = str(row.name);
       if (!name) {
         skipped.push("(row with no name)");
+        continue;
+      }
+      if (seen.has(name.toLowerCase())) {
+        skipped.push(`${name} (already exists)`);
         continue;
       }
       const segment = row.segment ? findByName(ctx.segments, str(row.segment)) : ctx.segments[0];
@@ -485,8 +507,9 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
         skipped.push(`${name} (no segment/owner)`);
         continue;
       }
-      const id = `${slugify(name)}-${Date.now().toString(36)}-${created}`;
-      await db.insert(customers).values({
+      seen.add(name.toLowerCase());
+      const id = `${slugify(name) || "customer"}-${stamp}-${index}`;
+      customerValues.push({
         id,
         name,
         kind: "company",
@@ -498,21 +521,94 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
         ownerId: owner.id,
       });
       if (str(row.contact_name)) {
-        const contactId = `${slugify(str(row.contact_name))}-${Date.now().toString(36)}-${created}`;
-        await db.insert(contacts).values({
-          id: contactId,
+        contactValues.push({
+          id: `${slugify(str(row.contact_name)) || "contact"}-${stamp}-${index}`,
           name: str(row.contact_name),
           customerId: id,
           email: str(row.contact_email) || undefined,
           phone: str(row.contact_phone) || undefined,
         });
       }
-      created++;
+      index++;
     }
+    if (customerValues.length === 0) {
+      throw new Error(`nothing to create — all ${rows.length} row(s) were empty, duplicates, or missing a segment/owner`);
+    }
+    // Batch the writes: a handful of multi-row INSERTs instead of one per row,
+    // which matters over the pooled Supabase connection.
+    await insertInChunks(customers, customerValues);
+    if (contactValues.length) await insertInChunks(contacts, contactValues);
     return {
-      label: `Created ${created} customer${created === 1 ? "" : "s"}`,
-      detail: skipped.length ? `Skipped ${skipped.length}: ${skipped.slice(0, 3).join(", ")}` : undefined,
-      ok: created > 0,
+      label: `Created ${customerValues.length} customer${customerValues.length === 1 ? "" : "s"}`,
+      detail: skipped.length ? `Skipped ${skipped.length}: ${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "…" : ""}` : undefined,
+      ok: true,
+    };
+  },
+
+  async bulk_create_contacts(ctx, a) {
+    const rows = Array.isArray(a.rows) ? (a.rows as Args[]) : [];
+    if (rows.length === 0) throw new Error("no rows given");
+    const [customerRows, existingContacts] = await Promise.all([
+      db.select({ id: customers.id, name: customers.name }).from(customers),
+      db.select({ name: contacts.name, email: contacts.email }).from(contacts),
+    ]);
+    // Dedup on name+email so re-importing the same sheet doesn't duplicate
+    // people, while still allowing two different people who share a name.
+    const seen = new Set(
+      existingContacts.map((c) => `${c.name.toLowerCase()}|${(c.email ?? "").toLowerCase()}`),
+    );
+    const channels = new Set(["email", "phone", "linkedin"]);
+    const values: (typeof contacts.$inferInsert)[] = [];
+    const stamp = Date.now().toString(36);
+    const unmatchedCustomers = new Set<string>();
+    let skipped = 0;
+    let index = 0;
+    for (const row of rows) {
+      const name = str(row.name);
+      if (!name) {
+        skipped++;
+        continue;
+      }
+      const email = str(row.email);
+      const key = `${name.toLowerCase()}|${email.toLowerCase()}`;
+      if (seen.has(key)) {
+        skipped++;
+        continue;
+      }
+      seen.add(key);
+      let customerId: string | undefined;
+      if (row.customer) {
+        const match = findByName(customerRows, str(row.customer));
+        if (match) customerId = match.id;
+        else unmatchedCustomers.add(str(row.customer));
+      }
+      const channel = str(row.preferred_channel).toLowerCase();
+      values.push({
+        id: `${slugify(name) || "contact"}-${stamp}-${index}`,
+        name,
+        role: str(row.role) || undefined,
+        customerId,
+        email: email || undefined,
+        phone: str(row.phone) || undefined,
+        linkedin: str(row.linkedin) || undefined,
+        preferredChannel: channels.has(channel)
+          ? (channel as "email" | "phone" | "linkedin")
+          : undefined,
+      });
+      index++;
+    }
+    if (values.length === 0) {
+      throw new Error(`nothing to import — all ${rows.length} row(s) were empty or already exist`);
+    }
+    await insertInChunks(contacts, values);
+    const notes = [
+      skipped ? `Skipped ${skipped} (empty or duplicate)` : "",
+      unmatchedCustomers.size ? `${unmatchedCustomers.size} unmatched company name(s) left unlinked` : "",
+    ].filter(Boolean);
+    return {
+      label: `Imported ${values.length} contact${values.length === 1 ? "" : "s"}`,
+      detail: notes.length ? notes.join("; ") + "." : undefined,
+      ok: true,
     };
   },
 
@@ -978,6 +1074,29 @@ const TOOL_SCHEMAS: ToolSchema[] = [
     },
     ["rows"],
   ),
+  fn(
+    "bulk_create_contacts",
+    "Import MANY contacts (people) at once from an uploaded spreadsheet or list — e.g. a Contact.xlsx. Read every real row yourself from the file content already in context; do not ask the user to reformat it and do not use the Python lab for this (it cannot write to the workspace). Existing contacts and blank rows are skipped automatically.",
+    {
+      rows: {
+        type: "array",
+        description: "One entry per person to create.",
+        items: {
+          type: "object",
+          properties: {
+            name: p("string", "Full name — required."),
+            role: p("string", "Their role/title, if present."),
+            customer: p("string", "Company/customer name to link them to, if present (fuzzy match to an existing customer)."),
+            email: p("string", "Email, if present."),
+            phone: p("string", "Phone, if present."),
+            linkedin: p("string", "LinkedIn URL, if present."),
+            preferred_channel: p("string", '"email", "phone", or "linkedin", if known.'),
+          },
+        },
+      },
+    },
+    ["rows"],
+  ),
   fn("create_task", "Create a task on a customer account.", {
     task: p("string", "What needs doing."),
     customer: p("string", "Which account this is for (fuzzy match). Defaults to whatever account is currently open, if any."),
@@ -1128,7 +1247,8 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
     `Guidelines:`,
     `- For any factual/"how many"/"which ones" question about the workspace, call a read tool FIRST — don't guess, and don't say you can't check. Use search_workspace_evidence for cross-conversation claims or remembered phrases, and get_validation_hypotheses when the question is about what evidence supports or challenges a product belief.`,
     `- When the user asks you to DO something (create a customer, import a file, make a report), call the matching tool(s). You may call several in one turn.`,
-    `- When a file's content is included in context, read it carefully and extract real rows/facts yourself — never ask the user to reformat their own file.`,
+    `- When a file's content is included in context, read it carefully and extract real rows/facts yourself — never ask the user to reformat their own file. Uploaded spreadsheets/docs are already parsed into the text above, so you rarely need the Python lab just to read one.`,
+    `- To import records from an attached list, call the DB tools directly: bulk_create_contacts for a list of people, bulk_create_customers for a list of companies. Read the rows from the file content in context — never use the Python file lab to import, because it is networkless and cannot touch the workspace database. Reserve run_python_workspace for transforming/analysing files or producing a downloadable artifact (dedup on a huge sheet, generating an xlsx, charts), not for writing workspace records.`,
     `- When generating a file, write real, complete content — don't stub it out.`,
     `- Never claim a destructive action completed when the tool says confirmation was requested. Tell the user exactly what will change and let the confirmation control in the UI perform it.`,
     `- Never invent customers, numbers, or facts that aren't in the context, a tool result, or the user's message.`,
@@ -1204,7 +1324,9 @@ export async function runNovaAgent(input: {
     return { answer: closing, blocks: [], actions, files, confirmations };
   };
 
-  for (let step = 0; step < 6; step++) {
+  // Headroom for genuine multi-step work (read → dedup → import → verify →
+  // present) while parallel tool calls keep most turns to 2-4 rounds.
+  for (let step = 0; step < 8; step++) {
     const msg = await deepseekChatWithTools(messages, TOOL_SCHEMAS);
     if (!msg.tool_calls?.length) {
       return finalize(msg.content || "Done.");

@@ -131,7 +131,7 @@ export async function runNovaSandboxJob(input: NovaSandboxJob): Promise<NovaSand
       queued = true;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EACCES") throw error;
-      await sleep(250);
+      await sleep(150);
     }
   }
   if (!queued) throw new Error("The isolated worker remained busy past the job deadline.");
@@ -154,7 +154,7 @@ export async function runNovaSandboxJob(input: NovaSandboxJob): Promise<NovaSand
         const code = (error as NodeJS.ErrnoException).code;
         if (code !== "ENOENT" && code !== "EACCES") throw error;
       }
-      await sleep(250);
+      await sleep(150);
     }
     throw new Error("The isolated worker did not respond before the job deadline.");
   } finally {
