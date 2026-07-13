@@ -3,6 +3,7 @@ import { TopBar } from "./topbar";
 import { NovaDock } from "./nova-dock";
 import { CommandPalette } from "./command-palette";
 import { RecordingProvider } from "@/components/record/recording-provider";
+import { PageTransition } from "@/components/motion/page-transition";
 import type { Profile } from "@/lib/auth/ensure-profile";
 import type { NotificationItem } from "@/lib/data/notifications";
 import type { NovaContextData } from "@/lib/data/nova";
@@ -28,7 +29,9 @@ export function AppShell({
         <Rail profile={profile} />
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar profile={profile} notifications={notifications} unreadCount={unreadCount} />
-          <main className="min-h-0 flex-1 overflow-y-auto bg-page">{children}</main>
+          <main className="min-h-0 flex-1 overflow-y-auto bg-page">
+            <PageTransition>{children}</PageTransition>
+          </main>
         </div>
         <NovaDock context={novaContext} currentUserId={currentUserId} />
         <CommandPalette customers={novaContext.customers} contacts={novaContext.contacts} />
