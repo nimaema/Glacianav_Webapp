@@ -1386,6 +1386,7 @@ function systemPrompt(ctx: Ctx, extraContext?: string): string {
     `- The company is often NOT its own row — it's embedded in a title like "Captain at Arctia" or "SVP, Icebreaking at Arctia", or it's absent. Extract the employer from the title when present and pass it as that contact's "customer". People who share an employer (six "at Arctia") all link to ONE Arctia account. Many rows will have no company at all — that's fine, they import as unlinked people.`,
     `- Watch for overloaded columns. A column labelled Channel / Contact / Method usually holds the actual email or phone, not a keyword — route an address to email, a number to phone, and set preferred_channel only for the literal words email/phone/linkedin. Don't drop the address into preferred_channel.`,
     `- ALWAYS import an attached spreadsheet with import_contacts_from_attachment — it parses every row in code, so counts and names are exact. NEVER transcribe rows from the file text yourself into bulk_create_* calls and NEVER state a company/person/count you have not seen in a tool result: on a long sheet you WILL misremember and invent names, which is unacceptable. Run import_contacts_from_attachment with preview=true first, present the exact counts it returns, and after the user approves call it again with preview=false. Reserve bulk_create_contacts/bulk_create_customers for a handful of records the user typed directly in chat, not file imports.`,
+    `- The preview tool returns an EXACT company→contacts roster. When you show companies and who belongs to them, use ONLY that roster verbatim (a present_answer table or entities block) — do not add, rename, or re-count companies, and do not fill gaps from memory. If the user asks a follow-up about a file already imported this session ("show me the companies", "who's at Arctia", "go ahead and add them"), the file is still available: call import_contacts_from_attachment again (preview=true to re-show, preview=false to write) rather than saying no file is attached.`,
     `- Outreach columns (status/state, contact dates, follow-up actions) are ACCOUNT-level and cannot live on a contact. When a person has a company, attach their outreach as a note on that company account with bulk_add_customer_notes, naming the person in each note ("Outreach — Tommy Berg (Captain): Approved, contacted 2.7."). An owner/"who" column maps to the customer's owner.`,
     `- Never silently drop rows: report how many had no name (they can't become a contact) and how many companies you created.`,
     `- If the file has meaningful data with no clear home — outreach for people who have NO company (so no account to note against), persona/profile codes, or any column you can't map — do NOT guess and do NOT drop it silently. Ask how to handle it and offer only options you can actually execute, e.g.: (a) create those people as individual customers so their outreach lives on their own account timeline/stage; (b) import them as plain contacts and skip the unmappable columns; (c) turn follow-up actions into tasks on the account. Import what's unambiguous first, then present the choice for the leftovers.`,
@@ -1492,6 +1493,9 @@ async function importContactsFromAttachment(
   const contactValues: (typeof contacts.$inferInsert)[] = [];
   const noteValues: (typeof validationNotes.$inferInsert)[] = [];
   const createdCompanyId = new Map<string, string>();
+  // Real per-company roster, so the summary reports EXACTLY who the parser put
+  // where — the model must present this, never invent company names or counts.
+  const companyRoster = new Map<string, { display: string; country: string; people: string[] }>();
   const cell = (row: unknown[], i: number) => (i >= 0 ? String(row[i] ?? "").trim() : "");
   let companiesCreated = 0;
   let individualsCreated = 0;
@@ -1555,12 +1559,19 @@ async function importContactsFromAttachment(
     let companyName = cell(row, col.company);
     if (!companyName) {
       const m = title.match(/\bat\s+(.+?)\s*$/i);
-      if (m) companyName = m[1].trim();
+      // "Captain at Arctia, arctic consultant" -> "Arctia": the company is the
+      // token right after "at", not the trailing note/qualifier.
+      if (m) companyName = m[1].split(/\s*[,;(]/)[0].trim();
     }
 
     let accountId: string;
     if (companyName) {
       accountId = ensureCompany(companyName, country, ownerId ?? "");
+      const rosterKey = companyName.toLowerCase();
+      const entry = companyRoster.get(rosterKey) ?? { display: companyName, country: "", people: [] };
+      entry.people.push(title ? `${name} (${title.replace(/\s+at\s+.+$/i, "").trim() || title})` : name);
+      if (!entry.country && country) entry.country = country;
+      companyRoster.set(rosterKey, entry);
     } else {
       accountId = `${slugify(name) || "person"}-${stamp}-i${seq++}`;
       custValues.push({
@@ -1614,15 +1625,22 @@ async function importContactsFromAttachment(
       ? ` (skipped ${skippedNoName} nameless, ${skippedDuplicate} duplicate)`
       : "");
 
+  // Authoritative company→people roster the model MUST present verbatim.
+  const rosterLines = [...companyRoster.values()]
+    .sort((a, b) => b.people.length - a.people.length)
+    .map((c) => `${c.display}${c.country ? ` [${c.country}]` : ""} — ${c.people.length}: ${c.people.join(", ")}`);
+  const rosterText = rosterLines.length
+    ? `\nCOMPANIES AND THEIR CONTACTS (exact, from the parser — present THIS list verbatim, do not add or rename any company):\n${rosterLines.join("\n")}`
+    : "";
+
   if (opts.preview) {
-    const sampleCompanies = [...createdCompanyId.keys()].slice(0, 12).join(", ");
     return {
       log: { label: "Import preview (nothing written yet)", detail: summaryLine, ok: true },
       report:
-        `PREVIEW — parsed the file deterministically, nothing written yet. Would create: ${summaryLine}. ` +
-        `New companies: ${sampleCompanies || "none"}. ` +
-        `Column mapping used: name=col${col.name}, title=col${col.title}, company=${col.company < 0 ? "from title" : `col${col.company}`}, email/phone=${col.email < 0 && col.phone < 0 ? `from channel col${col.channel}` : "explicit"}, owner=${col.owner < 0 ? "default" : `col${col.owner}`}. ` +
-        `Present this to the user and, if they approve, call this tool again with preview=false to write it.`,
+        `PREVIEW — parsed the file deterministically, nothing written yet. Would create: ${summaryLine}.` +
+        rosterText +
+        `\nColumn mapping used: name=col${col.name}, title=col${col.title}, company=${col.company < 0 ? "from title" : `col${col.company}`}, email/phone=${col.email < 0 && col.phone < 0 ? `from channel col${col.channel}` : "explicit"}, owner=${col.owner < 0 ? "default" : `col${col.owner}`}.` +
+        `\nThese counts and this roster are exact. Present ONLY these companies — never invent a company name or count that is not in this list. If the user approves, call this tool again with preview=false to write it.`,
     };
   }
 
@@ -1633,7 +1651,7 @@ async function importContactsFromAttachment(
 
   return {
     log: { label: "Imported spreadsheet", detail: summaryLine, ok: true },
-    report: `Imported deterministically from the attachment: ${summaryLine}. These are exact counts from the parser, not an estimate.`,
+    report: `Imported deterministically from the attachment: ${summaryLine}.${rosterText}\nThese are exact counts from the parser, not an estimate.`,
   };
 }
 

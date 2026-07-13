@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNotNull, lt, ne, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { novaJobs } from "@/db/schema";
 import { parseFile } from "@/lib/ai/parse-file";
@@ -12,6 +12,11 @@ import {
 import { getObjectBuffer, putObject, removeObject } from "@/lib/storage";
 
 const JOB_LEASE_MS = 10 * 60 * 1000;
+// A follow-up turn (no new upload) is treated as being about the last file only
+// when it plausibly refers to it — so unrelated questions don't drag the
+// spreadsheet back into context.
+const FILE_FOLLOWUP =
+  /\b(file|spreadsheet|excel|xlsx|csv|sheet|upload|import|attach|contact|contacts|customer|customers|compan(?:y|ies)|individual|list|them|those|these|it|proceed|go ahead|do it|write it|add them|preview|column|row|profile|outreach)\b/i;
 const MAX_ATTEMPTS = 2;
 
 export type StoredNovaFile = Omit<NovaFile, "content" | "dataBase64"> & {
@@ -104,6 +109,35 @@ export async function createNovaJob(input: {
           updatedAt: new Date(),
         })
         .where(eq(novaJobs.id, created.id));
+
+      // Retention cleanup: this new upload supersedes the author's earlier
+      // retained files. Delete their objects and clear the keys so only the
+      // latest upload is ever reused by a follow-up turn.
+      const stale = await db
+        .select({ id: novaJobs.id, key: novaJobs.inputStorageKey })
+        .from(novaJobs)
+        .where(
+          and(
+            eq(novaJobs.authorId, input.authorId),
+            ne(novaJobs.id, created.id),
+            isNotNull(novaJobs.inputStorageKey),
+          ),
+        );
+      for (const row of stale) {
+        if (row.key) await removeObject(row.key).catch(() => undefined);
+      }
+      if (stale.length) {
+        await db
+          .update(novaJobs)
+          .set({ inputStorageKey: null })
+          .where(
+            and(
+              eq(novaJobs.authorId, input.authorId),
+              ne(novaJobs.id, created.id),
+              isNotNull(novaJobs.inputStorageKey),
+            ),
+          );
+      }
     } catch (error) {
       await db.delete(novaJobs).where(eq(novaJobs.id, created.id));
       throw error;
@@ -216,23 +250,67 @@ export async function processNextNovaJob(): Promise<boolean> {
     let fileContext: string | undefined;
     let fileParseNote: string | undefined;
     let attachment: { filename: string; mimeType?: string; dataBase64: string } | undefined;
-    if (job.inputStorageKey && job.inputFilename) {
-      await updateStage(job.id, "Reading attachment", 18);
-      const bytes = await getObjectBuffer(job.inputStorageKey);
-      const file = new File([Uint8Array.from(bytes)], job.inputFilename, {
-        type: job.inputMimeType || "application/octet-stream",
-      });
-      attachment = {
-        filename: job.inputFilename,
-        mimeType: job.inputMimeType ?? undefined,
-        dataBase64: bytes.toString("base64"),
-      };
+
+    // The file to work from: this turn's own upload, or — for a file-related
+    // follow-up that carries no new attachment — the author's most recent
+    // upload from the last 2 hours. Each Nova turn is a separate job, so
+    // without this a "show me the companies" or "yes, write it" after an
+    // import preview would see no file. Only reuse when the question is
+    // plausibly about the file, so unrelated chatter isn't polluted with it.
+    let sourceKey = job.inputStorageKey;
+    let sourceName = job.inputFilename;
+    let sourceMime = job.inputMimeType;
+    let reused = false;
+    if (!sourceKey && FILE_FOLLOWUP.test(job.question)) {
+      const since = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const [prior] = await db
+        .select({
+          storageKey: novaJobs.inputStorageKey,
+          filename: novaJobs.inputFilename,
+          mimeType: novaJobs.inputMimeType,
+        })
+        .from(novaJobs)
+        .where(
+          and(
+            eq(novaJobs.authorId, job.authorId),
+            isNotNull(novaJobs.inputStorageKey),
+            gt(novaJobs.createdAt, since),
+          ),
+        )
+        .orderBy(desc(novaJobs.createdAt))
+        .limit(1);
+      if (prior?.storageKey && prior.filename) {
+        sourceKey = prior.storageKey;
+        sourceName = prior.filename;
+        sourceMime = prior.mimeType;
+        reused = true;
+      }
+    }
+
+    if (sourceKey && sourceName) {
+      await updateStage(job.id, reused ? "Reopening your file" : "Reading attachment", 18);
       try {
+        const bytes = await getObjectBuffer(sourceKey);
+        const file = new File([Uint8Array.from(bytes)], sourceName, {
+          type: sourceMime || "application/octet-stream",
+        });
+        attachment = {
+          filename: sourceName,
+          mimeType: sourceMime ?? undefined,
+          dataBase64: bytes.toString("base64"),
+        };
         const parsed = await parseFile(file);
-        fileContext = `File: ${job.inputFilename}\n\n${parsed.text}`;
-        if (parsed.truncated) fileParseNote = `“${job.inputFilename}” was long—Nova read the first supported portion.`;
+        fileContext = `File: ${sourceName}\n\n${parsed.text}`;
+        if (reused) fileParseNote = `Using “${sourceName}” from earlier in this session.`;
+        else if (parsed.truncated) fileParseNote = `“${sourceName}” was long—Nova read the first supported portion.`;
       } catch (error) {
-        fileParseNote = `Nova couldn’t read “${job.inputFilename}”: ${error instanceof Error ? error.message : "unknown error"}`;
+        // A reused file that's since been cleaned up just means no attachment;
+        // don't fail the whole turn over it.
+        if (!reused) {
+          fileParseNote = `Nova couldn’t read “${sourceName}”: ${error instanceof Error ? error.message : "unknown error"}`;
+        }
+        attachment = undefined;
+        fileContext = undefined;
       }
     }
 
@@ -311,7 +389,10 @@ export async function processNextNovaJob(): Promise<boolean> {
         updatedAt: new Date(),
       })
       .where(eq(novaJobs.id, job.id));
-    if (job.inputStorageKey) await removeObject(job.inputStorageKey).catch(() => undefined);
+    // Intentionally NOT deleting the input file here — it's retained so
+    // file-related follow-ups in the same session (and a later "write it" after
+    // an import preview) can reopen it. Older uploads are cleaned up when the
+    // author uploads a new file (see createNovaJob).
   } catch (error) {
     const message = jobErrorMessage(error);
     // A job may span the model, database, object storage, and isolated worker.

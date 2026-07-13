@@ -280,28 +280,36 @@ function NextBlock({ block, onPrompt }: { block: Extract<NovaBlock, { kind: "nex
   );
 }
 
-// Interactive option picker. Each option is a tappable card that fires the
-// same onPrompt path as the Next chip, so choosing sends a concrete message
-// back to Nova. A tone rail + hover elevation + a sliding arrow make the
-// choice read as a real, modern control rather than a bulleted list.
+// Interactive option picker — one contained "pick one" moment rather than a
+// scatter of loose cards. Options sit in a soft panel with keycap indices
+// (A/B/C); each row reacts in its own option tone on hover (border, tint,
+// filled keycap, sliding arrow) and fires the same onPrompt path as the Next
+// chip. Per-option tone is threaded through the --opt CSS var so Tailwind
+// hover utilities can pick it up without a style-per-state.
 function ChoiceBlock({ block, onPrompt }: { block: Extract<NovaBlock, { kind: "choice" }>; onPrompt: (q: string) => void }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      {block.title && <BlockTitle>{block.title}</BlockTitle>}
-      <div className="flex flex-col gap-2">
+    <div className="overflow-hidden rounded-[14px]" style={{ border: "1px solid var(--nw-line)", background: "var(--nw-bg-2)" }}>
+      <div className="flex items-center gap-1.5 px-3.5 pt-2.5 pb-0.5">
+        <span aria-hidden className="h-[3px] w-[3px] rounded-pill" style={{ background: "var(--nw-teal)" }} />
+        <p className="font-mono text-[9.5px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--nw-ink-3)" }}>
+          {block.title || "Choose one"}
+        </p>
+      </div>
+      <div className="flex flex-col gap-1 p-1.5">
         {block.options.map((o, i) => (
           <button
             key={i}
             type="button"
             onClick={() => onPrompt(o.prompt)}
-            className="group flex cursor-pointer items-center gap-3 rounded-[12px] px-3 py-2.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_6px_18px_-6px_rgba(20,40,60,0.16)]"
-            style={{ background: "white", border: "1px solid var(--nw-line)" }}
+            style={{ "--opt": TONE_VAR[o.tone] } as React.CSSProperties}
+            className="group/opt flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-[color:var(--nw-line-2)] bg-white px-2.5 py-2.5 text-left transition-all duration-150 hover:-translate-y-px hover:border-[color:var(--opt)] hover:bg-[color:color-mix(in_srgb,var(--opt)_5%,white)] hover:shadow-[0_6px_18px_-9px_rgba(20,40,60,0.22)]"
           >
             <span
               aria-hidden
-              className="h-9 w-[3px] shrink-0 rounded-pill transition-all duration-150 group-hover:h-10"
-              style={{ background: TONE_VAR[o.tone] }}
-            />
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-[7px] bg-[color:color-mix(in_srgb,var(--opt)_13%,white)] font-mono text-[11px] font-bold text-[color:var(--opt)] transition-colors duration-150 group-hover/opt:bg-[color:var(--opt)] group-hover/opt:text-white"
+            >
+              {String.fromCharCode(65 + i)}
+            </span>
             <span className="min-w-0 flex-1">
               <span className="block text-[13.5px] font-semibold leading-snug" style={{ color: "var(--nw-ink)" }}>
                 {o.label}
@@ -315,8 +323,8 @@ function ChoiceBlock({ block, onPrompt }: { block: Extract<NovaBlock, { kind: "c
             <ArrowRight
               size={14}
               weight="bold"
-              className="shrink-0 opacity-35 transition-all duration-150 group-hover:translate-x-0.5 group-hover:opacity-100"
-              style={{ color: TONE_VAR[o.tone] }}
+              className="shrink-0 -translate-x-1 opacity-0 transition-all duration-150 group-hover/opt:translate-x-0 group-hover/opt:opacity-100"
+              style={{ color: "var(--opt)" }}
             />
           </button>
         ))}
