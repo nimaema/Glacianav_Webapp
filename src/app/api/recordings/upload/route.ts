@@ -66,6 +66,8 @@ export async function POST(request: Request) {
   const source = form.get("source") === "upload" ? ("upload" as const) : ("record" as const);
   const topicIdRaw = String(form.get("topicId") ?? "").trim();
   const shared = form.get("shared") === "true";
+  // Defaults on: opting out is the exception, so an absent field means "yes".
+  const generateTasks = form.get("generateTasks") !== "false";
   const languageHint = String(form.get("language") ?? "").trim() || undefined;
   const participantIds = parseStringIds(form.get("participantIds"));
   const contactIds = parseStringIds(form.get("contactIds"));
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
     authorId,
     status: "processing",
     shared,
+    generateTasks,
     wave: [],
     source,
     durationMs,

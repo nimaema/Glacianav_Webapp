@@ -4,6 +4,7 @@ import { NotePencil, Trash } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/pill";
 import { rowOpenHandlers } from "@/components/customers/row-open";
+import { TagChips } from "./tag-chips";
 import {
   ownerById,
   participantsFor,
@@ -110,6 +111,7 @@ export function NoteCard({
             </p>
           )}
           {body && <p className="line-clamp-3 flex-1 text-[13px] leading-snug text-ink-2">{body}</p>}
+          <TagChips tags={c.tags} />
           <div className="flex items-center justify-between gap-2 border-t border-line-2 pt-2 text-[11.5px] text-ink-3">
             <span className="flex flex-wrap items-center gap-1.5">
               {showAuthor && <span>{author.name}</span>}

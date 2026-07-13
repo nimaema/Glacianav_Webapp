@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/pill";
 import { DetailField } from "@/components/ui/detail-field";
 import { rowOpenHandlers } from "@/components/customers/row-open";
+import { TagChips } from "./tag-chips";
 import { statusChips } from "@/lib/conversation-status";
 import {
   detailsFor,
@@ -155,6 +156,8 @@ export function RecordingCard({
         </p>
 
         {pipeline && <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line-2 pt-2">{pipeline}</div>}
+
+        <TagChips tags={c.tags} />
 
         {showAuthor && (
           <div className="flex justify-end">

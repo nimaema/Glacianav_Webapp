@@ -26,7 +26,7 @@ Output ONLY valid JSON with this exact shape:
   "action_items": [{"task": "specific, self-contained", "due": "when, or null"}],
   "decisions": [{"text": "the decision", "quote": "a short exact phrase (4-8 words) copied verbatim from the transcript where this was decided"}],
   "follow_ups": [{"text": "the open question/thing to revisit", "quote": "a short exact phrase copied verbatim from where it came up"}],
-  "topics": ["a short label per distinct topic covered, in order"],
+  "topics": ["canonical tag", "another tag"],
   "chapters": [{"title": "short section title (2-4 words)", "summary": "one line", "quote": "a short exact phrase (4-8 words) copied verbatim where this section begins"}]
 }
 
@@ -34,7 +34,29 @@ Rules:
 - Extract every action item, decision, and follow-up mentioned anywhere, including brief ones.
 - Cover the whole timeline with chapters, in order.
 - Every quote MUST be copied word-for-word from the transcript so it can be located.
-- If a field has nothing, use an empty array. Never pad with invented content.`;
+- If a field has nothing, use an empty array. Never pad with invented content.
+- "topics" are reusable TAGS for filtering a whole library, not a description of this one call. Emit 3-6 of them. Each must be a canonical theme of 1-3 words, lowercase, that would recur across many similar conversations (e.g. "pricing", "onboarding", "route planning", "integration"). Prefer the general theme over the specific instance. Do NOT tag one-off proper nouns (people, company names, product names) unless the name itself is the recurring subject. No sentences, no duplicates.`;
+
+// Canonicalize a raw tag list into a clean, filterable facet: trim, collapse
+// whitespace, lowercase (so "Pricing" and "pricing" collapse into one tag on
+// the library filter), drop empties and over-long phrases that are really
+// sentences, dedupe, and cap the count so a single conversation can't flood
+// the tag cloud. Shared by the AI extractor and the manual tag editor so
+// both produce the same shape.
+export function normalizeTags(raw: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of raw) {
+    const tag = String(t ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+    // Skip empties, sentence-length phrases (>32 chars / >4 words), dupes.
+    if (!tag || tag.length > 32 || tag.split(" ").length > 4) continue;
+    if (seen.has(tag)) continue;
+    seen.add(tag);
+    out.push(tag);
+    if (out.length >= 8) break;
+  }
+  return out;
+}
 
 export async function analyzeTranscript(text: string): Promise<Analysis> {
   if (isMockLLM()) return mockAnalysis();
@@ -95,7 +117,7 @@ function normalize(p: Record<string, unknown>): Analysis {
         return { text: String(o.text ?? "").trim(), quote: String(o.quote ?? "").trim() };
       })
       .filter((f) => f.text),
-    topics: arr(p.topics).map(String).filter(Boolean),
+    topics: normalizeTags(arr(p.topics).map(String)),
     chapters: arr(p.chapters)
       .map((it) => {
         const o = (it ?? {}) as Record<string, unknown>;
@@ -111,7 +133,7 @@ function mockAnalysis(): Analysis {
     actionItems: [{ task: "Send a proposal scoped to the route-replanning pain point", due: null }],
     decisions: [{ text: "Scope the proposal specifically to route replanning, not the whole workflow", quote: "follow up with a proposal scoped to that" }],
     followUps: [{ text: "Confirm how often the weather window actually changes per rotation", quote: "sometimes a full evening if the forecast keeps flipping" }],
-    topics: ["Route replanning", "Current workflow", "Next steps"],
+    topics: ["route planning", "workflow", "pricing", "next steps"],
     chapters: [
       { title: "Current process", summary: "How replanning works today", quote: "it's mostly a spreadsheet" },
       { title: "Time cost", summary: "How long a replan takes", quote: "a couple hours, sometimes a full evening" },

@@ -63,6 +63,7 @@ export type RecordingState = {
   participantIds: string[]; // customers in the room
   contactIds: string[]; // people, independent of their account
   shared: boolean;
+  generateTasks: boolean; // extract action items into real tasks after transcribe
   language: string; // "" = auto-detect, else an AssemblyAI language code
   // Capture plumbing surfaced to the UI.
   stream: MediaStream | null; // live stream, drives the real waveform
@@ -85,6 +86,7 @@ type RecordingApi = RecordingState & {
   setTitle: (t: string) => void;
   setTopicId: (id: string | null) => void;
   setShared: (v: boolean) => void;
+  setGenerateTasks: (v: boolean) => void;
   setLanguage: (code: string) => void;
   addParticipant: (customerId: string) => void;
   removeParticipant: (customerId: string) => void;
@@ -120,6 +122,7 @@ function initialState(): RecordingState {
     participantIds: [],
     contactIds: [],
     shared: false,
+    generateTasks: true,
     language: "",
     stream: null,
     previewUrl: null,
@@ -231,6 +234,7 @@ export function RecordingProvider({
   const setTitle = useCallback((title: string) => setState((s) => ({ ...s, title })), []);
   const setTopicId = useCallback((topicId: string | null) => setState((s) => ({ ...s, topicId })), []);
   const setShared = useCallback((shared: boolean) => setState((s) => ({ ...s, shared })), []);
+  const setGenerateTasks = useCallback((generateTasks: boolean) => setState((s) => ({ ...s, generateTasks })), []);
   const setLanguage = useCallback((language: string) => setState((s) => ({ ...s, language })), []);
 
   const addParticipant = useCallback((customerId: string) => {
@@ -510,6 +514,7 @@ export function RecordingProvider({
           form.append("source", snapshot.mode);
           form.append("topicId", snapshot.topicId ?? "");
           form.append("shared", String(snapshot.shared));
+          form.append("generateTasks", String(snapshot.generateTasks));
           form.append("language", snapshot.language);
           form.append("participantIds", JSON.stringify(snapshot.participantIds));
           form.append("contactIds", JSON.stringify(snapshot.contactIds));
@@ -613,6 +618,7 @@ export function RecordingProvider({
       setTitle,
       setTopicId,
       setShared,
+      setGenerateTasks,
       setLanguage,
       addParticipant,
       removeParticipant,
@@ -634,6 +640,7 @@ export function RecordingProvider({
       setTitle,
       setTopicId,
       setShared,
+      setGenerateTasks,
       setLanguage,
       addParticipant,
       removeParticipant,

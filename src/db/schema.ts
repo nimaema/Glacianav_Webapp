@@ -198,6 +198,12 @@ export const conversations = pgTable("conversations", {
   durationMs: integer("duration_ms").default(0),
   editedBy: uuid("edited_by").references(() => profiles.id),
   aiTags: text("ai_tags").array().default([]),
+  // Whether the analysis pass should turn this recording's transcript into
+  // real tasks. Off = a recording that's worth transcribing/summarizing but
+  // has no follow-through to track (a learning note, a reference call). Set
+  // at capture time, editable later in the workspace. Notes never generate
+  // tasks regardless, so this only bites for recordings.
+  generateTasks: boolean("generate_tasks").notNull().default(true),
   audioUrl: text("audio_url"), // Supabase Storage path once capture lands
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   // Soft delete: recordings/notes are often unrepeatable interviews, so

@@ -6,10 +6,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Books,
   CaretDown,
+  Check,
   DotsSixVertical,
   DotsThreeVertical,
   GlobeHemisphereWest,
+  Hash,
   LockSimple,
+  MagnifyingGlass,
   Microphone,
   NotePencil,
   PencilSimple,
@@ -821,6 +824,123 @@ function TopicSummaryCard({
   );
 }
 
+// Tag search/filter. Tags are the library's cross-topic facet: pick one or
+// more and the pane flattens into every recording/note carrying them,
+// regardless of which topic they're filed under. The combobox lists real
+// tags with live counts (typed query narrows the list) so you discover what
+// exists instead of guessing spellings.
+function TagFilter({
+  facet,
+  active,
+  onToggle,
+  onClear,
+}: {
+  facet: { tag: string; count: number }[];
+  active: string[];
+  onToggle: (tag: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  useOutsideClick(ref, () => setOpen(false), open);
+
+  const q = query.trim().toLowerCase();
+  const shown = q ? facet.filter((f) => f.tag.includes(q)) : facet;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-bold transition-colors duration-150 ${
+            active.length > 0
+              ? "border-accent/60 bg-accent/10 text-accent"
+              : "border-line-2 text-ink-2 hover:bg-[rgba(23,32,43,0.05)]"
+          }`}
+        >
+          <Hash size={13} weight="bold" />
+          {active.length > 0 ? `${active.length} tag${active.length === 1 ? "" : "s"}` : "Filter by tag"}
+          <CaretDown size={12} weight="bold" className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+        </button>
+        {open && (
+          <div className="surfaced-lg absolute left-0 top-10 z-30 w-64 p-2">
+            <div className="mb-1.5 flex items-center gap-1.5 rounded-md bg-surface-2 px-2">
+              <MagnifyingGlass size={13} className="shrink-0 text-ink-3" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search tags…"
+                aria-label="Search tags"
+                className="h-8 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-3"
+              />
+            </div>
+            <div role="listbox" className="max-h-64 overflow-y-auto">
+              {shown.length === 0 ? (
+                <p className="px-2 py-3 text-center text-[12.5px] text-ink-3">
+                  {facet.length === 0 ? "No tags yet." : "No matching tags."}
+                </p>
+              ) : (
+                shown.map((f) => {
+                  const on = active.includes(f.tag);
+                  return (
+                    <button
+                      key={f.tag}
+                      type="button"
+                      role="option"
+                      aria-selected={on}
+                      onClick={() => onToggle(f.tag)}
+                      className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors duration-150 hover:bg-surface-2 ${
+                        on ? "font-bold text-accent" : "text-ink-2"
+                      }`}
+                    >
+                      <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border ${on ? "border-accent bg-accent text-white" : "border-line-2"}`}>
+                        {on && <Check size={10} weight="bold" />}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{f.tag}</span>
+                      <span className="font-mono text-[11px] font-semibold text-ink-3 tabular-nums">{f.count}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {active.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex items-center gap-1 rounded-full bg-accent/10 py-1 pl-2.5 pr-1.5 text-[12.5px] font-bold text-accent"
+        >
+          {tag}
+          <button
+            type="button"
+            onClick={() => onToggle(tag)}
+            aria-label={`Remove tag filter ${tag}`}
+            className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-accent/70 transition-colors duration-150 hover:bg-accent/20 hover:text-accent"
+          >
+            <X size={11} weight="bold" />
+          </button>
+        </span>
+      ))}
+      {active.length > 0 && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="cursor-pointer px-1.5 text-[12.5px] font-semibold text-ink-3 transition-colors duration-150 hover:text-ink"
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function LibraryView({
   conversations,
   topics,
@@ -838,6 +958,7 @@ export function LibraryView({
 }) {
   const [lens, setLens] = useState<Lens>("All");
   const [type, setType] = useState<ContentType>("All");
+  const [activeTags, setActiveTags] = useState<string[]>([]);
   const [rows, setRows] = useState<Conversation[]>(() => [...conversations]);
   const [topicRows, setTopicRows] = useState<Topic[]>(() => [...topics]);
   const [creatingTopic, setCreatingTopic] = useState(false);
@@ -895,6 +1016,41 @@ export function LibraryView({
     (c: Conversation) => (c.noteBody ? showNotes : showRecordings),
     [showNotes, showRecordings],
   );
+
+  // ── Tags ───────────────────────────────────────────────────────────
+  // The facet is built from lens-scoped rows (so counts match what "Personal"
+  // / "Shared" would show), keyed case-insensitively so "Pricing" and
+  // "pricing" collapse into one filterable tag.
+  const tagFacet = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of rows.filter(lensFilter)) {
+      for (const raw of c.tags ?? []) {
+        const tag = raw.trim().toLowerCase();
+        if (tag) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+  }, [rows, lensFilter]);
+
+  const toggleTag = useCallback(
+    (tag: string) => setActiveTags((ts) => (ts.includes(tag) ? ts.filter((t) => t !== tag) : [...ts, tag])),
+    [],
+  );
+
+  // A conversation matches the tag filter when it carries ANY active tag
+  // (union, not intersection) — the intent is discovery across topics, so
+  // widening the selection should surface more, not fewer.
+  const tagResults = useMemo(() => {
+    if (activeTags.length === 0) return [] as Conversation[];
+    const wanted = new Set(activeTags);
+    return rows
+      .filter(lensFilter)
+      .filter(typeFilter)
+      .filter((c) => (c.tags ?? []).some((t) => wanted.has(t.trim().toLowerCase())));
+  }, [rows, lensFilter, typeFilter, activeTags]);
+  const tagsActive = activeTags.length > 0;
 
   // Refile by dragging a card onto a nav row or an overview card.
   const moveTopic = useCallback((id: string, topicId: string) => {
@@ -1142,6 +1298,7 @@ export function LibraryView({
             { value: "Notes", label: "Notes", count: rows.filter(lensFilter).filter((c) => c.noteBody).length },
           ]}
         />
+        <TagFilter facet={tagFacet} active={activeTags} onToggle={toggleTag} onClear={() => setActiveTags([])} />
       </PageHeader>
 
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5 px-5 py-6 lg:flex-row lg:px-7">
@@ -1216,9 +1373,62 @@ export function LibraryView({
             />
           )}
 
+          {/* Tag results: a flat cross-topic view of everything carrying the
+              selected tag(s), replacing the topic navigation while a filter is
+              on. This is the "search the library by tag" surface. */}
+          {tagsActive && (
+            <section aria-label="Tag results" className="surfaced">
+              <div className="flex flex-wrap items-center gap-2.5 rounded-t-[var(--radius-card)] border-b border-line-2 bg-accent/[0.06] px-5 pb-3.5 pt-[1.125rem]">
+                <Hash size={16} weight="bold" className="text-accent" />
+                <h2 className="text-[16px] font-bold text-ink">
+                  Tagged {activeTags.map((t) => `“${t}”`).join(", ")}
+                </h2>
+                <span className="font-mono text-[12px] font-semibold text-ink-3 tabular-nums">{tagResults.length}</span>
+                <span className="text-[12.5px] text-ink-3">across all topics</span>
+              </div>
+              <div className="flex min-h-24 flex-col gap-5 px-5 py-5">
+                {showRecordings && (
+                  <TypeGroup
+                    kind="recordings"
+                    items={tagResults.filter((c) => !c.noteBody)}
+                    onOpen={open}
+                    showAuthor
+                    topicFor={topicFor}
+                    owners={owners}
+                    customers={customers}
+                    onDelete={handleDelete}
+                    expanded={expandedGroups.has("tags:recordings")}
+                    onToggleExpanded={() => toggleGroup("tags:recordings")}
+                  />
+                )}
+                {showNotes && (
+                  <TypeGroup
+                    kind="notes"
+                    items={tagResults.filter((c) => c.noteBody)}
+                    onOpen={open}
+                    showAuthor
+                    topicFor={topicFor}
+                    owners={owners}
+                    customers={customers}
+                    onDelete={handleDelete}
+                    expanded={expandedGroups.has("tags:notes")}
+                    onToggleExpanded={() => toggleGroup("tags:notes")}
+                  />
+                )}
+                {tagResults.length === 0 && (
+                  <p className="px-1 text-[13.5px] text-ink-3">
+                    Nothing {type === "All" ? "" : `${type.toLowerCase()} `}tagged{" "}
+                    {activeTags.map((t) => `“${t}”`).join(" or ")}
+                    {lens === "All" ? "" : ` in ${lens.toLowerCase()}`}.
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+
           {/* Overview: every topic as a summary card - no item tiles, so
               the landing view stays calm no matter how full topics get. */}
-          {selectedId === OVERVIEW_KEY && (
+          {!tagsActive && selectedId === OVERVIEW_KEY && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {navItems.map(({ topic }) => {
                 const group = groupFor(topic.id);
@@ -1268,7 +1478,7 @@ export function LibraryView({
               off. The header rounds its own top corners, and the color bar
               is an inset shadow so it follows the card radius instead of
               poking past it. */}
-          {selectedId !== OVERVIEW_KEY && (
+          {!tagsActive && selectedId !== OVERVIEW_KEY && (
             <section aria-label={selectedTopic?.name ?? "Uncategorized"} className="surfaced">
               {selectedTopic && editingTopicId === selectedTopic.id ? (
                 <div className="p-4">

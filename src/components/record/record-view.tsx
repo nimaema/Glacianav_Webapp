@@ -710,6 +710,22 @@ export function RecordView({
                 <Switch checked={rec.shared} onChange={() => rec.setShared(!rec.shared)} label="Share with team" />
               </div>
 
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className={fieldLabel}>Generate tasks</p>
+                  <p className="mt-0.5 text-[13px] text-ink-3">
+                    {rec.generateTasks
+                      ? "Pull action items out of the transcript"
+                      : "Transcribe and summarize only — no tasks"}
+                  </p>
+                </div>
+                <Switch
+                  checked={rec.generateTasks}
+                  onChange={() => rec.setGenerateTasks(!rec.generateTasks)}
+                  label="Generate tasks from this recording"
+                />
+              </div>
+
               <div className="border-t border-line-2 pt-4">
                 <LinkedLanes
                   lanes={[

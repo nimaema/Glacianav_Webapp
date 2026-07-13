@@ -94,6 +94,8 @@ export function toConversation(
     processingStage: (row.processingStage as Conversation["processingStage"]) ?? undefined,
     processingError: row.processingError ?? undefined,
     language: row.language ?? undefined,
+    tags: row.aiTags ?? [],
+    generateTasks: row.generateTasks ?? true,
     createdAtIso: row.createdAt.toISOString(),
   };
 }

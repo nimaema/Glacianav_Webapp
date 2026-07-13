@@ -106,8 +106,11 @@ export async function processConversationAudio(
     // Action items → real tasks, conversation-sourced. No assignee
     // resolution (transcript rarely names a real teammate by exact match) —
     // left unassigned, same honest-empty convention as the rest of the app.
+    // Skipped entirely when this recording opted out of task generation
+    // (learning notes, reference calls): still transcribed and summarized,
+    // just with no follow-through to track.
     await db.delete(tasks).where(eq(tasks.conversationId, conversationId));
-    if (analysis.actionItems.length > 0) {
+    if (convo.generateTasks && analysis.actionItems.length > 0) {
       await db.insert(tasks).values(
         analysis.actionItems.map((a) => ({
           task: a.task,

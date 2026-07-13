@@ -21,10 +21,10 @@ import {
   NotePencil,
   PaperPlaneTilt,
   PencilLine,
-  Check,
   Sparkle,
   SpinnerGap,
   Warning,
+  X,
 } from "@phosphor-icons/react";
 import { AssigneePicker } from "@/components/ui/assignee-picker";
 import { Pill } from "@/components/ui/pill";
@@ -50,11 +50,14 @@ import {
   exportConversationToGoogleDocs,
   renameConversation,
   renameConversationSpeaker,
+  setConversationTaskGeneration,
   toggleActionItemStatus,
   toggleConversationShare,
   updateConversationContacts,
   updateConversationParticipants,
+  updateConversationTags,
 } from "@/lib/data/library-actions";
+import { Switch } from "@/components/ui/switch";
 import { askQaQuestion } from "@/lib/data/qa-actions";
 import { setWorkTaskAssignees } from "@/lib/data/work-actions";
 import { OPEN_NOVA_EVENT, type OpenNovaDetail } from "@/components/shell/nova-dock";
@@ -236,6 +239,15 @@ export function ConversationWorkspace({
   const audioRef = useRef<HTMLAudioElement>(null);
   const [actions, setActions] = useState(d.actionItems ?? []);
   const [speakers, setSpeakers] = useState(d.speakers ?? []);
+  // Task generation is a recording-level switch, editable here after the
+  // fact: off = transcribe/summarize only. Flipping it persists and (when
+  // turning back on) re-mines the stored transcript for tasks server-side.
+  const [generateTasks, setGenerateTasksState] = useState(c.generateTasks ?? true);
+  const [taskGenBusy, setTaskGenBusy] = useState(false);
+  // Tags: AI-seeded, human-editable, the library's filter facet. Local state
+  // so add/remove feels instant; each change persists optimistically.
+  const [tags, setTags] = useState<string[]>(d.aiTags ?? []);
+  const [tagDraft, setTagDraft] = useState("");
   const [editingSpeakerLabel, setEditingSpeakerLabel] = useState<string | null>(null);
   const [speakerDraft, setSpeakerDraft] = useState("");
   const [speakerSaving, setSpeakerSaving] = useState(false);
@@ -267,6 +279,40 @@ export function ConversationWorkspace({
     }
     setTitle(next);
     void renameConversation(c.id, next);
+  };
+
+  const onToggleTaskGeneration = async () => {
+    const next = !generateTasks;
+    setGenerateTasksState(next);
+    setTaskGenBusy(true);
+    if (!next) setActions([]); // reflect the server-side removal immediately
+    try {
+      const res = await setConversationTaskGeneration(c.id, next);
+      // Turning it back on re-mines the transcript server-side; pull the new
+      // tasks in by re-running the RSC rather than duplicating extraction here.
+      if (next && res.regenerated) router.refresh();
+    } catch {
+      setGenerateTasksState(!next); // roll back on failure
+    } finally {
+      setTaskGenBusy(false);
+    }
+  };
+
+  const addTag = (raw: string) => {
+    const t = raw.trim().replace(/\s+/g, " ").toLowerCase();
+    if (!t || t.length > 32 || tags.includes(t)) {
+      setTagDraft("");
+      return;
+    }
+    const next = [...tags, t];
+    setTags(next);
+    setTagDraft("");
+    void updateConversationTags(c.id, next);
+  };
+  const removeTag = (t: string) => {
+    const next = tags.filter((x) => x !== t);
+    setTags(next);
+    void updateConversationTags(c.id, next);
   };
 
   const [participantIds, setParticipantIds] = useState(c.participantIds);
@@ -376,7 +422,7 @@ export function ConversationWorkspace({
         { label: "Actions open", value: `${openActions} / ${actions.length}` },
         { label: "Decisions", value: String(d.decisions?.length ?? 0) },
         { label: "Follow-ups", value: String(d.followUps?.length ?? 0) },
-        { label: "Tags", value: String(d.aiTags?.length ?? 0) },
+        { label: "Tags", value: String(tags.length) },
       ]
     : [
         { label: "Actions open", value: `${openActions} / ${actions.length}` },
@@ -781,15 +827,38 @@ export function ConversationWorkspace({
                   </section>
                 )}
 
-                {actions.length > 0 && (
+                {(actions.length > 0 || !isNote) && (
                   <section data-rise className="surfaced px-5 py-4">
                     <SectionHeader
                       icon={<ListChecks size={16} />}
-                      count={openActions}
+                      count={generateTasks ? openActions : undefined}
                       className="mb-3"
+                      action={
+                        !isNote ? (
+                          <label className="flex cursor-pointer items-center gap-2 text-[12.5px] font-semibold text-ink-2">
+                            Auto-tasks
+                            <Switch
+                              checked={generateTasks}
+                              onChange={onToggleTaskGeneration}
+                              disabled={taskGenBusy}
+                              label="Generate tasks from this recording"
+                            />
+                          </label>
+                        ) : undefined
+                      }
                     >
                       Action board
                     </SectionHeader>
+                    {!isNote && !generateTasks ? (
+                      <p className="text-[13.5px] leading-relaxed text-ink-3">
+                        Task generation is off for this recording — it&rsquo;s transcribed and summarized,
+                        but no action items are tracked. Turn on Auto-tasks to mine the transcript.
+                      </p>
+                    ) : actions.length === 0 ? (
+                      <p className="text-[13.5px] leading-relaxed text-ink-3">
+                        No action items came out of this {isNote ? "note" : "recording"}.
+                      </p>
+                    ) : (
                     <div className="flex flex-col">
                       {actions.map((a) => (
                         <div
@@ -838,6 +907,7 @@ export function ConversationWorkspace({
                         </div>
                       ))}
                     </div>
+                    )}
                   </section>
                 )}
 
@@ -887,22 +957,54 @@ export function ConversationWorkspace({
                         </div>
                       )}
                     </div>
-                    {d.aiTags && d.aiTags.length > 0 && (
-                      <div className="mt-5 border-t border-line-2 pt-4">
-                        <SectionHeader icon={<Hash size={16} />} className="mb-2.5">
-                          Tags
-                        </SectionHeader>
-                        <div className="flex flex-wrap gap-1.5">
-                          {d.aiTags.map((t) => (
-                            <Pill key={t} tone="gray">
-                              {t}
-                            </Pill>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </section>
                 )}
+
+                {/* Tags — AI-seeded, human-editable, and the library's search
+                    facet. Always available (recordings and notes) so anything
+                    can be made findable by tag. */}
+                <section data-rise className="surfaced px-5 py-4">
+                  <SectionHeader icon={<Hash size={16} />} count={tags.length} className="mb-2.5">
+                    Tags
+                  </SectionHeader>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {tags.map((t) => (
+                      <span
+                        key={t}
+                        className="inline-flex items-center gap-1 rounded-full bg-surface-2 py-1 pl-2.5 pr-1.5 text-[12.5px] font-semibold text-ink-2"
+                      >
+                        {t}
+                        <button
+                          type="button"
+                          onClick={() => removeTag(t)}
+                          aria-label={`Remove tag ${t}`}
+                          className="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full text-ink-3 transition-colors duration-150 hover:bg-danger/15 hover:text-danger"
+                        >
+                          <X size={11} weight="bold" />
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      value={tagDraft}
+                      onChange={(e) => setTagDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === ",") {
+                          e.preventDefault();
+                          addTag(tagDraft);
+                        } else if (e.key === "Backspace" && tagDraft === "" && tags.length > 0) {
+                          removeTag(tags[tags.length - 1]);
+                        }
+                      }}
+                      onBlur={() => tagDraft.trim() && addTag(tagDraft)}
+                      placeholder={tags.length === 0 ? "Add a tag…" : "Add…"}
+                      aria-label="Add a tag"
+                      className="h-7 min-w-24 flex-1 rounded-md bg-transparent px-1.5 text-[13px] text-ink outline-none placeholder:text-ink-3"
+                    />
+                  </div>
+                  <p className="mt-2.5 text-[12px] leading-snug text-ink-3">
+                    Tags make this findable in the library — search or filter by them. Type and press Enter to add.
+                  </p>
+                </section>
 
                 {d.utterances && d.utterances.length > 0 && (
                   <section data-rise className="surfaced px-5 py-4">

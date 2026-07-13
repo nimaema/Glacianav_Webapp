@@ -698,6 +698,14 @@ export type Conversation = {
   processingStage?: ProcessingStage;
   processingError?: string;
   language?: string;
+  // AI-extracted (then human-editable) tags — a canonical, filterable facet
+  // for the library, distinct from Topic collections. Present on list rows so
+  // the tag filter and tag chips don't need the full ConversationDetails.
+  tags?: string[];
+  // Whether this recording's transcript is mined for tasks. Recordings only
+  // (notes never generate tasks); default true. Surfaced so the workspace can
+  // show/flip the current state.
+  generateTasks?: boolean;
   // ISO timestamp of the row's creation, for the processing console's live
   // elapsed clock ("when" above is only a relative display string).
   createdAtIso?: string;

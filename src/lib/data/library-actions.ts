@@ -16,7 +16,9 @@ import {
   tasks,
   topicMembers,
   topics,
+  utterances,
 } from "@/db/schema";
+import { analyzeTranscript, normalizeTags } from "@/lib/ai/analyze-transcript";
 import { getCurrentProfile } from "@/lib/data/current-user";
 import type { ConversationComment, ConversationStatus, TopicVisibility } from "@/lib/fixtures";
 import { buildConversationDocHtml, type ConversationDocSpec } from "@/lib/google-doc-content";
@@ -171,6 +173,74 @@ export async function renameConversation(id: string, title: string) {
 
 export async function toggleConversationShare(id: string, shared: boolean) {
   await db.update(conversations).set({ shared }).where(eq(conversations.id, id));
+  revalidateConversation(id);
+}
+
+// Flip whether this recording's transcript gets mined for tasks, after the
+// fact. Turning it OFF removes the auto-generated tasks immediately so the
+// change is visible right away (manually-added tasks would be a different
+// sourceType, so this only touches conversation-sourced ones). Turning it
+// back ON re-mines the stored transcript — no re-transcription needed, since
+// utterances are already saved — but only when there's a transcript to mine
+// and no tasks already exist, so a click can't wipe and rebuild live tasks.
+// Returns whether tasks were (re)generated, so the workspace can refresh.
+export async function setConversationTaskGeneration(
+  id: string,
+  enabled: boolean,
+): Promise<{ regenerated: boolean }> {
+  await db.update(conversations).set({ generateTasks: enabled }).where(eq(conversations.id, id));
+
+  if (!enabled) {
+    await db.delete(tasks).where(and(eq(tasks.conversationId, id), eq(tasks.sourceType, "conversation")));
+    revalidateConversation(id);
+    revalidatePath("/work");
+    return { regenerated: false };
+  }
+
+  const [convo] = await db.select().from(conversations).where(eq(conversations.id, id)).limit(1);
+  const existing = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.conversationId, id), eq(tasks.sourceType, "conversation")));
+  const utteranceRows = await db
+    .select({ speakerLabel: utterances.speakerLabel, text: utterances.text })
+    .from(utterances)
+    .where(eq(utterances.conversationId, id))
+    .orderBy(utterances.startMs);
+
+  // Only regenerate when it's a processed recording with a transcript and no
+  // tasks yet — otherwise just persist the flag (a still-processing recording
+  // will pick tasks up when the pipeline finishes and reads generateTasks).
+  if (!convo || convo.status !== "ready" || existing.length > 0 || utteranceRows.length === 0) {
+    revalidateConversation(id);
+    return { regenerated: false };
+  }
+
+  const transcriptText = utteranceRows.map((u) => `${u.speakerLabel}: ${u.text}`).join("\n");
+  const analysis = await analyzeTranscript(transcriptText);
+  if (analysis.actionItems.length > 0) {
+    await db.insert(tasks).values(
+      analysis.actionItems.map((a) => ({
+        task: a.task,
+        sourceType: "conversation" as const,
+        conversationId: id,
+        dueLabel: a.due ?? undefined,
+        status: "open" as const,
+      })),
+    );
+  }
+  revalidateConversation(id);
+  revalidatePath("/work");
+  return { regenerated: analysis.actionItems.length > 0 };
+}
+
+// Edit a conversation's tags. These start as AI-extracted keywords but become
+// a curated, filterable facet once a human corrects them — so this is the one
+// write behind the workspace tag editor. Normalized the same way the AI tags
+// are (lowercase / trimmed / deduped) so manual and automatic tags share one
+// clean namespace on the library filter.
+export async function updateConversationTags(id: string, tags: string[]) {
+  await db.update(conversations).set({ aiTags: normalizeTags(tags) }).where(eq(conversations.id, id));
   revalidateConversation(id);
 }
 
