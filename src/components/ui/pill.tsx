@@ -1,5 +1,9 @@
-import type { PillTone } from "@/lib/fixtures";
-export type { PillTone };
+import type { PillTone as DataPillTone } from "@/lib/fixtures";
+
+// The UI accepts one tone the data palette must never contain: "danger" is
+// for error/failure chips only (DESIGN.md — --danger never decorates and
+// never joins the data-palette rotation stored in the DB).
+export type PillTone = DataPillTone | "danger";
 
 const TONES: Record<PillTone, string> = {
   cyan: "bg-[rgba(31,149,168,0.14)] text-[#13657a]",
@@ -8,6 +12,7 @@ const TONES: Record<PillTone, string> = {
   coral: "bg-[rgba(209,97,74,0.14)] text-[#9c4530]",
   blue: "bg-[rgba(61,111,166,0.14)] text-[#254d75]",
   gray: "bg-[#eef1f6] text-[#5a6578]",
+  danger: "bg-[rgba(192,70,58,0.12)] text-[#8f3129]",
 };
 
 export function Pill({

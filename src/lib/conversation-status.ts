@@ -5,6 +5,7 @@ export function statusChips(
   c: Conversation,
 ): { label: string; tone: PillTone }[] {
   if (c.status === "processing") return [{ label: "Processing", tone: "gray" }];
+  if (c.status === "failed") return [{ label: "Transcription failed", tone: "danger" }];
   if (c.status === "ready") {
     const chips: { label: string; tone: PillTone }[] = [
       { label: "Summary ready", tone: "green" },

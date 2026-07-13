@@ -30,6 +30,7 @@ import { Pill } from "@/components/ui/pill";
 import { SectionHeader } from "@/components/ui/section-header";
 import { FiledUnderPanel } from "@/components/ui/linked-records";
 import { PlaybackConsole } from "./playback-console";
+import { ProcessingConsole } from "./processing-console";
 import { TraceChip, fmtMs } from "./trace-chip";
 import { DiscussionPanel } from "./discussion-panel";
 import {
@@ -55,42 +56,6 @@ import {
 import { askQaQuestion } from "@/lib/data/qa-actions";
 import { setWorkTaskAssignees } from "@/lib/data/work-actions";
 import { OPEN_NOVA_EVENT, type OpenNovaDetail } from "@/components/shell/nova-dock";
-
-function ProcessingView({ title }: { title: string }) {
-  const steps = [
-    { label: "Uploaded", state: "done" },
-    { label: "Transcribing", state: "active" },
-    { label: "Extracting notes", state: "pending" },
-  ] as const;
-  return (
-    <div data-rise className="surfaced mx-auto max-w-[560px] px-6 py-6">
-      <h2 className="text-[17px] font-semibold text-ink">{title}</h2>
-      <p className="mt-1 text-[14px] text-ink-2">
-        The pipeline is working. Summary, action items, decisions, and the
-        diarized transcript land here as each step finishes.
-      </p>
-      <ol className="mt-4 flex flex-col gap-2.5">
-        {steps.map((s) => (
-          <li key={s.label} className="flex items-center gap-2.5 text-[14px]">
-            <span
-              aria-hidden
-              className={`h-2.5 w-2.5 rounded-full ${
-                s.state === "done"
-                  ? "bg-data-green"
-                  : s.state === "active"
-                    ? "animate-pulse bg-accent"
-                    : "bg-line"
-              }`}
-            />
-            <span className={s.state === "pending" ? "text-ink-3" : "text-ink"}>
-              {s.label}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
 
 type QaTurn = { role: "user" | "assistant"; content: string; citations?: { quote: string; startMs: number; speaker?: string }[] };
 
@@ -593,8 +558,8 @@ export function ConversationWorkspace({
       </header>
 
       <div className="mx-auto max-w-[1600px] px-7 py-6">
-        {c.status === "processing" ? (
-          <ProcessingView title={c.title} />
+        {c.status === "processing" || c.status === "failed" ? (
+          <ProcessingConsole conversation={c} />
         ) : (
           <div className="flex flex-col gap-5">
             {!isNote && (

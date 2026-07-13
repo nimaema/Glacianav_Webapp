@@ -10,7 +10,7 @@
 // until events are created on the Calendar page or a feed sync lands,
 // and the component says so instead of inventing a schedule.
 
-import { and, desc, eq, gte, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   calendarEvents,
@@ -208,7 +208,9 @@ export async function getHomeData(profileId: string | null, profileName: string)
     .where(
       and(
         eq(conversations.shared, true),
-        ne(conversations.status, "processing"),
+        // Only finished conversations belong in the team feed — processing
+        // and failed rows live on their own pages until they're real notes.
+        inArray(conversations.status, ["ready", "reviewed"]),
         isNull(conversations.noteBody),
         isNull(conversations.deletedAt),
       ),

@@ -126,6 +126,61 @@
   .anim-drawer-in { animation: drawer-in 180ms ease both; }
   .anim-palette-in { animation: palette-in 150ms ease both; }
 
+  /* ─── Processing console (library detail, status=processing/failed) ──
+     The transcription pipeline drawn in the app's chart language (§9):
+     station-plot circles on a horizontal track — done stations filled,
+     the current one filled with a soft halo ring, pending ones white
+     with a hairline stroke. Loops here are state-conveying only: they
+     run exactly while the background job is in flight (same restraint
+     as Nova's comet), and the global reduced-motion collapse applies. */
+  .proc-seg {
+    position: relative;
+    height: 2px;
+    flex: 1;
+    background: var(--line-2);
+    overflow: hidden;
+    border-radius: 9999px;
+  }
+  .proc-seg-done { background: var(--accent); }
+  .proc-seg-active::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 42px;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, transparent, var(--accent));
+    animation: proc-comet-run 1.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .proc-station {
+    position: relative;
+    height: 14px;
+    width: 14px;
+    flex: none;
+    border-radius: 9999px;
+    background: var(--surface);
+    border: 2px solid var(--line);
+    transition: background 300ms ease, border-color 300ms ease;
+  }
+  .proc-station-done { background: var(--accent); border-color: var(--accent); }
+  .proc-station-active { background: var(--accent); border-color: var(--accent); }
+  .proc-station-active::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 9999px;
+    border: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    animation: proc-halo-pulse 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+  .proc-station-failed { background: var(--danger); border-color: var(--danger); }
+  /* Skeleton lines standing where the transcript will land. */
+  .proc-shimmer {
+    border-radius: 6px;
+    background: linear-gradient(100deg, var(--surface-2) 40%, #ffffff 50%, var(--surface-2) 60%);
+    background-size: 200% 100%;
+    animation: proc-shimmer-sweep 1.4s linear infinite;
+  }
+
   /* ─── Nova's Wing (DESIGN.md §7c) ───────────────────────────────
      Nova is not a chat widget: she's a full-height wing that sweeps
      in from the right edge of the instrument. Light and pearlescent —
@@ -289,6 +344,19 @@
     animation: login-aurora-drift 16s ease-in-out infinite alternate;
   }
 }
+
+@keyframes proc-comet-run {
+  0% { left: -44px; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+@keyframes proc-halo-pulse {
+  0% { transform: scale(0.55); opacity: 0.9; }
+  75% { transform: scale(1.1); opacity: 0; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
+@keyframes proc-shimmer-sweep { from { background-position: 120% 0; } to { background-position: -100% 0; } }
 
 @keyframes overlay-in { from { opacity: 0; } }
 @keyframes drawer-in { from { transform: translateX(18px); opacity: 0; } }

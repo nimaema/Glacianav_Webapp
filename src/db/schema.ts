@@ -44,7 +44,7 @@ export const problemStatusEnum = pgEnum("problem_status", ["yes", "no", "unknown
 export const compatibilityEnum = pgEnum("compatibility_level", ["none", "weak", "possible", "good", "full"]);
 export const queueKindEnum = pgEnum("queue_kind", ["interview", "review", "followup", "task", "stale"]);
 export const topicVisibilityEnum = pgEnum("topic_visibility", ["private", "selected", "all"]);
-export const conversationStatusEnum = pgEnum("conversation_status", ["processing", "ready", "reviewed"]);
+export const conversationStatusEnum = pgEnum("conversation_status", ["processing", "ready", "reviewed", "failed"]);
 export const conversationSourceEnum = pgEnum("conversation_source", ["record", "upload"]);
 export const taskStatusEnum = pgEnum("task_status", ["open", "done"]);
 export const taskSourceEnum = pgEnum("task_source", ["conversation", "customer"]);
@@ -179,6 +179,12 @@ export const conversations = pgTable("conversations", {
   topicId: text("topic_id").references(() => topics.id),
   authorId: uuid("author_id").references(() => profiles.id),
   status: conversationStatusEnum("status").default("processing"),
+  // Live pipeline telemetry: which step processConversationAudio is on
+  // ("transcribing" | "analyzing" | "saving"), and — when status lands on
+  // "failed" — the real error message, so the UI never shows an eternal
+  // "processing" for a job that actually died.
+  processingStage: text("processing_stage"),
+  processingError: text("processing_error"),
   shared: boolean("shared").default(false),
   summary: text("summary"),
   noteBody: text("note_body"), // presence marks this row a written note, not a recording

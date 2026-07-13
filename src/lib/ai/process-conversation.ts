@@ -32,6 +32,16 @@ function anchorQuote(quote: string, utts: { text: string; startMs: number }[]): 
   return hit?.startMs ?? null;
 }
 
+// Best-effort stage telemetry for the processing UI — a failed status write
+// must never kill the pipeline itself.
+async function setStage(conversationId: string, stage: "transcribing" | "analyzing" | "saving") {
+  await db
+    .update(conversations)
+    .set({ processingStage: stage })
+    .where(eq(conversations.id, conversationId))
+    .catch((e) => console.error(`setStage(${stage}) failed for ${conversationId}:`, e));
+}
+
 export async function processConversationAudio(
   conversationId: string,
   opts: { languageHint?: string } = {},
@@ -43,9 +53,13 @@ export async function processConversationAudio(
   }
 
   try {
+    await setStage(conversationId, "transcribing");
     const audio = await getObjectBuffer(convo.audioUrl);
     const transcript = await transcribeAudioBuffer(audio, { languageCode: opts.languageHint });
+    await setStage(conversationId, "analyzing");
     const analysis = await analyzeTranscript(transcript.text);
+
+    await setStage(conversationId, "saving");
 
     // Speakers: one row per unique diarization label, colored in rotation.
     const speakerLabels = [...new Set(transcript.utterances.map((u) => u.speakerLabel))];
@@ -109,6 +123,8 @@ export async function processConversationAudio(
       .update(conversations)
       .set({
         status: "ready",
+        processingStage: null,
+        processingError: null,
         summary: analysis.summary || undefined,
         language: transcript.language ?? undefined,
         durationMs: transcript.durationMs,
@@ -116,9 +132,14 @@ export async function processConversationAudio(
       })
       .where(eq(conversations.id, conversationId));
   } catch (e) {
-    console.error(`processConversationAudio failed for ${conversationId}:`, e instanceof Error ? e.message : e);
-    // No error column on conversations yet — status stays "processing",
-    // which already reads honestly as "not finished" rather than silently
-    // looking done. Retrying just means calling this function again.
+    const message = e instanceof Error ? e.message : String(e);
+    console.error(`processConversationAudio failed for ${conversationId}:`, message);
+    // Land on an honest "failed" instead of an eternal "processing" — the
+    // audio is safely stored, so retry just re-runs this function.
+    await db
+      .update(conversations)
+      .set({ status: "failed", processingError: message })
+      .where(eq(conversations.id, conversationId))
+      .catch((err) => console.error(`failed-status write also failed for ${conversationId}:`, err));
   }
 }

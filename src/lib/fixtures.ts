@@ -647,7 +647,11 @@ export type Topic = {
   createdById?: string;
 };
 
-export type ConversationStatus = "processing" | "ready" | "reviewed";
+export type ConversationStatus = "processing" | "ready" | "reviewed" | "failed";
+
+// Which pipeline step processConversationAudio is currently on — written by
+// the background job, read by the processing console's polling loop.
+export type ProcessingStage = "transcribing" | "analyzing" | "saving";
 
 export type Conversation = {
   id: string;
@@ -688,6 +692,15 @@ export type Conversation = {
   // audio on the source system, so this is false for them and the workspace
   // shows an honest "audio not stored here" state instead of a dead player.
   hasAudio?: boolean;
+  // Live pipeline telemetry while status is "processing"/"failed" — which
+  // step the background job is on, and the real failure message once a run
+  // dies (never set for ready/reviewed rows).
+  processingStage?: ProcessingStage;
+  processingError?: string;
+  language?: string;
+  // ISO timestamp of the row's creation, for the processing console's live
+  // elapsed clock ("when" above is only a relative display string).
+  createdAtIso?: string;
 };
 
 export const topics: Topic[] = [

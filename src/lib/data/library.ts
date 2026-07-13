@@ -91,6 +91,10 @@ export function toConversation(
     chapterCount: counts.chapterCount,
     source: row.source ?? undefined,
     hasAudio: Boolean(row.audioUrl),
+    processingStage: (row.processingStage as Conversation["processingStage"]) ?? undefined,
+    processingError: row.processingError ?? undefined,
+    language: row.language ?? undefined,
+    createdAtIso: row.createdAt.toISOString(),
   };
 }
 
