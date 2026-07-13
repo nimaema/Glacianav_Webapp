@@ -5,7 +5,12 @@
 import "server-only";
 
 const BASE = process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com";
+// Two tiers: the fast default handles quick factual/CRUD work; the "pro" tier
+// is a stronger reasoning model the agent escalates to for complex, logic-heavy
+// tasks (analysis, imports, multi-step planning). Override either via env; set
+// DEEPSEEK_MODEL_PRO to your account's exact pro model id if it differs.
 export const MODEL = process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash";
+export const MODEL_PRO = process.env.DEEPSEEK_MODEL_PRO ?? "deepseek-v4-pro";
 
 function apiKey() {
   return process.env.DEEPSEEK_API_KEY ?? "";
@@ -59,21 +64,39 @@ export function p(type: string, description: string) {
   return { type, description };
 }
 
+// A 400/404 that mentions the model means the configured pro id isn't valid
+// for this account — the caller can gracefully retry on the default tier.
+function isModelError(status: number, body: string): boolean {
+  return (status === 400 || status === 404) && /model/i.test(body);
+}
+
 // Plain chat completion, no tools — used for simple parse/summarize calls.
+// Pass opts.model to pick a tier (defaults to the fast MODEL); a pro model that
+// the account rejects falls back to MODEL once so a bad id can't break a call.
 export async function deepseekChat(
   messages: { role: "system" | "user" | "assistant"; content: string }[],
-  opts: { json?: boolean; temperature?: number; maxTokens?: number } = {},
+  opts: { json?: boolean; temperature?: number; maxTokens?: number; model?: string } = {},
 ): Promise<string> {
-  const res = await requestCompletion({
-    model: MODEL,
+  const model = opts.model || MODEL;
+  const body = {
+    model,
     temperature: opts.temperature ?? 0.3,
     ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
     ...(opts.json ? { response_format: { type: "json_object" } } : {}),
     messages,
-  });
+  };
+  let res = await requestCompletion(body);
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`DeepSeek ${res.status}: ${body.slice(0, 300)}`);
+    const errBody = await res.text().catch(() => "");
+    if (model !== MODEL && isModelError(res.status, errBody)) {
+      res = await requestCompletion({ ...body, model: MODEL });
+    } else {
+      throw new Error(`DeepSeek ${res.status}: ${errBody.slice(0, 300)}`);
+    }
+  }
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`DeepSeek ${res.status}: ${errBody.slice(0, 300)}`);
   }
   const data = await res.json();
   return data.choices?.[0]?.message?.content ?? "";
@@ -81,20 +104,32 @@ export async function deepseekChat(
 
 // Tool-calling completion — one turn. The caller drives the agent loop
 // (append the assistant message + tool results, call again) same as
-// glacianav-notes' agent.ts.
+// glacianav-notes' agent.ts. opts.model selects the tier with the same
+// pro→default fallback as deepseekChat.
 export async function deepseekChatWithTools(
   messages: ChatMsg[],
   tools: ToolSchema[],
+  opts: { model?: string } = {},
 ): Promise<{ content: string; tool_calls?: ToolCall[] }> {
-  const res = await requestCompletion({
-    model: MODEL,
+  const model = opts.model || MODEL;
+  const body = {
+    model,
     temperature: 0.2,
     messages,
     ...(tools.length ? { tools, tool_choice: "auto" } : {}),
-  });
+  };
+  let res = await requestCompletion(body);
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`DeepSeek ${res.status}: ${body.slice(0, 300)}`);
+    const errBody = await res.text().catch(() => "");
+    if (model !== MODEL && isModelError(res.status, errBody)) {
+      res = await requestCompletion({ ...body, model: MODEL });
+    } else {
+      throw new Error(`DeepSeek ${res.status}: ${errBody.slice(0, 300)}`);
+    }
+  }
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`DeepSeek ${res.status}: ${errBody.slice(0, 300)}`);
   }
   const data = await res.json();
   const m = data.choices?.[0]?.message ?? {};

@@ -4,7 +4,7 @@
 // action items/topics/summary, anchored to transcript moments).
 
 import "server-only";
-import { deepseekChat, isMockLLM, tryParseJson } from "@/lib/ai/deepseek";
+import { deepseekChat, isMockLLM, tryParseJson, MODEL_PRO } from "@/lib/ai/deepseek";
 
 export type AnalysisChapter = { title: string; summary: string; quote: string };
 export type AnalysisActionItem = { task: string; due: string | null };
@@ -61,12 +61,14 @@ export function normalizeTags(raw: string[]): string[] {
 export async function analyzeTranscript(text: string): Promise<Analysis> {
   if (isMockLLM()) return mockAnalysis();
 
+  // Transcript analysis is reasoning-dense (summary, decisions, follow-ups,
+  // chapters from raw dialogue) — run it on the stronger pro tier.
   const raw = await deepseekChat(
     [
       { role: "system", content: SYSTEM },
       { role: "user", content: `Read this full transcript and produce the analysis described.\n\nTranscript:\n\n${text}` },
     ],
-    { json: true, temperature: 0.2, maxTokens: 4000 },
+    { json: true, temperature: 0.2, maxTokens: 4000, model: MODEL_PRO },
   );
 
   let parsed = tryParseJson(raw);

@@ -15,7 +15,7 @@ import {
   traceItems,
   utterances,
 } from "@/db/schema";
-import { deepseekChat, isMockLLM } from "@/lib/ai/deepseek";
+import { deepseekChat, isMockLLM, MODEL_PRO } from "@/lib/ai/deepseek";
 
 export type QaScope =
   | { kind: "everything" }
@@ -220,6 +220,7 @@ export async function answerQaQuestion(input: {
 
   if (isMockLLM()) return mockAnswer(input.question, contextText, hasTimestamps);
 
+  // Reasoning over cited evidence to answer a question — use the pro tier.
   const raw = await deepseekChat(
     [
       { role: "system", content: SYSTEM_PROMPT },
@@ -227,7 +228,7 @@ export async function answerQaQuestion(input: {
       ...input.history.slice(-6),
       { role: "user", content: input.question },
     ],
-    { json: true, temperature: 0.2, maxTokens: 700 },
+    { json: true, temperature: 0.2, maxTokens: 700, model: MODEL_PRO },
   );
   return parseAnswer(raw);
 }

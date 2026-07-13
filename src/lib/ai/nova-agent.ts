@@ -29,6 +29,8 @@ import {
   p,
   safeArgs,
   isMockLLM,
+  MODEL,
+  MODEL_PRO,
   type ChatMsg,
   type ToolSchema,
 } from "@/lib/ai/deepseek";
@@ -150,6 +152,24 @@ function formatFromFilename(filename: string): NovaFileFormat {
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+// Route reasoning-dense work to the stronger "pro" model and keep quick
+// factual/CRUD chatter on the fast one. A file to work through, an explicitly
+// analytical ask, or a long multi-part request escalates up front; the agent
+// loop additionally escalates once a task proves genuinely multi-step (below).
+const PRO_INTENT =
+  /\b(analy[sz]e|compare|contrast|reconcile|dedup(?:licate|e)?|cross.?reference|why\b|explain|reason|figure out|work out|plan\b|strateg|recommend|evaluat|prioriti[sz]e|forecast|break ?down|trade.?off|pros? and cons|root cause|step[- ]by[- ]step|import|which .*(?:should|best))\b/i;
+
+function pickNovaModel(question: string, hasFile: boolean): string {
+  if (MODEL_PRO === MODEL) return MODEL; // pro not configured distinctly
+  if (hasFile) return MODEL_PRO;
+  const q = question.trim();
+  if (PRO_INTENT.test(q)) return MODEL_PRO;
+  if (q.length > 400) return MODEL_PRO;
+  const clauses = q.split(/[.?!\n]|,\s*(?:and|then|also)\b/i).filter((c) => c.trim().length > 8);
+  if (clauses.length >= 4) return MODEL_PRO;
+  return MODEL;
 }
 
 // Strip hidden characters that quietly corrupt copied contact data — soft
@@ -1669,8 +1689,13 @@ export async function runNovaAgent(input: {
 
   // Headroom for genuine multi-step work (read → dedup → import → verify →
   // present) while parallel tool calls keep most turns to 2-4 rounds.
+  const baseModel = pickNovaModel(input.question, !!input.fileContext || !!input.attachment);
   for (let step = 0; step < 8; step++) {
-    const msg = await deepseekChatWithTools(messages, TOOL_SCHEMAS);
+    // A task still calling tools after a few rounds is genuinely multi-step —
+    // escalate to the stronger model for the deeper reasoning even if the
+    // opening question looked simple.
+    const model = step >= 3 ? MODEL_PRO : baseModel;
+    const msg = await deepseekChatWithTools(messages, TOOL_SCHEMAS, { model });
     if (!msg.tool_calls?.length) {
       return finalize(msg.content || "Done.");
     }
