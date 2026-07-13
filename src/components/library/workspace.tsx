@@ -21,6 +21,7 @@ import {
   NotePencil,
   PaperPlaneTilt,
   PencilLine,
+  Check,
   Sparkle,
   SpinnerGap,
   Warning,
@@ -47,6 +48,7 @@ import {
 } from "@/lib/fixtures";
 import {
   exportConversationToGoogleDocs,
+  renameConversation,
   renameConversationSpeaker,
   toggleActionItemStatus,
   toggleConversationShare,
@@ -250,6 +252,22 @@ export function ConversationWorkspace({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [shared, setShared] = useState(c.shared);
+  // Inline title rename — the AI-suggested or upload-derived name is often
+  // worth fixing after the fact. Optimistic: the header updates immediately,
+  // the server catches up.
+  const [title, setTitle] = useState(c.title);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(c.title);
+  const commitTitle = () => {
+    const next = titleDraft.trim();
+    setEditingTitle(false);
+    if (!next || next === title) {
+      setTitleDraft(title);
+      return;
+    }
+    setTitle(next);
+    void renameConversation(c.id, next);
+  };
 
   const [participantIds, setParticipantIds] = useState(c.participantIds);
   const [contactIds, setContactIds] = useState(c.contactIds);
@@ -389,7 +407,7 @@ export function ConversationWorkspace({
         conversationId: c.id,
         authorId: currentUserId,
         spec: {
-          title: c.title,
+          title,
           recordedOn: c.when,
           summary: c.summary,
           tags: d.aiTags,
@@ -431,7 +449,7 @@ export function ConversationWorkspace({
     setExportOpen(false);
     window.dispatchEvent(
       new CustomEvent<OpenNovaDetail>(OPEN_NOVA_EVENT, {
-        detail: { prompt: `Generate a ${format} export of "${c.title}"` },
+        detail: { prompt: `Generate a ${format} export of "${title}"` },
       }),
     );
   };
@@ -454,9 +472,41 @@ export function ConversationWorkspace({
             {isNote ? <NotePencil size={20} /> : <Microphone size={20} />}
           </span>
           <div className="min-w-0">
-            <h1 className="truncate text-[24px] font-semibold tracking-[-0.015em] text-ink">
-              {c.title}
-            </h1>
+            {editingTitle ? (
+              <input
+                autoFocus
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    commitTitle();
+                  } else if (e.key === "Escape") {
+                    setTitleDraft(title);
+                    setEditingTitle(false);
+                  }
+                }}
+                aria-label="Rename this recording"
+                maxLength={160}
+                className="w-full rounded-control border border-accent bg-surface px-2 py-0.5 text-[24px] font-semibold tracking-[-0.015em] text-ink outline-none focus:ring-2 focus:ring-accent/30"
+              />
+            ) : (
+              <h1 className="group/title flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-[24px] font-semibold tracking-[-0.015em] text-ink">{title}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitleDraft(title);
+                    setEditingTitle(true);
+                  }}
+                  aria-label="Rename"
+                  className="shrink-0 rounded-md p-1 text-ink-3 opacity-0 transition-[opacity,color] duration-150 hover:text-accent focus-visible:opacity-100 group-hover/title:opacity-100"
+                >
+                  <PencilLine size={16} />
+                </button>
+              </h1>
+            )}
             <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[13.5px] text-ink-2">
               <span
                 aria-hidden

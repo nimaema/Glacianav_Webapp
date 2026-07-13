@@ -144,8 +144,28 @@ export async function updateTopic(
   revalidatePath("/library");
 }
 
+// Persist the library navigator's manual topic order. The client sends the
+// full ordered id list, so we just stamp each topic's sortOrder to its index
+// — a handful of topics, so per-row updates are cheaper than they look and
+// keep the write dead simple.
+export async function reorderTopics(orderedIds: string[]) {
+  await Promise.all(
+    orderedIds.map((id, index) => db.update(topics).set({ sortOrder: index }).where(eq(topics.id, id))),
+  );
+  revalidatePath("/library");
+}
+
 export async function moveConversationTopic(id: string, topicId: string) {
   await db.update(conversations).set({ topicId }).where(eq(conversations.id, id));
+  revalidateConversation(id);
+}
+
+// Rename a recording or note after the fact. Title is the one field a user
+// most often wants to fix once the AI-suggested or upload-derived name lands.
+export async function renameConversation(id: string, title: string) {
+  const trimmed = title.trim();
+  if (!trimmed) return;
+  await db.update(conversations).set({ title: trimmed }).where(eq(conversations.id, id));
   revalidateConversation(id);
 }
 

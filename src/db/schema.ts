@@ -158,6 +158,9 @@ export const topics = pgTable("topics", {
   name: text("name").notNull(),
   color: text("color").notNull(),
   visibility: topicVisibilityEnum("visibility").default("all"),
+  // Manual order in the library navigator — set by drag-to-reorder. Lower
+  // sorts first; ties break on name so ordering is always deterministic.
+  sortOrder: integer("sort_order").default(0),
   // Who created the topic. Only the creator (or an admin) may delete it;
   // other members can only remove themselves via topic_members. Nullable so
   // pre-existing/seeded topics with unknown authorship stay admin-managed.

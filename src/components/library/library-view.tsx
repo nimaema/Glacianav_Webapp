@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Books,
   CaretDown,
+  DotsSixVertical,
   DotsThreeVertical,
   GlobeHemisphereWest,
   LockSimple,
@@ -44,6 +45,7 @@ import {
   restoreConversation as restoreConversationAction,
   deleteTopic as deleteTopicAction,
   leaveTopic as leaveTopicAction,
+  reorderTopics as reorderTopicsAction,
 } from "@/lib/data/library-actions";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { NoteCard } from "./note-card";
@@ -678,6 +680,10 @@ function TopicNavItem({
   icon,
   isDropOver,
   dropProps,
+  reorderable,
+  rowHandlers,
+  isReorderOver,
+  isReorderSource,
   onSelect,
 }: {
   active: boolean;
@@ -687,32 +693,57 @@ function TopicNavItem({
   icon?: React.ReactNode;
   isDropOver?: boolean;
   dropProps?: React.HTMLAttributes<HTMLElement>;
+  reorderable?: boolean;
+  rowHandlers?: React.HTMLAttributes<HTMLElement> & { draggable: boolean };
+  isReorderOver?: boolean;
+  isReorderSource?: boolean;
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-current={active ? "true" : undefined}
-      {...(dropProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
-      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-control px-3 py-2 text-left transition-colors duration-150 ${
-        active ? "bg-accent text-white" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
-      } ${isDropOver ? "outline-2 outline-dashed outline-accent/60 -outline-offset-2" : ""}`}
-    >
-      {icon ?? (
+    <div className="relative">
+      {/* Insertion line — where the dragged topic will land. */}
+      {isReorderOver && (
         <span
           aria-hidden
-          className={`h-3 w-3 shrink-0 rounded-[4px] ${active ? "ring-1 ring-white/50" : ""}`}
-          style={{ background: color }}
+          className="absolute -top-px left-1 right-1 z-10 h-0.5 rounded-full bg-accent"
         />
       )}
-      <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">{name}</span>
-      {count !== undefined && (
-        <span className={`font-mono text-[11.5px] font-semibold tabular-nums ${active ? "text-white/80" : "text-ink-3"}`}>
-          {count}
-        </span>
-      )}
-    </button>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={active ? "true" : undefined}
+        {...(rowHandlers ?? (dropProps as React.ButtonHTMLAttributes<HTMLButtonElement>))}
+        className={`group/topic flex w-full cursor-pointer items-center gap-2.5 rounded-control py-2 pr-3 text-left transition-[background-color,color,opacity] duration-150 ${
+          reorderable ? "pl-1" : "pl-3"
+        } ${active ? "bg-accent text-white" : "text-ink-2 hover:bg-surface-2 hover:text-ink"} ${
+          isDropOver ? "outline-2 outline-dashed outline-accent/60 -outline-offset-2" : ""
+        } ${isReorderSource ? "opacity-40" : ""}`}
+      >
+        {reorderable && (
+          <DotsSixVertical
+            size={15}
+            weight="bold"
+            aria-hidden
+            className={`shrink-0 cursor-grab opacity-0 transition-opacity duration-150 group-hover/topic:opacity-100 active:cursor-grabbing ${
+              active ? "text-white/70" : "text-ink-3"
+            }`}
+          />
+        )}
+        {icon ?? (
+          <span
+            aria-hidden
+            className={`h-3 w-3 shrink-0 rounded-[4px] ${active ? "ring-1 ring-white/50" : ""}`}
+            style={{ background: color }}
+          />
+        )}
+        <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">{name}</span>
+        {count !== undefined && (
+          <span className={`font-mono text-[11.5px] font-semibold tabular-nums ${active ? "text-white/80" : "text-ink-3"}`}>
+            {count}
+          </span>
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -872,6 +903,77 @@ export function LibraryView({
     void moveConversationTopic(id, topicId);
   }, []);
   const { dragId, overKey, dragProps, dropProps } = useDnd(moveTopic);
+
+  // Topic reorder runs on its own drag channel, deliberately separate from
+  // the conversation-refile DnD above: topics carry a custom dataTransfer
+  // type and their own hover state, so dragging a topic to reorder never
+  // gets mistaken for dropping a recording onto a topic (and vice versa).
+  const TOPIC_MIME = "application/x-glacianav-topic";
+  const [topicDragId, setTopicDragId] = useState<string | null>(null);
+  const [topicOverId, setTopicOverId] = useState<string | null>(null);
+
+  const reorderTopicsTo = useCallback((sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    setTopicRows((ts) => {
+      const from = ts.findIndex((t) => t.id === sourceId);
+      const to = ts.findIndex((t) => t.id === targetId);
+      if (from === -1 || to === -1) return ts;
+      const next = [...ts];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      void reorderTopicsAction(next.map((t) => t.id));
+      return next;
+    });
+  }, []);
+
+  // One merged handler set per nav row: it's both a topic drag source and a
+  // drop target for the two channels. The overlapping DOM events fan out to
+  // both the conversation-refile handlers and the topic-reorder ones; each
+  // ignores drags that aren't its own (topic reorder keys off TOPIC_MIME,
+  // conversation refile off text/plain), so they coexist on one element.
+  const topicRowHandlers = useCallback(
+    (id: string): React.HTMLAttributes<HTMLElement> & { draggable: boolean } => {
+      const conv = dropProps(id);
+      return {
+        draggable: true,
+        onDragStart: (e: React.DragEvent) => {
+          e.dataTransfer.setData(TOPIC_MIME, id);
+          e.dataTransfer.effectAllowed = "move";
+          setTopicDragId(id);
+        },
+        onDragEnd: () => {
+          setTopicDragId(null);
+          setTopicOverId(null);
+        },
+        onDragOver: (e: React.DragEvent) => {
+          conv.onDragOver(e);
+          if (e.dataTransfer.types.includes(TOPIC_MIME)) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setTopicOverId(id);
+          }
+        },
+        onDragLeave: (e: React.DragEvent) => {
+          conv.onDragLeave(e);
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setTopicOverId((cur) => (cur === id ? null : cur));
+          }
+        },
+        onDrop: (e: React.DragEvent) => {
+          const dragged = e.dataTransfer.getData(TOPIC_MIME);
+          if (dragged) {
+            e.preventDefault();
+            reorderTopicsTo(dragged, id);
+            setTopicDragId(null);
+            setTopicOverId(null);
+            return;
+          }
+          conv.onDrop(e);
+        },
+      };
+    },
+    [dropProps, reorderTopicsTo],
+  );
 
   const saveNote = useCallback(
     (note: Conversation) => {
@@ -1062,7 +1164,10 @@ export function LibraryView({
                 name={topic.name}
                 count={count}
                 isDropOver={isDropTarget(topic.id)}
-                dropProps={dropProps(topic.id)}
+                reorderable
+                rowHandlers={topicRowHandlers(topic.id)}
+                isReorderOver={topicDragId !== null && topicDragId !== topic.id && topicOverId === topic.id}
+                isReorderSource={topicDragId === topic.id}
                 onSelect={() => setSelectedId(topic.id)}
               />
             ))}

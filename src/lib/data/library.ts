@@ -122,7 +122,7 @@ export async function getLibraryPageData(currentUserId: string): Promise<Library
     chapterRows,
   ] = await Promise.all([
     db.select().from(conversations).where(isNull(conversations.deletedAt)),
-    db.select().from(topics),
+    db.select().from(topics).orderBy(topics.sortOrder, topics.name),
     db.select().from(topicMembers),
     db.select().from(profiles),
     db.select().from(customers),
