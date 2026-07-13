@@ -82,7 +82,6 @@ def run_job(request_path: Path) -> None:
     started = time.monotonic()
     job_id = request_path.stem
     workspace: Path | None = None
-    queue_locked = False
     try:
         request = json.loads(request_path.read_text(encoding="utf-8"))
         if request.get("id") != job_id:
@@ -113,33 +112,33 @@ def run_job(request_path: Path) -> None:
             os.chown(child_path, SANDBOX_UID, SANDBOX_GID)
         timeout = min(180, max(5, int(request.get("timeoutSeconds") or 120)))
         args = [str(value)[:240] for value in request.get("args", [])[:12]]
-        # Hide the shared queue for the entire lifetime of model-authored
-        # code. The web side treats EACCES as "worker busy" and keeps polling.
-        os.chmod(JOBS_ROOT, 0o000)
-        queue_locked = True
-        try:
-            completed = subprocess.run(
-                ["python", "-I", "-B", str(script_path), *args],
-                cwd=workspace,
-                env={
-                    "HOME": str(workspace),
-                    "TMPDIR": str(workspace),
-                    "PATH": "/usr/local/bin:/usr/bin:/bin",
-                    "LANG": "C.UTF-8",
-                    "MPLBACKEND": "Agg",
-                    "PYTHONUNBUFFERED": "1",
-                },
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=timeout,
-                check=False,
-                preexec_fn=limit_process,
-            )
-        finally:
-            os.chmod(JOBS_ROOT, 0o770)
-            queue_locked = False
+        # The queue is already isolated from model-authored code by ownership:
+        # JOBS_ROOT is root:worker(1001) mode 770, and limit_process() drops the
+        # child to uid/gid 1002 with NO supplementary groups, so it cannot read,
+        # traverse, or write anything under /jobs. The previous defense chmod'd
+        # JOBS_ROOT to 000 for the subprocess lifetime, but that raced concurrent
+        # web-side queue writes and the worker's own next iteration, surfacing as
+        # "[Errno 13] Permission denied: /jobs/processing/<id>.json". Ownership
+        # alone is sufficient, so we no longer touch JOBS_ROOT's mode here.
+        completed = subprocess.run(
+            ["python", "-I", "-B", str(script_path), *args],
+            cwd=workspace,
+            env={
+                "HOME": str(workspace),
+                "TMPDIR": str(workspace),
+                "PATH": "/usr/local/bin:/usr/bin:/bin",
+                "LANG": "C.UTF-8",
+                "MPLBACKEND": "Agg",
+                "PYTHONUNBUFFERED": "1",
+            },
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout,
+            check=False,
+            preexec_fn=limit_process,
+        )
         if completed.returncode != 0:
             detail = completed.stderr.strip().splitlines()[-1] if completed.stderr.strip() else "unknown error"
             raise RuntimeError(f"Python exited with status {completed.returncode}: {detail[:500]}")
@@ -178,8 +177,6 @@ def run_job(request_path: Path) -> None:
     except Exception as error:
         write_result(job_id, {"ok": False, "error": str(error)[:800], "files": [], "stdout": "", "stderr": "", "durationMs": round((time.monotonic() - started) * 1000)})
     finally:
-        if queue_locked:
-            os.chmod(JOBS_ROOT, 0o770)
         request_path.unlink(missing_ok=True)
         if workspace:
             shutil.rmtree(workspace, ignore_errors=True)

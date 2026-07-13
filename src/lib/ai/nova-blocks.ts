@@ -31,7 +31,14 @@ export type NovaBlock =
       // (e.g. "coral:overdue") — the renderer colors just that cell.
       rows: string[][];
     }
-  | { kind: "next"; label: string; prompt: string };
+  | { kind: "next"; label: string; prompt: string }
+  | {
+      // Interactive option picker — each option is a tappable card that sends
+      // its `prompt` back to Nova, so the user chooses a path instead of typing.
+      kind: "choice";
+      title?: string;
+      options: { label: string; description?: string; prompt: string; tone: NovaTone }[];
+    };
 
 export type NovaPresentation = {
   headline: string;
@@ -142,6 +149,25 @@ export function coerceNovaBlocks(value: unknown): NovaBlock[] {
       const label = s(b.label, 80);
       const prompt = s(b.prompt, 300);
       if (label && prompt) blocks.push({ kind: "next", label, prompt });
+    } else if (b.kind === "choice") {
+      const rawOptions = Array.isArray(b.options)
+        ? (b.options as unknown[])
+        : Array.isArray(b.items)
+          ? (b.items as unknown[])
+          : [];
+      const options = rawOptions
+        .slice(0, MAX_ITEMS)
+        .map((item) => {
+          const it = (item ?? {}) as Record<string, unknown>;
+          return {
+            label: s(it.label, 80),
+            description: s(it.description, 160) || undefined,
+            prompt: s(it.prompt, 300),
+            tone: tone(it.tone, "teal"),
+          };
+        })
+        .filter((o) => o.label && o.prompt);
+      if (options.length) blocks.push({ kind: "choice", title: s(b.title, 60) || undefined, options });
     }
   }
   return blocks;

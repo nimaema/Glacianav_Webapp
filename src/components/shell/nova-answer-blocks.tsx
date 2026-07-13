@@ -280,6 +280,51 @@ function NextBlock({ block, onPrompt }: { block: Extract<NovaBlock, { kind: "nex
   );
 }
 
+// Interactive option picker. Each option is a tappable card that fires the
+// same onPrompt path as the Next chip, so choosing sends a concrete message
+// back to Nova. A tone rail + hover elevation + a sliding arrow make the
+// choice read as a real, modern control rather than a bulleted list.
+function ChoiceBlock({ block, onPrompt }: { block: Extract<NovaBlock, { kind: "choice" }>; onPrompt: (q: string) => void }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {block.title && <BlockTitle>{block.title}</BlockTitle>}
+      <div className="flex flex-col gap-2">
+        {block.options.map((o, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onPrompt(o.prompt)}
+            className="group flex cursor-pointer items-center gap-3 rounded-[12px] px-3 py-2.5 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_6px_18px_-6px_rgba(20,40,60,0.16)]"
+            style={{ background: "white", border: "1px solid var(--nw-line)" }}
+          >
+            <span
+              aria-hidden
+              className="h-9 w-[3px] shrink-0 rounded-pill transition-all duration-150 group-hover:h-10"
+              style={{ background: TONE_VAR[o.tone] }}
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13.5px] font-semibold leading-snug" style={{ color: "var(--nw-ink)" }}>
+                {o.label}
+              </span>
+              {o.description && (
+                <span className="mt-0.5 block text-[12px] leading-snug" style={{ color: "var(--nw-ink-2)" }}>
+                  {o.description}
+                </span>
+              )}
+            </span>
+            <ArrowRight
+              size={14}
+              weight="bold"
+              className="shrink-0 opacity-35 transition-all duration-150 group-hover:translate-x-0.5 group-hover:opacity-100"
+              style={{ color: TONE_VAR[o.tone] }}
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function NovaBlocks({ blocks, onPrompt, stagger = false }: { blocks: NovaBlock[]; onPrompt: (q: string) => void; stagger?: boolean }) {
   return (
     <div className="flex flex-col gap-3">
@@ -305,6 +350,8 @@ export function NovaBlocks({ blocks, onPrompt, stagger = false }: { blocks: Nova
             return wrap(<TableBlock block={block} />);
           case "next":
             return wrap(<NextBlock block={block} onPrompt={onPrompt} />);
+          case "choice":
+            return wrap(<ChoiceBlock block={block} onPrompt={onPrompt} />);
         }
       })}
     </div>
