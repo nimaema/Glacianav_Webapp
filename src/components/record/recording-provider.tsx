@@ -506,41 +506,103 @@ export function RecordingProvider({
         let id: string;
         if (payload && payload.blob.size > 0) {
           const ext = payload.mime.includes("mp4") ? "m4a" : payload.mime.includes("ogg") ? "ogg" : "webm";
-          const form = new FormData();
-          form.append("audio", payload.blob, payload.name ?? `recording.${ext}`);
-          form.append("title", finalTitle);
-          form.append("authorId", currentUserId);
-          form.append("durationMs", String(durationMs));
-          form.append("source", snapshot.mode);
-          form.append("topicId", snapshot.topicId ?? "");
-          form.append("shared", String(snapshot.shared));
-          form.append("generateTasks", String(snapshot.generateTasks));
-          form.append("language", snapshot.language);
-          form.append("participantIds", JSON.stringify(snapshot.participantIds));
-          form.append("contactIds", JSON.stringify(snapshot.contactIds));
-          form.append("flags", JSON.stringify(snapshot.flags));
+          const filename = payload.name ?? `recording.${ext}`;
+          const blob = payload.blob;
 
-          // XHR instead of fetch for real upload progress on long takes.
-          id = await new Promise<string>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", "/api/recordings/upload");
-            xhr.upload.onprogress = (e) => {
-              if (e.lengthComputable) {
-                setState((s) => (s.phase === "saving" ? { ...s, uploadProgress: e.loaded / e.total } : s));
-              }
-            };
-            xhr.onload = () => {
-              try {
-                const body = JSON.parse(xhr.responseText || "{}");
-                if (xhr.status >= 200 && xhr.status < 300) resolve(body.id);
-                else reject(new Error(body.error || `Upload failed (${xhr.status})`));
-              } catch {
-                reject(new Error("Upload failed"));
-              }
-            };
-            xhr.onerror = () => reject(new Error("Network error during upload"));
-            xhr.send(form);
+          // Chunked multipart upload: the audio goes up in small parts, each a
+          // short request that stays under Cloudflare's edge timeout, instead
+          // of one long-held POST that a big recording on a slow link would
+          // trip into a 524. See src/app/api/recordings/upload/*.
+          const initRes = await fetch("/api/recordings/upload/init", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              title: finalTitle,
+              authorId: currentUserId,
+              mime: payload.mime,
+              filename,
+              size: blob.size,
+            }),
           });
+          const init = await initRes.json().catch(() => ({}));
+          if (!initRes.ok) throw new Error(init.error || `Could not start the upload (${initRes.status})`);
+          const { id: recordingId, storageKey, uploadId } = init as { id: string; storageKey: string; uploadId: string };
+
+          const CHUNK_SIZE = 8 * 1024 * 1024; // 8 MB parts
+          const total = blob.size;
+          const parts: { partNumber: number; eTag: string }[] = [];
+          try {
+            let uploaded = 0;
+            let partNumber = 1;
+            for (let offset = 0; offset < total; offset += CHUNK_SIZE, partNumber += 1) {
+              const chunk = blob.slice(offset, Math.min(offset + CHUNK_SIZE, total));
+              const chunkStart = uploaded;
+              const query = new URLSearchParams({
+                key: storageKey,
+                uploadId,
+                partNumber: String(partNumber),
+                authorId: currentUserId,
+              });
+              // XHR per part for real byte-level progress across the whole take.
+              const { eTag } = await new Promise<{ eTag: string }>((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open("PUT", `/api/recordings/upload/part?${query.toString()}`);
+                xhr.upload.onprogress = (e) => {
+                  if (e.lengthComputable) {
+                    const done = chunkStart + e.loaded;
+                    setState((s) => (s.phase === "saving" ? { ...s, uploadProgress: Math.min(1, done / total) } : s));
+                  }
+                };
+                xhr.onload = () => {
+                  try {
+                    const b = JSON.parse(xhr.responseText || "{}");
+                    if (xhr.status >= 200 && xhr.status < 300) resolve(b);
+                    else reject(new Error(b.error || `Upload failed (${xhr.status})`));
+                  } catch {
+                    reject(new Error("Upload failed"));
+                  }
+                };
+                xhr.onerror = () => reject(new Error("Network error during upload"));
+                xhr.send(chunk);
+              });
+              parts.push({ partNumber, eTag });
+              uploaded += chunk.size;
+              setState((s) => (s.phase === "saving" ? { ...s, uploadProgress: Math.min(1, uploaded / total) } : s));
+            }
+          } catch (err) {
+            // Free the staged parts in MinIO so a failed take doesn't linger.
+            void fetch("/api/recordings/upload/abort", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ storageKey, uploadId, authorId: currentUserId }),
+            }).catch(() => {});
+            throw err;
+          }
+
+          const completeRes = await fetch("/api/recordings/upload/complete", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              id: recordingId,
+              storageKey,
+              uploadId,
+              parts,
+              title: finalTitle,
+              authorId: currentUserId,
+              durationMs,
+              source: snapshot.mode,
+              topicId: snapshot.topicId ?? "",
+              shared: snapshot.shared,
+              generateTasks: snapshot.generateTasks,
+              language: snapshot.language,
+              participantIds: snapshot.participantIds,
+              contactIds: snapshot.contactIds,
+              flags: snapshot.flags,
+            }),
+          });
+          const completed = await completeRes.json().catch(() => ({}));
+          if (!completeRes.ok) throw new Error(completed.error || `Could not finish the upload (${completeRes.status})`);
+          id = completed.id;
         } else if (currentUserId) {
           // No real audio (mic was denied) — an honest text-only row rather
           // than losing the session and its flags.

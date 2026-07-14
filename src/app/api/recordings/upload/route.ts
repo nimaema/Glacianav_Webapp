@@ -1,44 +1,13 @@
-// Real audio ingest for Record — both live captures and uploaded files.
-// Accepts the audio Blob plus session metadata (topic, participants,
-// contacts, share state, language hint, flagged moments), stores the audio
-// in MinIO, creates the real conversation row, then kicks off transcription
-// in the background (see src/lib/ai/process-conversation.ts for why this is
-// a plain async function rather than a job queue).
+// Single-shot audio ingest — kept for small uploads and non-browser callers.
+// Large recordings from the recorder now use the chunked multipart flow
+// (init → part → complete) so no single request holds the connection open
+// long enough to trip Cloudflare's edge timeout. Both paths converge on
+// finalizeRecordingUpload once the audio is stored.
 
 import { NextResponse } from "next/server";
-import { db } from "@/db/client";
-import { comments, conversationContacts, conversationParticipants, conversations } from "@/db/schema";
-import { getCurrentProfile } from "@/lib/data/current-user";
 import { putObject } from "@/lib/storage";
-import { processConversationAudio } from "@/lib/ai/process-conversation";
-
-const MAX_BYTES = 300 * 1024 * 1024; // 300 MB, same ceiling as glacianav-notes
-
-const EXT_BY_MIME: Record<string, string> = {
-  "audio/webm": "webm",
-  "audio/ogg": "ogg",
-  "audio/mpeg": "mp3",
-  "audio/mp3": "mp3",
-  "audio/mp4": "m4a",
-  "audio/x-m4a": "m4a",
-  "audio/m4a": "m4a",
-  "audio/wav": "wav",
-  "audio/x-wav": "wav",
-  "audio/wave": "wav",
-};
-
-function extFor(mime: string, filename?: string) {
-  // Ignore any codec suffix, e.g. "audio/webm;codecs=opus".
-  const base = mime.split(";")[0].trim();
-  if (EXT_BY_MIME[base]) return EXT_BY_MIME[base];
-  const fromName = filename?.split(".").pop()?.toLowerCase();
-  if (fromName && /^[a-z0-9]{2,5}$/.test(fromName)) return fromName;
-  return "bin";
-}
-
-function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
+import { getCurrentProfile } from "@/lib/data/current-user";
+import { finalizeRecordingUpload, MAX_UPLOAD_BYTES, newRecordingTarget } from "@/lib/ai/recording-upload";
 
 function parseStringIds(raw: FormDataEntryValue | null): string[] {
   try {
@@ -87,60 +56,31 @@ export async function POST(request: Request) {
   if (file.size === 0) {
     return NextResponse.json({ error: "the audio file is empty" }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > MAX_UPLOAD_BYTES) {
     return NextResponse.json({ error: "file is too large (max 300 MB)" }, { status: 413 });
   }
 
-  const id = `rec-${slugify(title)}-${Date.now().toString(36)}`;
-  const storageKey = `recordings/${id}.${extFor(file.type, file.name)}`;
-
+  const { id, storageKey } = newRecordingTarget(title, file.type, file.name);
   const buf = Buffer.from(await file.arrayBuffer());
   await putObject(storageKey, buf, file.type || "audio/webm");
 
-  await db.insert(conversations).values({
+  const result = await finalizeRecordingUpload({
     id,
+    storageKey,
     title,
-    topicId: topicIdRaw || null,
     authorId,
-    status: "processing",
+    durationMs,
+    source,
+    topicId: topicIdRaw,
     shared,
     generateTasks,
-    wave: [],
-    source,
-    durationMs,
-    audioUrl: storageKey,
+    languageHint,
+    participantIds,
+    contactIds,
+    flagSeconds,
   });
-  if (participantIds.length > 0) {
-    await db.insert(conversationParticipants).values(participantIds.map((customerId) => ({ conversationId: id, customerId })));
-  }
-  if (contactIds.length > 0) {
-    await db.insert(conversationContacts).values(contactIds.map((contactId) => ({ conversationId: id, contactId })));
-  }
-  // Flagged moments become real timestamp-anchored comments, so they show
-  // up in the workspace's comments panel next to the transcript instead of
-  // being silently dropped.
-  if (flagSeconds.length > 0) {
-    await db.insert(comments).values(
-      [...flagSeconds]
-        .sort((a, b) => a - b)
-        .map((sec) => ({
-          entityType: "conversation" as const,
-          entityId: id,
-          authorId,
-          body: "🚩 Flagged while recording",
-          atMs: Math.max(0, Math.round(sec * 1000)),
-        })),
-    );
-  }
 
-  // Fire-and-forget: the HTTP response returns as soon as the upload +
-  // conversation row are confirmed; transcription keeps running on this
-  // same long-lived Node process afterward.
-  void processConversationAudio(id, { languageHint }).catch((e) =>
-    console.error(`background processing failed for ${id}:`, e),
-  );
-
-  return NextResponse.json({ id });
+  return NextResponse.json(result);
 }
 
 export const runtime = "nodejs";

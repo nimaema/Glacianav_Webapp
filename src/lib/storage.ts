@@ -5,7 +5,15 @@
 // talked to yet.
 
 import "server-only";
-import { S3Client, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
+} from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import type { Readable } from "node:stream";
 
@@ -72,4 +80,56 @@ export async function getObjectStream(key: string, range?: string): Promise<Obje
 
 export async function removeObject(key: string) {
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+}
+
+// ── Multipart upload ────────────────────────────────────────────────────
+// Browser-driven chunked upload: the client sends the audio in small parts,
+// each a quick request that stays well under Cloudflare's ~100s edge timeout,
+// and the app streams every part straight into a single S3 multipart upload.
+// This is what lets large recordings ingest through the tunnel without one
+// long-held request tripping the edge into a 524.
+
+export type UploadedPart = { partNumber: number; eTag: string };
+
+export async function createMultipartUpload(key: string, contentType?: string): Promise<string> {
+  const res = await s3.send(
+    new CreateMultipartUploadCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }),
+  );
+  if (!res.UploadId) throw new Error("MinIO did not return an upload id");
+  return res.UploadId;
+}
+
+export async function uploadPart(
+  key: string,
+  uploadId: string,
+  partNumber: number,
+  body: Buffer | Uint8Array,
+): Promise<string> {
+  const res = await s3.send(
+    new UploadPartCommand({ Bucket: BUCKET, Key: key, UploadId: uploadId, PartNumber: partNumber, Body: body }),
+  );
+  if (!res.ETag) throw new Error(`MinIO did not return an ETag for part ${partNumber}`);
+  return res.ETag;
+}
+
+export async function completeMultipartUpload(key: string, uploadId: string, parts: UploadedPart[]): Promise<void> {
+  await s3.send(
+    new CompleteMultipartUploadCommand({
+      Bucket: BUCKET,
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: {
+        // S3 requires parts in ascending part-number order.
+        Parts: [...parts]
+          .sort((a, b) => a.partNumber - b.partNumber)
+          .map((p) => ({ PartNumber: p.partNumber, ETag: p.eTag })),
+      },
+    }),
+  );
+}
+
+export async function abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+  await s3
+    .send(new AbortMultipartUploadCommand({ Bucket: BUCKET, Key: key, UploadId: uploadId }))
+    .catch((e) => console.error(`abortMultipartUpload failed for ${key}:`, e));
 }
