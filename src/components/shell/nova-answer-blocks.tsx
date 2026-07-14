@@ -3,13 +3,18 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import {
   ArrowRight,
+  CalendarBlank,
   Check,
   Info,
+  Minus,
   PaperPlaneRight,
   PencilSimple,
+  Plus,
+  ShieldCheck,
   Sparkle,
   Warning,
   WarningOctagon,
+  X,
   type Icon,
 } from "@phosphor-icons/react";
 import type { NovaBlock, NovaCalloutTone, NovaTone } from "@/lib/ai/nova-blocks";
@@ -447,12 +452,82 @@ function NextBlock({
       type="button"
       disabled={disabled}
       onClick={() => onPrompt(block.prompt)}
-      className="anim-glow-once group flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-pill px-4 py-2 text-[13px] font-bold text-white transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:cursor-wait disabled:opacity-50 disabled:hover:translate-y-0"
+      className="anim-glow-once group flex min-h-11 w-fit touch-manipulation cursor-pointer items-center gap-2 rounded-pill py-2 pl-2.5 pr-3.5 text-[13px] font-bold text-white transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.98] disabled:cursor-wait disabled:opacity-50 disabled:hover:translate-y-0"
       style={{ background: "var(--nw-teal-action)" }}
     >
-      <ArrowRight size={13} weight="bold" className="transition-transform duration-150 group-hover:translate-x-0.5" />
+      <span aria-hidden className="grid h-6 w-6 place-items-center rounded-pill bg-white/15">
+        <Sparkle size={12} weight="fill" />
+      </span>
       {block.label}
+      <ArrowRight size={13} weight="bold" className="transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden />
     </button>
+  );
+}
+
+// ─── Confirm: a low-risk binary decision ─────────────────────────────
+function ConfirmBlock({
+  block,
+  onPrompt,
+  disabled,
+}: {
+  block: Extract<NovaBlock, { kind: "confirm" }>;
+  onPrompt: (q: string) => void;
+  disabled: boolean;
+}) {
+  const titleId = useId();
+  const color = TONE_VAR[block.tone];
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      className="border-y border-[color:var(--nw-line)] py-2.5"
+      style={{ background: `color-mix(in srgb, ${color} 5%, transparent)` }}
+    >
+      <div className="flex items-start gap-2.5 px-1">
+        <span
+          aria-hidden
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-pill"
+          style={{ background: `color-mix(in srgb, ${color} 14%, var(--nw-bg))`, color }}
+        >
+          <ShieldCheck size={16} weight="fill" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color }}>
+            Confirm direction
+          </p>
+          <p id={titleId} className="mt-0.5 text-[13.5px] font-semibold leading-[1.3]" style={{ color: "var(--nw-ink)" }}>
+            {block.title}
+          </p>
+          {block.body && (
+            <p className="mt-0.5 max-w-[54ch] text-[12px] leading-[1.4]" style={{ color: "var(--nw-ink-2)" }}>
+              {block.body}
+            </p>
+          )}
+        </div>
+      </div>
+      <div role="group" aria-label={block.title} className="mt-2 flex flex-wrap items-center gap-1.5 pl-[42px] pr-1">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onPrompt(block.confirmPrompt)}
+          className="flex min-h-11 touch-manipulation cursor-pointer items-center gap-1.5 rounded-pill px-3.5 text-[12.5px] font-bold text-white transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.98] disabled:cursor-wait disabled:opacity-45 disabled:hover:translate-y-0"
+          style={{ background: color }}
+        >
+          <Check size={13} weight="bold" aria-hidden />
+          {block.confirmLabel || "Yes, continue"}
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onPrompt(block.cancelPrompt)}
+          className="flex min-h-11 touch-manipulation cursor-pointer items-center gap-1.5 px-3 text-[12.5px] font-semibold transition-colors duration-150 hover:text-[color:var(--nw-ink)] disabled:cursor-wait disabled:opacity-45"
+          style={{ color: "var(--nw-ink-2)" }}
+        >
+          <X size={13} aria-hidden />
+          {block.cancelLabel || "Not now"}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -471,13 +546,102 @@ function InputBlock({
   disabled: boolean;
 }) {
   const inputId = useId();
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(block.initialValue ?? "");
+  const isNumber = block.inputType === "number";
+  const isDate = block.inputType === "date";
+  const numericValue = Number(value);
+  const canSubmit = value.trim().length > 0 && (!isNumber || Number.isFinite(numericValue));
+
+  const adjustNumber = (direction: -1 | 1) => {
+    const step = block.step ?? 1;
+    const fallback = block.min ?? 0;
+    const current = Number.isFinite(numericValue) ? numericValue : fallback;
+    const precision = Math.max(0, (String(step).split(".")[1] || "").length);
+    const adjusted = Number((current + direction * step).toFixed(precision));
+    const next = Math.min(Math.max(adjusted, block.min ?? -Infinity), block.max ?? Infinity);
+    setValue(String(next));
+  };
+
   const submit = () => {
     const v = value.trim();
-    if (!v) return;
+    if (!canSubmit) return;
     onPrompt(block.prompt.includes("{value}") ? block.prompt.replaceAll("{value}", v) : `${block.prompt.trim()}: ${v}`);
     setValue("");
   };
+
+  const field = isNumber ? (
+    <div
+      className="flex min-h-11 min-w-0 flex-1 overflow-hidden rounded-control border border-[color:var(--nw-line-2)] bg-[color:var(--nw-bg-2)] transition-colors duration-150 focus-within:border-[color:var(--nw-teal)]"
+      role="group"
+      aria-label={`${block.label} stepper`}
+    >
+      <button
+        type="button"
+        disabled={disabled || (Number.isFinite(numericValue) && block.min !== undefined && numericValue <= block.min)}
+        onClick={() => adjustNumber(-1)}
+        aria-label={`Decrease ${block.label}`}
+        className="grid min-h-11 min-w-11 touch-manipulation cursor-pointer place-items-center border-r border-[color:var(--nw-line-2)] text-[color:var(--nw-ink-2)] transition-colors duration-150 hover:bg-white hover:text-[color:var(--nw-teal-deep)] active:bg-[color:var(--nw-bg-3)] disabled:cursor-not-allowed disabled:opacity-35"
+      >
+        <Minus size={14} weight="bold" aria-hidden />
+      </button>
+      <input
+        id={inputId}
+        type="number"
+        value={value}
+        min={block.min}
+        max={block.max}
+        step={block.step}
+        placeholder={block.placeholder}
+        disabled={disabled}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            submit();
+          }
+        }}
+        className="min-h-11 min-w-0 flex-1 bg-transparent px-2 text-center text-[14px] font-semibold tabular-nums outline-none placeholder:text-[color:var(--nw-ink-3)] disabled:cursor-wait"
+        style={{ color: "var(--nw-ink)" }}
+      />
+      <button
+        type="button"
+        disabled={disabled || (Number.isFinite(numericValue) && block.max !== undefined && numericValue >= block.max)}
+        onClick={() => adjustNumber(1)}
+        aria-label={`Increase ${block.label}`}
+        className="grid min-h-11 min-w-11 touch-manipulation cursor-pointer place-items-center border-l border-[color:var(--nw-line-2)] text-[color:var(--nw-ink-2)] transition-colors duration-150 hover:bg-white hover:text-[color:var(--nw-teal-deep)] active:bg-[color:var(--nw-bg-3)] disabled:cursor-not-allowed disabled:opacity-35"
+      >
+        <Plus size={14} weight="bold" aria-hidden />
+      </button>
+    </div>
+  ) : (
+    <div className="relative min-w-0 flex-1">
+      {isDate && (
+        <CalendarBlank
+          size={15}
+          aria-hidden
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2"
+          style={{ color: "var(--nw-teal-deep)" }}
+        />
+      )}
+      <input
+        id={inputId}
+        type={block.inputType ?? "text"}
+        value={value}
+        placeholder={block.placeholder}
+        disabled={disabled}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            submit();
+          }
+        }}
+        className={`${isDate ? "pl-10" : "pl-3.5"} min-h-11 w-full min-w-0 rounded-control border border-[color:var(--nw-line-2)] bg-[color:var(--nw-bg-2)] pr-3.5 text-[14px] font-medium outline-offset-2 transition-colors duration-150 placeholder:text-[color:var(--nw-ink-3)] focus:border-[color:var(--nw-teal)] disabled:cursor-wait disabled:opacity-50`}
+        style={{ color: "var(--nw-ink)" }}
+      />
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={inputId} className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--nw-ink-3)" }}>
@@ -485,35 +649,125 @@ function InputBlock({
         {block.label}
       </label>
       <div className="flex items-stretch gap-2">
-        <input
-          id={inputId}
-          type={block.inputType ?? "text"}
-          value={value}
-          placeholder={block.placeholder}
-          disabled={disabled}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          className="min-h-11 min-w-0 flex-1 rounded-control px-3.5 text-[14px] font-medium outline-offset-2 transition-colors duration-150 placeholder:text-[color:var(--nw-ink-3)] disabled:cursor-wait disabled:opacity-50"
-          style={{ background: "var(--nw-bg-2)", color: "var(--nw-ink)", border: "1px solid var(--nw-line-2)" }}
-        />
+        {field}
         <button
           type="button"
-          disabled={disabled || !value.trim()}
+          disabled={disabled || !canSubmit}
           onClick={submit}
-          aria-label={block.submitLabel || "Send to Nova"}
-          className="flex min-h-11 cursor-pointer items-center gap-2 rounded-pill px-4 text-[13px] font-bold text-white transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+          aria-label={block.submitLabel || `Send ${block.label}`}
+          title={block.submitLabel || `Send ${block.label}`}
+          className={`${block.submitLabel ? "px-3.5" : "min-w-11 px-0"} flex min-h-11 touch-manipulation cursor-pointer items-center justify-center gap-1.5 rounded-pill text-[12.5px] font-bold text-white transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0`}
           style={{ background: "var(--nw-teal-action)" }}
         >
-          <PaperPlaneRight size={14} weight="bold" />
-          {block.submitLabel || "Send"}
+          <PaperPlaneRight size={14} weight="bold" aria-hidden />
+          {block.submitLabel && <span>{block.submitLabel}</span>}
         </button>
       </div>
     </div>
+  );
+}
+
+// ─── Scale: slider or short rating ───────────────────────────────────
+function ScaleBlock({
+  block,
+  onPrompt,
+  disabled,
+}: {
+  block: Extract<NovaBlock, { kind: "scale" }>;
+  onPrompt: (q: string) => void;
+  disabled: boolean;
+}) {
+  const labelId = useId();
+  const decimals = Math.max(0, (String(block.step).split(".")[1] || "").length);
+  const midpoint = block.min + (block.max - block.min) / 2;
+  const snap = (raw: number) => {
+    const steps = Math.round((raw - block.min) / block.step);
+    return Number(Math.min(Math.max(block.min + steps * block.step, block.min), block.max).toFixed(decimals));
+  };
+  const [value, setValue] = useState(() => snap(block.initialValue ?? midpoint));
+  const color = TONE_VAR[block.tone];
+  const formattedValue = value.toFixed(decimals);
+  const progress = ((value - block.min) / (block.max - block.min)) * 100;
+  const values = block.display === "steps"
+    ? Array.from({ length: Math.floor((block.max - block.min) / block.step) + 1 }, (_, index) => snap(block.min + index * block.step))
+    : [];
+
+  const submit = () => {
+    const message = block.prompt.includes("{value}")
+      ? block.prompt.replaceAll("{value}", formattedValue)
+      : `${block.prompt.trim()}: ${formattedValue}`;
+    onPrompt(message);
+  };
+
+  return (
+    <section aria-labelledby={labelId} className="min-w-0">
+      <div className="flex items-baseline justify-between gap-3">
+        <p id={labelId} className="flex min-w-0 items-center gap-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nw-ink-3)" }}>
+          <span aria-hidden className="h-px w-4 shrink-0" style={{ background: color }} />
+          {block.label}
+        </p>
+        <output className="shrink-0 font-mono text-[15px] font-bold tabular-nums" style={{ color }}>
+          {formattedValue}
+        </output>
+      </div>
+
+      {block.display === "steps" ? (
+        <div
+          role="radiogroup"
+          aria-labelledby={labelId}
+          className="mt-1.5 flex min-w-0 overflow-x-auto rounded-control border border-[color:var(--nw-line-2)] bg-[color:var(--nw-bg-2)]"
+        >
+          {values.map((stepValue, index) => {
+            const isSelected = stepValue === value;
+            return (
+              <button
+                key={stepValue}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                aria-label={`${block.label}: ${stepValue}`}
+                disabled={disabled}
+                onClick={() => setValue(stepValue)}
+                className="grid min-h-11 min-w-11 flex-1 touch-manipulation cursor-pointer place-items-center border-r border-[color:var(--nw-line-2)] font-mono text-[12px] font-bold tabular-nums transition-[background-color,color,transform] duration-150 last:border-r-0 hover:bg-white active:scale-[0.96] disabled:cursor-wait disabled:opacity-45"
+                style={isSelected ? { background: color, color: "white" } : { color: index === 0 || index === values.length - 1 ? color : "var(--nw-ink-2)" }}
+              >
+                {stepValue.toFixed(decimals)}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <input
+          type="range"
+          min={block.min}
+          max={block.max}
+          step={block.step}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => setValue(snap(Number(event.target.value)))}
+          aria-labelledby={labelId}
+          className="nova-range mt-1.5 w-full touch-manipulation"
+          style={{ "--scale-tone": color, "--scale-progress": `${progress}%` } as React.CSSProperties}
+        />
+      )}
+
+      <div className="mt-1 flex min-h-11 items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 justify-between gap-3 text-[11px] font-medium" style={{ color: "var(--nw-ink-3)" }}>
+          <span className="truncate">{block.minLabel || block.min}</span>
+          <span className="truncate text-right">{block.maxLabel || block.max}</span>
+        </div>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={submit}
+          className="flex min-h-11 shrink-0 touch-manipulation cursor-pointer items-center gap-1.5 rounded-pill px-3.5 text-[12.5px] font-bold text-white transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.98] disabled:cursor-wait disabled:opacity-45 disabled:hover:translate-y-0"
+          style={{ background: color }}
+        >
+          <Check size={13} weight="bold" aria-hidden />
+          {block.submitLabel || "Use value"}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -530,25 +784,29 @@ function ChoiceBlock({
   disabled: boolean;
 }) {
   const titleId = useId();
+  const instructionsId = useId();
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const isMultiple = block.mode === "multiple";
-  const isCompact = !isMultiple && block.options.length <= 4 && block.options.every((option) => !option.description && option.label.length <= 30);
-
-  const moveFocus = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const axisKeys = isCompact ? ["ArrowLeft", "ArrowRight"] : ["ArrowUp", "ArrowDown"];
-    if (![...axisKeys, "Home", "End"].includes(event.key)) return;
-    event.preventDefault();
-    const last = block.options.length - 1;
-    const next = event.key === "Home"
-      ? 0
-      : event.key === "End"
-        ? last
-        : event.key === axisKeys[0]
-          ? (index - 1 + block.options.length) % block.options.length
-          : (index + 1) % block.options.length;
-    optionRefs.current[next]?.focus();
-  };
+  const maxSelections = isMultiple ? Math.min(Math.max(block.maxSelections ?? block.options.length, 1), block.options.length) : 1;
+  const minSelections = isMultiple ? Math.min(Math.max(block.minSelections ?? 1, 1), maxSelections) : 1;
+  const hasExactSelection = isMultiple && block.minSelections !== undefined && block.maxSelections !== undefined && minSelections === maxSelections;
+  const hasSelectionLimit = isMultiple && maxSelections < block.options.length;
+  const label = block.title || (isMultiple ? "What should Nova include?" : "Which route should Nova take?");
+  const status = isMultiple
+    ? hasExactSelection
+      ? `${selected.length} of ${maxSelections} selected`
+      : `${selected.length} selected`
+    : `${block.options.length} ${block.options.length === 1 ? "route" : "routes"}`;
+  const selectionLabel = hasExactSelection
+    ? `Select ${maxSelections}`
+    : hasSelectionLimit
+      ? `Select up to ${maxSelections}`
+      : minSelections > 1
+        ? `Select ${minSelections} or more`
+        : "Select any";
+  const selectionAtMax = isMultiple && selected.length >= maxSelections;
+  const canSubmit = isMultiple && selected.length >= minSelections && selected.length <= maxSelections;
 
   const choose = (index: number) => {
     if (!isMultiple) {
@@ -556,25 +814,74 @@ function ChoiceBlock({
       return;
     }
     setSelected((current) =>
-      current.includes(index) ? current.filter((item) => item !== index) : [...current, index].sort((a, b) => a - b),
+      current.includes(index)
+        ? current.filter((item) => item !== index)
+        : current.length >= maxSelections
+          ? current
+          : [...current, index].sort((a, b) => a - b),
     );
+  };
+
+  const moveFocus = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (/^[0-9]$/.test(event.key)) {
+      const shortcutIndex = event.key === "0" ? 9 : Number(event.key) - 1;
+      if (shortcutIndex < block.options.length) {
+        event.preventDefault();
+        choose(shortcutIndex);
+      }
+      return;
+    }
+
+    const axisKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+    if (![...axisKeys, "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const last = block.options.length - 1;
+    const next = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? last
+        : event.key === "ArrowUp" || event.key === "ArrowLeft"
+          ? (index - 1 + block.options.length) % block.options.length
+          : (index + 1) % block.options.length;
+    optionRefs.current[next]?.focus();
   };
 
   const submitMultiple = () => {
     const choices = selected.map((index) => block.options[index]);
-    if (!choices.length) return;
+    if (choices.length < minSelections || choices.length > maxSelections) return;
     onPrompt(`Use these choices:\n${choices.map((choice) => `- ${choice.prompt}`).join("\n")}`);
   };
 
   return (
     <section aria-labelledby={titleId} className="min-w-0">
-      <div className="mb-2">
-        <Kicker id={titleId}>{block.title || (isMultiple ? "Choose any that apply" : "Choose one")}</Kicker>
+      <div className="mb-2 flex min-w-0 items-start justify-between gap-3 min-[480px]:items-baseline">
+        <div className="min-w-0 flex-1 min-[480px]:flex min-[480px]:items-baseline min-[480px]:gap-2.5">
+          <p className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--nw-teal-deep)" }}>
+            {isMultiple ? selectionLabel : "Select one"}
+          </p>
+          <p id={titleId} className="mt-0.5 text-pretty text-[14px] font-semibold leading-[1.3] min-[480px]:mt-0" style={{ color: "var(--nw-ink)" }}>
+            {label}
+          </p>
+        </div>
+        <p
+          role="status"
+          aria-live="polite"
+          className="shrink-0 font-mono text-[10px] font-semibold tabular-nums"
+          style={{ color: isMultiple && selected.length > 0 ? "var(--nw-teal-deep)" : "var(--nw-ink-3)" }}
+        >
+          {status}
+        </p>
       </div>
+
+      <p id={instructionsId} className="sr-only">
+        Use the arrow keys to move between routes. Press a number key to choose its matching route.
+      </p>
+
       <div
         role="group"
-        aria-label={block.title || (isMultiple ? "Choose any that apply" : "Choose one")}
-        className={isCompact ? "grid grid-cols-1 gap-2 min-[440px]:grid-cols-2" : "flex flex-col border-y border-[color:var(--nw-line)]"}
+        aria-labelledby={titleId}
+        aria-describedby={instructionsId}
+        className="relative border-y border-[color:var(--nw-line)] before:absolute before:bottom-5 before:left-[15px] before:top-5 before:w-px before:bg-[color:var(--nw-line)]"
       >
         {block.options.map((o, i) => (
           <button
@@ -582,66 +889,103 @@ function ChoiceBlock({
             ref={(element) => { optionRefs.current[i] = element; }}
             type="button"
             disabled={disabled}
+            aria-disabled={isMultiple && selectionAtMax && !selected.includes(i) ? true : undefined}
             aria-pressed={isMultiple ? selected.includes(i) : undefined}
             onClick={() => choose(i)}
             onKeyDown={(event) => moveFocus(event, i)}
-            style={{ "--opt": TONE_VAR[o.tone] } as React.CSSProperties}
-            className={isCompact
-              ? "group/opt flex min-h-11 cursor-pointer items-center gap-2.5 rounded-control border border-[color:var(--nw-line)] bg-white px-3 py-2.5 text-left transition-[background-color,border-color,transform] duration-150 hover:-translate-y-px hover:border-[color:var(--opt)] hover:bg-[color:color-mix(in_srgb,var(--opt)_5%,white)] active:translate-y-0 active:scale-[0.99] disabled:cursor-wait disabled:opacity-50 disabled:hover:translate-y-0"
-              : "group/opt relative flex min-h-14 cursor-pointer items-center gap-3 px-1 py-3 text-left transition-colors duration-150 before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-[color:var(--nw-line-2)] last:before:hidden hover:bg-[color:var(--nw-bg-2)] disabled:cursor-wait disabled:opacity-50"}
+            style={{ "--opt": TONE_VAR[o.tone], animationDelay: `${60 + i * 40}ms` } as React.CSSProperties}
+            className={[
+              "anim-nova-route group/opt relative flex min-h-11 w-full touch-manipulation cursor-pointer items-center gap-2.5 overflow-hidden px-0 py-2 text-left",
+              "border-b border-[color:var(--nw-line-2)] last:border-b-0",
+              "transition-[background-color,color,opacity,transform] duration-150 ease-out",
+              "active:scale-[0.99]",
+              "focus-visible:z-10 focus-visible:rounded-control focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--nw-teal)]",
+              "disabled:cursor-wait disabled:opacity-45 disabled:hover:bg-transparent disabled:active:scale-100",
+              "aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:active:scale-100",
+            ].join(" ")}
           >
             <span
               aria-hidden
-              className={`grid h-7 w-7 shrink-0 place-items-center font-mono text-[10px] font-bold transition-colors duration-150 ${
-                isMultiple
-                  ? "rounded-[7px] border border-[color:var(--nw-line)] bg-white text-[color:var(--nw-ink-3)] group-aria-pressed/opt:border-[color:var(--opt)] group-aria-pressed/opt:bg-[color:color-mix(in_srgb,var(--opt)_16%,white)] group-aria-pressed/opt:text-[color:var(--opt)]"
-                  : "rounded-pill bg-[color:color-mix(in_srgb,var(--opt)_12%,white)] text-[color:var(--opt)] group-hover/opt:bg-[color:color-mix(in_srgb,var(--opt)_20%,white)]"
+              className={`absolute inset-x-0 inset-y-px origin-left bg-[color:color-mix(in_srgb,var(--opt)_9%,var(--nw-bg))] transition-[opacity,transform] duration-150 ease-out ${
+                isMultiple && selected.includes(i)
+                  ? "scale-x-100 opacity-100"
+                  : "scale-x-[0.985] opacity-0 group-hover/opt:scale-x-100 group-hover/opt:opacity-100 group-focus-visible/opt:scale-x-100 group-focus-visible/opt:opacity-100"
+              }`}
+            />
+            <span
+              aria-hidden
+              className="absolute left-0 top-1/2 z-[1] h-[2px] w-4 -translate-y-1/2 origin-left rounded-pill bg-[color:var(--opt)] transition-transform duration-150 ease-out group-hover/opt:scale-x-125 group-focus-visible/opt:scale-x-125"
+            />
+            <span
+              aria-hidden
+              className={`relative z-[2] grid h-8 w-8 shrink-0 place-items-center rounded-pill border font-mono text-[9.5px] font-bold tabular-nums transition-[background-color,border-color,color,transform] duration-150 ease-out group-hover/opt:scale-[1.06] group-focus-visible/opt:scale-[1.06] ${
+                isMultiple && selected.includes(i)
+                  ? "border-[color:var(--nw-teal-deep)] bg-[color:var(--nw-teal-deep)] text-white"
+                  : "border-[color:var(--opt)] bg-[color:color-mix(in_srgb,var(--opt)_12%,var(--nw-bg))] text-[color:var(--opt)] group-hover/opt:bg-[color:var(--opt)] group-hover/opt:text-white group-focus-visible/opt:bg-[color:var(--opt)] group-focus-visible/opt:text-white"
               }`}
             >
-              {isMultiple && selected.includes(i) ? <Check size={13} weight="bold" /> : String(i + 1).padStart(2, "0")}
+              {isMultiple && selected.includes(i) ? <Check size={12} weight="bold" className="anim-nova-choice-check" /> : <kbd>{i === 9 ? 0 : i + 1}</kbd>}
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-semibold leading-snug" style={{ color: "var(--nw-ink)" }}>
+
+            <span className="relative z-[2] min-w-0 flex-1 pr-0.5">
+              <span className="block break-words text-[13.5px] font-semibold leading-[1.3]" style={{ color: "var(--nw-ink)" }}>
                 {o.label}
               </span>
               {o.description && (
-                <span className="mt-0.5 block max-w-[52ch] text-[12.5px] leading-[1.4]" style={{ color: "var(--nw-ink-2)" }}>
+                <span className="mt-0.5 line-clamp-2 break-words text-[12px] leading-[1.35] min-[480px]:line-clamp-1" style={{ color: "var(--nw-ink-2)" }}>
                   {o.description}
                 </span>
               )}
             </span>
-            <ArrowRight
-              size={14}
-              weight="bold"
-              className="shrink-0 opacity-55 transition-[transform,opacity] duration-150 group-hover/opt:translate-x-0.5 group-hover/opt:opacity-100"
-              style={{ color: "var(--opt)" }}
-            />
+
+            {!isMultiple && (
+              <span
+                aria-hidden
+                className="relative z-[2] mr-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-pill text-[color:var(--opt)] transition-[background-color,color,transform] duration-150 ease-out group-hover/opt:translate-x-0.5 group-hover/opt:bg-[color:var(--opt)] group-hover/opt:text-white group-focus-visible/opt:translate-x-0.5 group-focus-visible/opt:bg-[color:var(--opt)] group-focus-visible/opt:text-white"
+              >
+                <ArrowRight size={13} weight="bold" />
+              </span>
+            )}
           </button>
         ))}
       </div>
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+
+      <div className="mt-2 flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1">
         {isMultiple && (
-          <button
-            type="button"
-            disabled={disabled || selected.length === 0}
-            onClick={submitMultiple}
-            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-pill px-4 py-2 text-[13px] font-bold text-white transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
-            style={{ background: "var(--nw-teal-action)" }}
-          >
-            <Check size={14} weight="bold" />
-            {block.submitLabel || `Continue with ${selected.length || "selected"}`}
-          </button>
+          <>
+            <button
+              type="button"
+              disabled={disabled || !canSubmit}
+              onClick={submitMultiple}
+              className="flex min-h-11 touch-manipulation cursor-pointer items-center gap-2 rounded-pill px-4 py-2 text-[13px] font-bold text-white transition-[opacity,transform] duration-150 ease-out hover:-translate-y-px active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0"
+              style={{ background: "var(--nw-teal-action)" }}
+            >
+              <Check size={14} weight="bold" aria-hidden />
+              {block.submitLabel || `Use ${selected.length || 0} ${selected.length === 1 ? "choice" : "choices"}`}
+            </button>
+            {selected.length > 0 && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => setSelected([])}
+                className="min-h-11 touch-manipulation cursor-pointer px-2 text-[12px] font-semibold transition-colors duration-150 hover:text-[color:var(--nw-ink)] disabled:cursor-wait disabled:opacity-45"
+                style={{ color: "var(--nw-ink-3)" }}
+              >
+                Clear
+              </button>
+            )}
+          </>
         )}
         {block.allowCustom !== false && (
           <button
             type="button"
             disabled={disabled}
             onClick={onCustomReply}
-            className="flex min-h-11 cursor-pointer items-center gap-2 rounded-pill px-3 text-[12.5px] font-bold transition-colors duration-150 hover:bg-[color:var(--nw-bg-2)] disabled:cursor-wait disabled:opacity-50"
+            className={`${isMultiple ? "ml-auto" : ""} flex min-h-11 touch-manipulation cursor-pointer items-center gap-2 px-1 text-[12.5px] font-semibold transition-[color,transform] duration-150 ease-out hover:translate-x-0.5 hover:text-[color:var(--nw-ink)] disabled:cursor-wait disabled:opacity-45 disabled:hover:translate-x-0`}
             style={{ color: "var(--nw-ink-2)" }}
           >
-            <PencilSimple size={14} />
-            Write a reply
+            <PencilSimple size={14} aria-hidden />
+            Write a different answer
           </button>
         )}
       </div>
@@ -694,8 +1038,12 @@ export function NovaBlocks({
             return wrap(<TableBlock block={block} />);
           case "next":
             return wrap(<NextBlock block={block} onPrompt={onPrompt} disabled={disabled} />);
+          case "confirm":
+            return wrap(<ConfirmBlock block={block} onPrompt={onPrompt} disabled={disabled} />);
           case "input":
             return wrap(<InputBlock block={block} onPrompt={onPrompt} disabled={disabled} />);
+          case "scale":
+            return wrap(<ScaleBlock block={block} onPrompt={onPrompt} disabled={disabled} />);
           case "choice":
             return wrap(<ChoiceBlock block={block} onPrompt={onPrompt} onCustomReply={onCustomReply} disabled={disabled} />);
         }

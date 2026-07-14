@@ -298,17 +298,23 @@ exact words printed on the paper in real curly quotes with a tone
 tick and mono attribution — evidence never hides in a box); at most
 one **callout**
 (info=teal, win=green, warn=gold, risk=coral — tinted white panel,
-colored icon kicker); at most one **inline input** (a recessed
-single-value field with a teal send pill — Nova asks for one typed
-value, a name/date/number, without the user re-framing the request);
-and at most one **next-move chip** (solid teal
+colored icon kicker); at most one **choice route** (an unboxed branch
+list with compact 44px-minimum rows, tone-tinted route fields, numbered
+keyboard shortcuts, and single-send or multi-select behavior; desktop
+descriptions clamp to one line, mobile descriptions to two, and exact/min/max
+selection rules are announced and enforced by the control); at most one **inline input**
+(text/date as a recessed answer bar, number as a minus/value/plus stepper); one
+**bounded scale** (a colored slider for a continuous-feeling quantity or 2–10
+segmented steps for a rating); one **conversational confirmation** (compact
+confirm/decline rail for low-risk choices only — signed destructive confirmations
+stay separate); and at most one **next-move chip** (solid teal
 pill, tap sends its prompt back to Nova) which replaces the prose
 closing offer. Every titled block opens with the same kicker (short
 tone dash + mono caps label), the voice of the trace's own entry
 kickers. Tones carry meaning (green=healthy, coral=problem,
 gold=watch), never decoration. Tool runs print as mono trace lines
 with green/red state icons; files are format-colored artifact cards;
-destructive confirmations are danger-tinted cards with an explicit
+destructive confirmations are danger-tinted rails with an explicit
 Confirm / Keep it choice. Plain markdown remains the fallback for
 quick facts and casual turns. The empty state is a briefing — live
 workspace numbers as a stat readout plus signal chips (above) derived

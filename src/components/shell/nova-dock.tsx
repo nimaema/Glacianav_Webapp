@@ -821,46 +821,48 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                             <section
                               key={confirmation.token}
                               aria-label="Confirm Nova action"
-                              className="rounded-[12px] p-3.5"
+                              className="border-y py-2.5"
                               style={{
-                                background: "color-mix(in srgb, var(--nw-danger) 7%, white)",
-                                border: "1px solid color-mix(in srgb, var(--nw-danger) 28%, transparent)",
+                                background: "color-mix(in srgb, var(--nw-danger) 5%, transparent)",
+                                borderColor: "color-mix(in srgb, var(--nw-danger) 24%, transparent)",
                               }}
                             >
-                              <div className="flex items-start gap-2.5">
+                              <div className="flex items-start gap-2.5 px-1">
                                 <span
                                   aria-hidden
-                                  className="grid h-8 w-8 shrink-0 place-items-center rounded-pill"
+                                  className="grid h-7 w-7 shrink-0 place-items-center rounded-pill"
                                   style={{ background: "color-mix(in srgb, var(--nw-danger) 13%, white)", color: "var(--nw-danger)" }}
                                 >
-                                  <ShieldWarning size={16} weight="fill" />
+                                  <ShieldWarning size={14} weight="fill" />
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-[13.5px] font-bold leading-snug" style={{ color: "var(--nw-danger)" }}>
+                                  <p className="text-[13px] font-bold leading-snug" style={{ color: "var(--nw-danger)" }}>
                                     {confirmation.label}
                                   </p>
-                                  <p className="mt-1 max-w-[52ch] text-[12.5px] leading-[1.4]" style={{ color: "var(--nw-ink-2)" }}>
+                                  <p className="mt-0.5 max-w-[52ch] text-[12px] leading-[1.4]" style={{ color: "var(--nw-ink-2)" }}>
                                     {confirmation.detail}
                                   </p>
                                 </div>
                               </div>
-                              <div className="mt-3 grid grid-cols-2 gap-2">
+                              <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[38px] pr-1">
                                 <button
                                   type="button"
                                   disabled={confirmingToken !== null}
                                   onClick={() => void confirmAction(i, confirmation)}
-                                  className="min-h-11 cursor-pointer rounded-control px-3 py-2 text-[12.5px] font-bold text-white transition-[opacity,transform] duration-150 hover:-translate-y-px disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0"
+                                  className="flex min-h-11 touch-manipulation cursor-pointer items-center gap-1.5 rounded-pill px-3.5 py-2 text-[12.5px] font-bold text-white transition-[opacity,transform] duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0"
                                   style={{ background: "var(--nw-danger)" }}
                                 >
+                                  <CheckCircle size={14} weight="fill" aria-hidden />
                                   {confirmingToken === confirmation.token ? "Checking permission…" : "Confirm"}
                                 </button>
                                 <button
                                   type="button"
                                   disabled={confirmingToken !== null}
                                   onClick={() => dismissConfirmation(i, confirmation.token)}
-                                  className="min-h-11 cursor-pointer rounded-control border border-[color:var(--nw-line)] bg-white px-3 py-2 text-[12.5px] font-bold transition-colors duration-150 hover:bg-[color:var(--nw-bg-2)] disabled:cursor-wait disabled:opacity-60"
-                                  style={{ color: "var(--nw-ink)" }}
+                                  className="flex min-h-11 touch-manipulation cursor-pointer items-center gap-1.5 px-3 py-2 text-[12.5px] font-semibold transition-colors duration-150 hover:text-[color:var(--nw-ink)] disabled:cursor-wait disabled:opacity-60"
+                                  style={{ color: "var(--nw-ink-2)" }}
                                 >
+                                  <X size={13} aria-hidden />
                                   Keep unchanged
                                 </button>
                               </div>

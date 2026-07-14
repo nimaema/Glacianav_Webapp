@@ -33,6 +33,18 @@ export type NovaBlock =
     }
   | { kind: "next"; label: string; prompt: string }
   | {
+      // Compact yes/no decision. This only sends a conversational prompt;
+      // signed destructive confirmations remain a separate protected flow.
+      kind: "confirm";
+      title: string;
+      body?: string;
+      confirmLabel?: string;
+      confirmPrompt: string;
+      cancelLabel?: string;
+      cancelPrompt: string;
+      tone: NovaTone;
+    }
+  | {
       // Adaptive option picker. Single choices send immediately; multiple
       // choices collect a small set and send them together from one control.
       kind: "choice";
@@ -40,6 +52,8 @@ export type NovaBlock =
       mode?: "single" | "multiple";
       allowCustom?: boolean;
       submitLabel?: string;
+      minSelections?: number;
+      maxSelections?: number;
       options: { label: string; description?: string; prompt: string; tone: NovaTone }[];
     }
   | {
@@ -85,6 +99,26 @@ export type NovaBlock =
       placeholder?: string;
       inputType?: "text" | "number" | "date";
       submitLabel?: string;
+      initialValue?: string;
+      min?: number;
+      max?: number;
+      step?: number;
+    }
+  | {
+      // A bounded numeric answer. Slider is for a continuous-feeling range;
+      // steps is for a short rating or confidence scale.
+      kind: "scale";
+      label: string;
+      prompt: string;
+      display?: "slider" | "steps";
+      min: number;
+      max: number;
+      step: number;
+      initialValue?: number;
+      minLabel?: string;
+      maxLabel?: string;
+      submitLabel?: string;
+      tone: NovaTone;
     };
 
 export type NovaPresentation = {
@@ -96,7 +130,7 @@ export type NovaPresentation = {
 const TONES: NovaTone[] = ["teal", "violet", "rose", "green", "coral", "gold", "neutral"];
 const CALLOUT_TONES: NovaCalloutTone[] = ["info", "win", "warn", "risk"];
 
-const MAX_BLOCKS = 8;
+const MAX_BLOCKS = 10;
 const MAX_ITEMS = 10;
 
 function s(v: unknown, max = 400): string {
@@ -196,6 +230,22 @@ export function coerceNovaBlocks(value: unknown): NovaBlock[] {
       const label = s(b.label, 80);
       const prompt = s(b.prompt, 300);
       if (label && prompt) blocks.push({ kind: "next", label, prompt });
+    } else if (b.kind === "confirm") {
+      const title = s(b.title ?? b.label, 80);
+      const confirmPrompt = s(b.confirmPrompt ?? b.prompt, 300);
+      const cancelPrompt = s(b.cancelPrompt, 300);
+      if (title && confirmPrompt && cancelPrompt) {
+        blocks.push({
+          kind: "confirm",
+          title,
+          body: s(b.body, 240) || undefined,
+          confirmLabel: s(b.confirmLabel, 32) || undefined,
+          confirmPrompt,
+          cancelLabel: s(b.cancelLabel, 32) || undefined,
+          cancelPrompt,
+          tone: tone(b.tone, "teal"),
+        });
+      }
     } else if (b.kind === "choice") {
       const rawOptions = Array.isArray(b.options)
         ? (b.options as unknown[])
@@ -215,12 +265,23 @@ export function coerceNovaBlocks(value: unknown): NovaBlock[] {
         })
         .filter((o) => o.label && o.prompt);
       if (options.length) {
+        const mode = b.mode === "multiple" ? "multiple" : "single";
+        const rawMaxSelections = Number(b.maxSelections);
+        const maxSelections = mode === "multiple" && Number.isFinite(rawMaxSelections)
+          ? Math.min(Math.max(Math.trunc(rawMaxSelections), 1), options.length)
+          : undefined;
+        const rawMinSelections = Number(b.minSelections);
+        const minSelections = mode === "multiple" && Number.isFinite(rawMinSelections)
+          ? Math.min(Math.max(Math.trunc(rawMinSelections), 1), maxSelections ?? options.length)
+          : undefined;
         blocks.push({
           kind: "choice",
           title: s(b.title, 60) || undefined,
-          mode: b.mode === "multiple" ? "multiple" : "single",
+          mode,
           allowCustom: b.allowCustom !== false,
           submitLabel: s(b.submitLabel, 48) || undefined,
+          minSelections,
+          maxSelections,
           options,
         });
       }
@@ -280,13 +341,56 @@ export function coerceNovaBlocks(value: unknown): NovaBlock[] {
       const label = s(b.label, 80);
       const prompt = s(b.prompt, 300);
       if (label && prompt) {
+        const inputType = b.inputType === "number" || b.inputType === "date" ? b.inputType : "text";
+        const rawMin = Number(b.min);
+        const rawMax = Number(b.max);
+        const rawStep = Number(b.step);
+        const min = inputType === "number" && Number.isFinite(rawMin) ? rawMin : undefined;
+        const max = inputType === "number" && Number.isFinite(rawMax) && (min === undefined || rawMax >= min) ? rawMax : undefined;
+        const step = inputType === "number" && Number.isFinite(rawStep) && rawStep > 0 ? rawStep : undefined;
         blocks.push({
           kind: "input",
           label,
           prompt,
           placeholder: s(b.placeholder, 80) || undefined,
-          inputType: b.inputType === "number" || b.inputType === "date" ? b.inputType : "text",
+          inputType,
           submitLabel: s(b.submitLabel, 32) || undefined,
+          initialValue: (typeof b.initialValue === "number" ? String(b.initialValue) : s(b.initialValue, 40)) || undefined,
+          min,
+          max,
+          step,
+        });
+      }
+    } else if (b.kind === "scale") {
+      const label = s(b.label ?? b.title, 80);
+      const prompt = s(b.prompt, 300);
+      const display = b.display === "steps" ? "steps" : "slider";
+      const rawMin = Number(b.min);
+      const rawMax = Number(b.max);
+      const min = Number.isFinite(rawMin) ? rawMin : display === "steps" ? 1 : 0;
+      const maxFallback = display === "steps" ? 5 : 100;
+      const max = Number.isFinite(rawMax) && rawMax > min ? rawMax : maxFallback;
+      const rawStep = Number(b.step);
+      const step = Number.isFinite(rawStep) && rawStep > 0 ? rawStep : 1;
+      const rawInitialValue = Number(b.initialValue);
+      const initialValue = Number.isFinite(rawInitialValue)
+        ? Math.min(Math.max(rawInitialValue, min), max)
+        : undefined;
+      const stepCount = Math.floor((max - min) / step) + 1;
+      if (label && prompt && max > min && (display === "slider" || stepCount <= 10)) {
+        blocks.push({
+          kind: "scale",
+          label,
+          prompt,
+          display,
+          min,
+          max,
+          step,
+          initialValue,
+          minLabel: s(b.minLabel, 32) || undefined,
+          maxLabel: s(b.maxLabel, 32) || undefined,
+          submitLabel: s(b.submitLabel, 32) || undefined,
+          tone: tone(b.tone, "violet"),
         });
       }
     }
