@@ -39,6 +39,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@google/design.md": "^0.3.0",
     "@tailwindcss/postcss": "^4",
     "@types/luxon": "^3.7.2",
     "@types/node": "^20",

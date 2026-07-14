@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Archive, DotsThreeVertical, Plus } from "@phosphor-icons/react";
+import { Archive, CaretDown, DotsThreeVertical, Plus } from "@phosphor-icons/react";
 import { Avatar } from "@/components/ui/avatar";
 import {
   ownerById,
@@ -44,7 +44,9 @@ function CardMenu({ onArchive }: { onArchive: () => void }) {
         aria-haspopup="menu"
         aria-expanded={open}
         className={`flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-3 transition-colors duration-150 hover:bg-surface-2 hover:text-ink ${
-          open ? "bg-surface-2 text-ink" : "opacity-0 group-hover:opacity-100"
+          open
+            ? "bg-surface-2 text-ink"
+            : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
         }`}
       >
         <DotsThreeVertical size={15} weight="bold" />
@@ -81,6 +83,7 @@ function CardMenu({ onArchive }: { onArchive: () => void }) {
 // real board runs 6-8+ stages at once and each card is only ever a few
 // short lines — a wide column just stretches empty space around thin content.
 const COLUMN_WIDTH = 252;
+const CARD_BATCH_SIZE = 8;
 
 function StageLabel({
   stage,
@@ -141,6 +144,7 @@ export function KanbanView({
   onAddStage,
   onRenameStage,
   onArchive,
+  resultKey,
 }: {
   rows: Customer[];
   stages: Stage[];
@@ -152,14 +156,37 @@ export function KanbanView({
   onAddStage: (label: string) => void;
   onRenameStage: (key: StageKey, label: string) => void;
   onArchive: (id: string) => void;
+  resultKey?: string;
 }) {
   // "Not a fit" is a terminal/rejected stage — hidden from the active flow
   // view, same convention as fixtures.ts's old "not_fit" exclusion, now
   // pointed at the real stage key migrated from the CRM.
   const kanbanStages = stages.filter((s) => s.key !== "not-a-fit");
-  const { dragId, overKey, dragProps, dropProps } = useDnd((id, key) =>
-    onMoveStage(id, key as StageKey),
-  );
+  const [visibility, setVisibility] = useState<{
+    resultKey?: string;
+    byStage: Record<string, number>;
+  }>({ resultKey, byStage: {} });
+  const visibleByStage = visibility.resultKey === resultKey ? visibility.byStage : {};
+
+  const { dragId, overKey, dragProps, dropProps } = useDnd((id, key) => {
+    const destinationPosition = rows
+      .filter((customer) => customer.stage === key || customer.id === id)
+      .findIndex((customer) => customer.id === id) + 1;
+    setVisibility((current) => {
+      const byStage = current.resultKey === resultKey ? current.byStage : {};
+      return {
+        resultKey,
+        byStage: {
+          ...byStage,
+          [key]: Math.max(
+            byStage[key] ?? CARD_BATCH_SIZE,
+            Math.ceil(destinationPosition / CARD_BATCH_SIZE) * CARD_BATCH_SIZE,
+          ),
+        },
+      };
+    });
+    onMoveStage(id, key as StageKey);
+  });
 
   const [addingStage, setAddingStage] = useState(false);
   const [newStageLabel, setNewStageLabel] = useState("");
@@ -175,6 +202,9 @@ export function KanbanView({
     <div className="flex items-start gap-4 overflow-x-auto pb-2">
       {kanbanStages.map((stage) => {
         const cards = rows.filter((c) => c.stage === stage.key);
+        const visibleCount = visibleByStage[stage.key] ?? CARD_BATCH_SIZE;
+        const visibleCards = cards.slice(0, visibleCount);
+        const remaining = Math.max(0, cards.length - visibleCards.length);
         const isOver =
           overKey === stage.key &&
           dragId !== null &&
@@ -199,7 +229,7 @@ export function KanbanView({
                 onRename={(label) => onRenameStage(stage.key, label)}
               />
             </SectionHeader>
-            {cards.map((c) => {
+            {visibleCards.map((c) => {
               const segment = segmentById(c.segmentId, segments);
               return (
                 <article
@@ -207,15 +237,13 @@ export function KanbanView({
                   role="button"
                   {...rowOpenHandlers(onOpen, c.id)}
                   {...dragProps(c.id)}
-                  className={`surfaced rise-on-hover group relative cursor-pointer overflow-hidden py-3 pl-4.5 pr-3.5 ${
+                  className={`surfaced rise-on-hover group relative cursor-pointer overflow-hidden px-3.5 py-3 ${
                     dragId === c.id ? "opacity-45" : ""
                   }`}
                 >
-                  <span
-                    aria-hidden
-                    className="absolute inset-y-0 left-0 w-[3px]"
-                    style={{ background: segment.color }}
-                  />
+                  {/* Segment lives in the dot + label row below — the old
+                      3px left stripe double-encoded it and broke §3's
+                      no-left-border-accent rule, so it's gone. */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h3 className="truncate text-[15px] font-semibold text-ink">
@@ -257,7 +285,35 @@ export function KanbanView({
               );
             })}
             {cards.length === 0 && (
-              <p className="px-1 pb-1 text-[12.5px] text-ink-3">Nothing here yet.</p>
+              <p className="px-1 pb-1 text-[12.5px] text-ink-3">
+                {resultKey ? "No matches in this stage." : "Nothing here yet."}
+              </p>
+            )}
+            {remaining > 0 && (
+              <div className="flex items-center justify-between gap-2 border-t border-line pt-2">
+                <span className="font-mono text-[10.5px] text-ink-3 tabular-nums">
+                  {visibleCards.length} of {cards.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisibility((current) => {
+                      const byStage = current.resultKey === resultKey ? current.byStage : {};
+                      return {
+                        resultKey,
+                        byStage: {
+                          ...byStage,
+                          [stage.key]: (byStage[stage.key] ?? CARD_BATCH_SIZE) + CARD_BATCH_SIZE,
+                        },
+                      };
+                    })
+                  }
+                  className="flex min-h-10 cursor-pointer items-center gap-1 rounded-control px-2.5 text-[12.5px] font-bold text-accent transition-[background-color,transform] duration-150 hover:bg-accent-soft active:scale-[0.98]"
+                >
+                  Show {Math.min(CARD_BATCH_SIZE, remaining)} more
+                  <CaretDown size={13} weight="bold" />
+                </button>
+              </div>
             )}
           </section>
         );

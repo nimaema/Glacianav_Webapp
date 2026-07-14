@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   ArrowCounterClockwise,
@@ -171,7 +171,7 @@ function FileCard({ file }: { file: NovaFile }) {
       </span>
       <span
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill text-white"
-        style={{ background: "var(--nw-teal)" }}
+        style={{ background: "var(--nw-teal-action)" }}
       >
         <DownloadSimple size={15} weight="bold" />
       </span>
@@ -548,7 +548,12 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   };
 
-  const send = async (preset?: string) => {
+  const focusComposer = () => {
+    inputRef.current?.focus();
+    inputRef.current?.scrollIntoView({ block: "nearest" });
+  };
+
+  const send = useCallback(async (preset?: string) => {
     const text = (preset ?? draft).trim();
     if ((!text && !pendingFile) || sending) return;
     const file = pendingFile;
@@ -583,7 +588,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
       ]);
       setSending(false);
     }
-  };
+  }, [draft, messages, pendingFile, scopeCustomer, sending]);
 
   // Lets an export menu (or any other leaf component) open the wing and
   // hand her a specific prompt — e.g. "Generate a PDF of ..." — instead of
@@ -740,7 +745,12 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                           : "All quiet on the chart."}
                     </p>
                     <div className="mt-2.5">
-                      <NovaBlocks blocks={briefingBlocks} onPrompt={(q) => void send(q)} />
+                      <NovaBlocks
+                        blocks={briefingBlocks}
+                        onPrompt={(q) => void send(q)}
+                        onCustomReply={focusComposer}
+                        disabled={sending}
+                      />
                     </div>
                     <p className="mt-2.5 max-w-[42ch] text-[13px] leading-relaxed" style={{ color: "var(--nw-ink-2)" }}>
                       {scopeCustomer
@@ -789,7 +799,13 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                       )}
                       {m.content.trim() && <NovaMarkdown content={m.content} tone="assistant" />}
                       {m.blocks && m.blocks.length > 0 && (
-                        <NovaBlocks blocks={m.blocks} onPrompt={(q) => void send(q)} stagger={i === messages.length - 1} />
+                        <NovaBlocks
+                          blocks={m.blocks}
+                          onPrompt={(q) => void send(q)}
+                          onCustomReply={focusComposer}
+                          disabled={sending}
+                          stagger={i === messages.length - 1}
+                        />
                       )}
                       {m.actions && m.actions.length > 0 && <ActionReceipts actions={m.actions} />}
                       {m.files && m.files.length > 0 && (
@@ -802,41 +818,53 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                       {m.confirmations && m.confirmations.length > 0 && (
                         <div className="flex flex-col gap-2">
                           {m.confirmations.map((confirmation) => (
-                            <div
+                            <section
                               key={confirmation.token}
-                              className="rounded-[12px] p-3"
+                              aria-label="Confirm Nova action"
+                              className="rounded-[12px] p-3.5"
                               style={{
                                 background: "color-mix(in srgb, var(--nw-danger) 7%, white)",
                                 border: "1px solid color-mix(in srgb, var(--nw-danger) 28%, transparent)",
                               }}
                             >
-                              <p className="flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--nw-danger)" }}>
-                                <ShieldWarning size={14} weight="fill" />
-                                {confirmation.label}
-                              </p>
-                              <p className="mt-1 text-[12.5px] leading-relaxed" style={{ color: "var(--nw-ink-2)" }}>
-                                {confirmation.detail}
-                              </p>
-                              <div className="mt-2.5 flex items-center gap-2">
+                              <div className="flex items-start gap-2.5">
+                                <span
+                                  aria-hidden
+                                  className="grid h-8 w-8 shrink-0 place-items-center rounded-pill"
+                                  style={{ background: "color-mix(in srgb, var(--nw-danger) 13%, white)", color: "var(--nw-danger)" }}
+                                >
+                                  <ShieldWarning size={16} weight="fill" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[13.5px] font-bold leading-snug" style={{ color: "var(--nw-danger)" }}>
+                                    {confirmation.label}
+                                  </p>
+                                  <p className="mt-1 max-w-[52ch] text-[12.5px] leading-[1.4]" style={{ color: "var(--nw-ink-2)" }}>
+                                    {confirmation.detail}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="mt-3 grid grid-cols-2 gap-2">
                                 <button
                                   type="button"
                                   disabled={confirmingToken !== null}
                                   onClick={() => void confirmAction(i, confirmation)}
-                                  className="cursor-pointer rounded-control px-3 py-1.5 text-[12.5px] font-bold text-white transition-opacity duration-150 hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+                                  className="min-h-11 cursor-pointer rounded-control px-3 py-2 text-[12.5px] font-bold text-white transition-[opacity,transform] duration-150 hover:-translate-y-px disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0"
                                   style={{ background: "var(--nw-danger)" }}
                                 >
                                   {confirmingToken === confirmation.token ? "Checking permission…" : "Confirm"}
                                 </button>
                                 <button
                                   type="button"
+                                  disabled={confirmingToken !== null}
                                   onClick={() => dismissConfirmation(i, confirmation.token)}
-                                  className="cursor-pointer rounded-control px-2.5 py-1.5 text-[12.5px] font-bold transition-colors duration-150 hover:bg-[color:var(--nw-bg-2)]"
-                                  style={{ color: "var(--nw-ink-2)" }}
+                                  className="min-h-11 cursor-pointer rounded-control border border-[color:var(--nw-line)] bg-white px-3 py-2 text-[12.5px] font-bold transition-colors duration-150 hover:bg-[color:var(--nw-bg-2)] disabled:cursor-wait disabled:opacity-60"
+                                  style={{ color: "var(--nw-ink)" }}
                                 >
-                                  Keep it
+                                  Keep unchanged
                                 </button>
                               </div>
-                            </div>
+                            </section>
                           ))}
                         </div>
                       )}
@@ -927,7 +955,7 @@ export function NovaDock({ context, currentUserId }: { context: NovaContextData;
                 disabled={sending || (!draft.trim() && !pendingFile)}
                 aria-label="Send"
                 className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-pill text-white transition-transform duration-150 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0"
-                style={{ background: "var(--nw-teal)" }}
+                style={{ background: "var(--nw-teal-action)" }}
               >
                 <PaperPlaneTilt size={15} weight="bold" />
               </button>

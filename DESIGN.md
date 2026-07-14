@@ -1,3 +1,75 @@
+---
+version: alpha
+name: Aurora Chart
+description: A light, precise workspace instrument for customer validation.
+colors:
+  primary: "#3D6FA6"
+  on-primary: "#FFFFFF"
+  surface: "#FFFFFF"
+  surface-muted: "#F2F4F9"
+  text: "#17202B"
+  text-muted: "#4B5566"
+  line: "#DDE3EE"
+  nova-interactive: "#0E8C7F"
+  nova-action: "#0A6B61"
+  on-nova-interactive: "#FFFFFF"
+  danger: "#C0463A"
+typography:
+  ui-body:
+    fontFamily: Bricolage Grotesque
+    fontSize: 0.9375rem
+    fontWeight: 400
+    lineHeight: 1.4
+  ui-label:
+    fontFamily: JetBrains Mono
+    fontSize: 0.625rem
+    fontWeight: 700
+    lineHeight: 1.2
+    letterSpacing: 0.12em
+rounded:
+  card: 16px
+  control: 11px
+  pill: 999px
+spacing:
+  xs: 4px
+  sm: 8px
+  md: 16px
+  lg: 24px
+components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    typography: "{typography.ui-body}"
+    rounded: "{rounded.control}"
+    padding: 12px
+  surface-card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.card}"
+    padding: 16px
+  recessed-control:
+    backgroundColor: "{colors.surface-muted}"
+    textColor: "{colors.text-muted}"
+    rounded: "{rounded.control}"
+    padding: 12px
+  subtle-rule:
+    backgroundColor: "{colors.line}"
+  nova-focus:
+    backgroundColor: "{colors.nova-interactive}"
+  nova-action:
+    backgroundColor: "{colors.nova-action}"
+    textColor: "{colors.on-nova-interactive}"
+    typography: "{typography.ui-body}"
+    rounded: "{rounded.pill}"
+    padding: 12px
+  destructive-action:
+    backgroundColor: "{colors.danger}"
+    textColor: "{colors.on-primary}"
+    typography: "{typography.ui-body}"
+    rounded: "{rounded.control}"
+    padding: 12px
+---
+
 # GlaciaNav Workspace — design system: "Aurora Chart"
 
 Aurora Chart treats customer validation as a synoptic instrument: a chart you
@@ -212,11 +284,28 @@ glance) — comparison belongs in a table, never a list; **entity rows**
 title, the-one-thing-that-matters subtitle, mono meta separated by
 dots) in a plain hairline-divided list, no enclosing card; **task
 rows** (checkbox squares, who/due in mono) headed by a small radial
-progress ring when there's more than one; at most one **callout**
+progress ring when there's more than one; **distribution bars**
+(one measure across categories per §9's proportional-bar rules —
+flat tinted pill fills scaled against the max, never past roughly
+half the row, always paired with the mono count); a **trend
+sparkline** (§9's meteogram language in miniature: 2px teal stroke
+over a ≤8% area fill, white station-plot points, the newest point
+filled with a soft halo — only ever drawn from real tool-result
+series); a **timeline** (the trace language in miniature: a hairline
+mini-spine with filled tone ticks for what happened and hollow ports
+for what hasn't); at most one **verbatim quote** (the customer's
+exact words printed on the paper in real curly quotes with a tone
+tick and mono attribution — evidence never hides in a box); at most
+one **callout**
 (info=teal, win=green, warn=gold, risk=coral — tinted white panel,
-colored icon kicker); and at most one **next-move chip** (solid teal
+colored icon kicker); at most one **inline input** (a recessed
+single-value field with a teal send pill — Nova asks for one typed
+value, a name/date/number, without the user re-framing the request);
+and at most one **next-move chip** (solid teal
 pill, tap sends its prompt back to Nova) which replaces the prose
-closing offer. Tones carry meaning (green=healthy, coral=problem,
+closing offer. Every titled block opens with the same kicker (short
+tone dash + mono caps label), the voice of the trace's own entry
+kickers. Tones carry meaning (green=healthy, coral=problem,
 gold=watch), never decoration. Tool runs print as mono trace lines
 with green/red state icons; files are format-colored artifact cards;
 destructive confirmations are danger-tinted cards with an explicit
