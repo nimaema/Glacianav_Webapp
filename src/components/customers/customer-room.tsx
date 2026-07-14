@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -39,10 +39,11 @@ import {
   type ValidationNote,
 } from "@/lib/fixtures";
 import { CompatibilityBadge } from "./compatibility-badge";
-import { ChannelBadge, FollowupPill, ProblemPill, StagePill } from "./status-pills";
+import { ChannelBadge, FollowupPill, ProblemPill } from "./status-pills";
 import type { CustomerRoomTask } from "@/lib/data/customers";
 import {
   addValidationNote,
+  moveCustomerStage,
   updateContact as updateContactAction,
   updateCustomerFields,
 } from "@/lib/data/customers-actions";
@@ -253,6 +254,8 @@ function CustomerRoomInner({
   const [currentSolution, setCurrentSolution] = useState(c.currentSolution ?? "");
   const [nextStep, setNextStep] = useState(c.nextStep ?? "");
   const [stage, setStage] = useState<StageKey>(c.stage);
+  const [stageError, setStageError] = useState("");
+  const [stagePending, startStageTransition] = useTransition();
   const [followup, setFollowup] = useState<Customer["followup"]>(c.followup);
   const [problem, setProblem] = useState<Customer["problem"]>(c.problem);
   const [contactRows, setContactRows] = useState<Contact[]>(contactsSeed);
@@ -358,6 +361,21 @@ function CustomerRoomInner({
     setContactToAdd("");
   };
 
+  const changeStage = (nextStage: StageKey) => {
+    if (nextStage === stage) return;
+    const previousStage = stage;
+    setStage(nextStage);
+    setStageError("");
+    startStageTransition(async () => {
+      try {
+        await moveCustomerStage(c.id, nextStage);
+      } catch {
+        setStage(previousStage);
+        setStageError("Couldn’t update the stage. Try again.");
+      }
+    });
+  };
+
   const removeContact = (id: string) => {
     updateContact(id, { customerId: undefined });
   };
@@ -405,17 +423,31 @@ function CustomerRoomInner({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
+            <label className="relative flex h-9 items-center gap-2 rounded-full border border-line bg-white/70 pl-2.5 pr-8 shadow-[0_1px_2px_rgba(23,32,43,0.04)] transition-colors focus-within:border-accent hover:bg-white">
+              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-3">
+                Stage
+              </span>
+              <select
+                value={stage}
+                onChange={(event) => changeStage(event.target.value)}
+                disabled={stagePending}
+                aria-label="Customer stage"
+                className="max-w-40 cursor-pointer appearance-none bg-transparent pr-1 text-[13px] font-bold text-ink outline-none disabled:cursor-wait disabled:opacity-60"
+              >
+                {stages.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <CaretDown
+                aria-hidden
+                size={12}
+                className="pointer-events-none absolute right-2.5 text-ink-3"
+              />
+            </label>
             {editingOverview ? (
               <>
-                <SimplePicker
-                  value={stage}
-                  options={stages.map((s) => s.key)}
-                  render={(v) => <StagePill stage={v} />}
-                  onChange={(v) => {
-                    setStage(v);
-                    updateCustomer({ stage: v });
-                  }}
-                />
                 <SimplePicker
                   value={followup}
                   options={["set", "overdue", "none"] as const}
@@ -437,11 +469,18 @@ function CustomerRoomInner({
               </>
             ) : (
               <>
-                <StagePill stage={stage} />
                 <FollowupPill followup={followup} />
                 <ProblemPill problem={problem} />
               </>
             )}
+            <span className="sr-only" role="status" aria-live="polite">
+              {stagePending ? "Updating customer stage" : ""}
+            </span>
+            {stageError ? (
+              <span className="text-[12px] font-semibold text-danger" role="alert">
+                {stageError}
+              </span>
+            ) : null}
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-4">
             {c.archived && (

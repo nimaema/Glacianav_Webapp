@@ -1,14 +1,13 @@
 "use client";
 
 import { useCallback, useDeferredValue, useId, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   Archive,
   Kanban,
   MagnifyingGlass,
   X,
 } from "@phosphor-icons/react";
-import { CustomerDrawer } from "./customer-drawer";
 import { KanbanView } from "./kanban-view";
 import { ValidationListView } from "./validation-list-view";
 import { Avatar } from "@/components/ui/avatar";
@@ -60,15 +59,9 @@ export function ValidationProgressView({
   useOutsideClick(searchBoxRef, () => setSuggestOpen(false), suggestOpen);
 
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const openCustomer = rows.find((c) => c.id === searchParams.get("c")) ?? null;
 
   const open = useCallback(
-    (id: string) => router.push(`/validation-progress?c=${id}`, { scroll: false }),
-    [router],
-  );
-  const close = useCallback(
-    () => router.push("/validation-progress", { scroll: false }),
+    (id: string) => router.push(`/customers/${id}`),
     [router],
   );
 
@@ -267,8 +260,7 @@ export function ValidationProgressView({
             </div>
             {/* Live matches: a listbox under the field. Mouse-down is
                 swallowed so the input keeps focus; picking one opens the
-                customer drawer directly — the fastest route to a card
-                hidden past a column's visible cap. */}
+                full customer page directly. */}
             {suggestOpen && liveQuery && suggestions.length > 0 && (
               <div
                 id={suggestListId}
@@ -382,14 +374,6 @@ export function ValidationProgressView({
             )}
           </div>
         )}
-        <CustomerDrawer
-          customer={openCustomer}
-          stages={stages}
-          segments={segments}
-          owners={owners}
-          contacts={contacts}
-          onClose={close}
-        />
       </div>
     </>
   );

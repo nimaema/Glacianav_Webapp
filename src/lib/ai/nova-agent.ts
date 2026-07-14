@@ -72,6 +72,7 @@ import {
   addSegment as addSegmentAction,
   addStage as addStageAction,
   addValidationNote as addValidationNoteAction,
+  moveCustomerStage,
   setCustomerArchived,
   updateContact as updateContactAction,
   updateCustomerFields,
@@ -807,6 +808,33 @@ const EXECUTORS: Record<string, (ctx: Ctx, a: Args) => Promise<NovaActionLog>> =
     return { label: "Updated customer", detail: `${match.name}: ${Object.keys(patch).join(", ")}`, ok: true };
   },
 
+  async move_customer_stage(ctx, a) {
+    const customerName = str(a.customer) || ctx.scopeCustomer?.name || "";
+    if (!customerName) throw new Error("say which customer to move");
+    const stageName = str(a.stage);
+    if (!stageName) throw new Error("say which stage to move the customer to");
+
+    const customerRows = await db.select().from(customers);
+    const customer = findByName(customerRows, customerName);
+    if (!customer) throw new Error(`no customer found matching "${customerName}"`);
+    const stage =
+      findByField(ctx.stages, "label", stageName) ??
+      findByField(ctx.stages, "key", stageName);
+    if (!stage) {
+      throw new Error(
+        `no stage matching "${stageName}"; available stages: ${ctx.stages.map((item) => item.label).join(", ")}`,
+      );
+    }
+
+    const previousStage = ctx.stages.find((item) => item.key === customer.stage)?.label ?? "No stage";
+    await moveCustomerStage(customer.id, stage.key);
+    return {
+      label: "Moved customer to stage",
+      detail: `${customer.name}: ${previousStage} → ${stage.label}`,
+      ok: true,
+    };
+  },
+
   async archive_customer(ctx, a) {
     const name = str(a.name);
     if (!name) throw new Error("no customer name given");
@@ -1283,6 +1311,10 @@ const TOOL_SCHEMAS: ToolSchema[] = [
     current_solution: p("string", "What they currently use, if changing."),
     next_step: p("string", "The next step text, if changing."),
   }, ["name"]),
+  fn("move_customer_stage", "Move a customer account to another validation stage. Use this whenever the user asks to move, advance, or return a customer in the validation pipeline.", {
+    customer: p("string", "Customer name (fuzzy match). Optional when Nova is open on a customer page."),
+    stage: p("string", "Destination stage label or stable key."),
+  }, ["stage"]),
   fn("archive_customer", "Archive or unarchive a customer.", {
     name: p("string", "Customer name (fuzzy match)."),
     archived: p("boolean", "true to archive, false to unarchive. Defaults to true."),

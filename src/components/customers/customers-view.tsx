@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   Buildings,
   CaretDown,
@@ -12,7 +12,6 @@ import {
   UserPlus,
 } from "@phosphor-icons/react";
 import { BoardView } from "./board-view";
-import { CustomerDrawer } from "./customer-drawer";
 import { StageDock } from "./stage-dock";
 import { Avatar } from "@/components/ui/avatar";
 import { HeaderStat, PageHeader } from "@/components/ui/page-header";
@@ -172,15 +171,9 @@ export function CustomersView({
   }, [visibleColumns]);
 
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const openCustomer = rows.find((c) => c.id === searchParams.get("c")) ?? null;
 
   const open = useCallback(
-    (id: string) => router.push(`/customers?c=${id}`, { scroll: false }),
-    [router],
-  );
-  const close = useCallback(
-    () => router.push("/customers", { scroll: false }),
+    (id: string) => router.push(`/customers/${id}`),
     [router],
   );
 
@@ -311,14 +304,6 @@ export function CustomersView({
           owners={owners}
           activeStage={stageFilter}
           onSelect={setStageFilter}
-        />
-        <CustomerDrawer
-          customer={openCustomer}
-          stages={stages}
-          segments={segments}
-          owners={owners}
-          contacts={contacts}
-          onClose={close}
         />
       </div>
     </>
