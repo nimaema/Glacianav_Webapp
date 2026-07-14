@@ -6,7 +6,6 @@ import {
   Archive,
   Kanban,
   MagnifyingGlass,
-  Rows,
   X,
 } from "@phosphor-icons/react";
 import { CustomerDrawer } from "./customer-drawer";
@@ -28,7 +27,7 @@ import {
 import { addStage as addStageAction, moveCustomerStage, renameStage as renameStageAction, setCustomerArchived } from "@/lib/data/customers-actions";
 
 const STAGE_TONE_ROTATION = ["blue", "cyan", "green", "violet", "coral", "gray"] as const;
-type ValidationView = "board" | "list" | "archive";
+type ValidationView = "board" | "archive";
 
 export function ValidationProgressView({
   customers,
@@ -206,7 +205,6 @@ export function ValidationProgressView({
             onChange={setView}
             options={[
               { value: "board", label: "Board", icon: Kanban, count: activeRows.length },
-              { value: "list", label: "List", icon: Rows, count: activeRows.length },
               { value: "archive", label: "Archive", icon: Archive, count: archivedRows.length },
             ]}
           />
@@ -335,7 +333,7 @@ export function ValidationProgressView({
             onArchive={(id) => setArchived(id, true)}
             resultKey={query}
           />
-        ) : visibleRows.length > 0 || (view === "list" && !query) ? (
+        ) : visibleRows.length > 0 ? (
           <ValidationListView
             rows={visibleRows}
             stages={stages}
@@ -368,8 +366,8 @@ export function ValidationProgressView({
                 // archive is for and where the action lives.
                 <p className="mt-1 max-w-[56ch] text-[13px] leading-relaxed text-ink-3">
                   Archiving tucks an account out of the active flow while keeping its full
-                  history — use a board card&rsquo;s overflow menu or a list row&rsquo;s archive
-                  button. Anything shelved here can be restored to its stage at any time.
+                  history — use a board card&rsquo;s overflow menu to archive it. Anything
+                  shelved here can be restored to its stage at any time.
                 </p>
               ) : null}
             </div>
