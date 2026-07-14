@@ -5,12 +5,11 @@
 import "server-only";
 
 const BASE = process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com";
-// Two tiers: the fast default handles quick factual/CRUD work; the "pro" tier
-// is a stronger reasoning model the agent escalates to for complex, logic-heavy
-// tasks (analysis, imports, multi-step planning). Override either via env; set
-// DEEPSEEK_MODEL_PRO to your account's exact pro model id if it differs.
-export const MODEL = process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash";
-export const MODEL_PRO = process.env.DEEPSEEK_MODEL_PRO ?? "deepseek-v4-pro";
+// Nova always uses the flash model. Keep MODEL_PRO as an alias so callers that
+// still ask for the "pro" tier are routed to the same model instead of
+// silently escalating.
+export const MODEL = "deepseek-v4-flash";
+export const MODEL_PRO = MODEL;
 
 function apiKey() {
   return process.env.DEEPSEEK_API_KEY ?? "";
