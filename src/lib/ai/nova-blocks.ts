@@ -33,11 +33,58 @@ export type NovaBlock =
     }
   | { kind: "next"; label: string; prompt: string }
   | {
-      // Interactive option picker — each option is a tappable card that sends
-      // its `prompt` back to Nova, so the user chooses a path instead of typing.
+      // Adaptive option picker. Single choices send immediately; multiple
+      // choices collect a small set and send them together from one control.
       kind: "choice";
       title?: string;
+      mode?: "single" | "multiple";
+      allowCustom?: boolean;
+      submitLabel?: string;
       options: { label: string; description?: string; prompt: string; tone: NovaTone }[];
+    }
+  | {
+      // Proportional distribution readout (DESIGN.md §9): label + mono count
+      // per row with a tinted bar scaled against the max — the bar is a
+      // visual aid, the number is the datum.
+      kind: "bars";
+      title?: string;
+      items: { label: string; value: number; display?: string; tone: NovaTone }[];
+    }
+  | {
+      // Dated moments on a mini-spine — echoes the wing's trace language.
+      // done=true renders a filled tone tick, otherwise a hollow port.
+      kind: "timeline";
+      title?: string;
+      items: { text: string; when?: string; tone: NovaTone; done?: boolean }[];
+    }
+  | {
+      // Verbatim evidence — a customer quote printed on the paper with a
+      // mono attribution kicker. Never paraphrased, never invented.
+      kind: "quote";
+      text: string;
+      who?: string;
+      source?: string;
+      tone: NovaTone;
+    }
+  | {
+      // Meteogram sparkline (DESIGN.md §9 chart language): teal stroke over
+      // a faint area fill, station-plot points, the newest point filled.
+      kind: "trend";
+      label: string;
+      points: number[];
+      unit?: string;
+      note?: string;
+    }
+  | {
+      // Inline single-value ask: the user types one value and submits it
+      // back to Nova without re-framing the whole request. "{value}" in
+      // prompt is replaced with what they typed.
+      kind: "input";
+      label: string;
+      prompt: string;
+      placeholder?: string;
+      inputType?: "text" | "number" | "date";
+      submitLabel?: string;
     };
 
 export type NovaPresentation = {
@@ -167,7 +214,81 @@ export function coerceNovaBlocks(value: unknown): NovaBlock[] {
           };
         })
         .filter((o) => o.label && o.prompt);
-      if (options.length) blocks.push({ kind: "choice", title: s(b.title, 60) || undefined, options });
+      if (options.length) {
+        blocks.push({
+          kind: "choice",
+          title: s(b.title, 60) || undefined,
+          mode: b.mode === "multiple" ? "multiple" : "single",
+          allowCustom: b.allowCustom !== false,
+          submitLabel: s(b.submitLabel, 48) || undefined,
+          options,
+        });
+      }
+    } else if (b.kind === "bars") {
+      const clean = items
+        .map((item) => {
+          const it = (item ?? {}) as Record<string, unknown>;
+          const value = Number(it.value ?? it.count);
+          return {
+            label: s(it.label, 60),
+            value: Number.isFinite(value) && value >= 0 ? value : NaN,
+            display: s(it.display, 24) || undefined,
+            tone: tone(it.tone, "teal"),
+          };
+        })
+        .filter((it) => it.label && Number.isFinite(it.value));
+      if (clean.length) blocks.push({ kind: "bars", title: s(b.title, 60) || undefined, items: clean });
+    } else if (b.kind === "timeline") {
+      const clean = items
+        .map((item) => {
+          const it = (item ?? {}) as Record<string, unknown>;
+          return {
+            text: s(it.text, 160),
+            when: s(it.when, 40) || undefined,
+            tone: tone(it.tone),
+            done: it.done === true,
+          };
+        })
+        .filter((it) => it.text);
+      if (clean.length) blocks.push({ kind: "timeline", title: s(b.title, 60) || undefined, items: clean });
+    } else if (b.kind === "quote") {
+      const text = s(b.text ?? b.body, 320);
+      if (text) {
+        blocks.push({
+          kind: "quote",
+          text,
+          who: s(b.who, 60) || undefined,
+          source: s(b.source, 80) || undefined,
+          tone: tone(b.tone, "teal"),
+        });
+      }
+    } else if (b.kind === "trend") {
+      const label = s(b.label ?? b.title, 60);
+      const points = Array.isArray(b.points)
+        ? (b.points as unknown[]).map((v) => Number(v)).filter((v) => Number.isFinite(v)).slice(0, 24)
+        : [];
+      if (label && points.length >= 2) {
+        blocks.push({
+          kind: "trend",
+          label,
+          points,
+          unit: s(b.unit, 16) || undefined,
+          note: s(b.note, 80) || undefined,
+        });
+      }
+    } else if (b.kind === "input") {
+      const label = s(b.label, 80);
+      const prompt = s(b.prompt, 300);
+      if (label && prompt) {
+        blocks.push({
+          kind: "input",
+          label,
+          prompt,
+          placeholder: s(b.placeholder, 80) || undefined,
+          inputType: b.inputType === "number" || b.inputType === "date" ? b.inputType : "text",
+          submitLabel: s(b.submitLabel, 32) || undefined,
+        });
+      }
     }
   }
   return blocks;
