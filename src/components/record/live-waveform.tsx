@@ -20,6 +20,12 @@ const BAR_W = 3;
 const GAP_W = 2;
 const STEP = BAR_W + GAP_W;
 const SAMPLE_MS = 40; // ~25 samples/sec onto the tape
+// Below this RMS-derived level a sample counts as silence; after this long
+// of nothing but silence the tape reports it upward (muted mic, or a shared
+// tab whose "Share tab audio" was left off — the #1 cause of recordings that
+// upload fine and then fail transcription with "no spoken audio").
+const SILENCE_LEVEL = 0.055;
+const SILENCE_AFTER_MS = 10_000;
 
 type TapeSample = { v: number; flagged: boolean };
 
@@ -32,17 +38,25 @@ export function LiveWaveform({
   stream,
   paused,
   flagCount,
+  onSilenceChange,
 }: {
   stream: MediaStream | null;
   paused: boolean;
   /** Increments when the user flags a moment — the next sample pushed onto
    * the tape carries a danger tick, anchoring the flag visually in time. */
   flagCount: number;
+  /** Fires true after ~10s of continuous silence while recording, false the
+   * moment real signal returns — drives the "no sound detected" hint. */
+  onSilenceChange?: (silent: boolean) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const samplesRef = useRef<TapeSample[]>([]);
   const pendingFlagRef = useRef(0);
   const pausedRef = useRef(paused);
+  const onSilenceChangeRef = useRef(onSilenceChange);
+  useEffect(() => {
+    onSilenceChangeRef.current = onSilenceChange;
+  }, [onSilenceChange]);
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
@@ -76,6 +90,11 @@ export function LiveWaveform({
     let raf = 0;
     let lastSample = 0;
     let disposed = false;
+    // Silence watch: lastSignal only advances while unpaused, so a pause
+    // never counts toward the silence window (it resets on resume instead).
+    let lastSignal = performance.now();
+    let reportedSilent = false;
+    let wasPaused = false;
 
     const draw = (now: number) => {
       if (disposed) return;
@@ -91,6 +110,8 @@ export function LiveWaveform({
       }
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+      if (pausedRef.current) wasPaused = true;
+
       // Sample RMS onto the tape at a fixed cadence; the tape freezes (but
       // keeps rendering) while paused.
       if (!pausedRef.current && now - lastSample >= SAMPLE_MS) {
@@ -104,6 +125,21 @@ export function LiveWaveform({
         const rms = Math.sqrt(sum / data.length);
         // Perceptual-ish lift so quiet speech still registers.
         const v = Math.min(1, Math.pow(rms * 3.2, 0.8));
+
+        // Silence watch — a resume restarts the window, real signal clears it.
+        if (wasPaused) lastSignal = now;
+        wasPaused = false;
+        if (v > SILENCE_LEVEL) {
+          lastSignal = now;
+          if (reportedSilent) {
+            reportedSilent = false;
+            onSilenceChangeRef.current?.(false);
+          }
+        } else if (!reportedSilent && now - lastSignal > SILENCE_AFTER_MS) {
+          reportedSilent = true;
+          onSilenceChangeRef.current?.(true);
+        }
+
         const flagged = pendingFlagRef.current > 0;
         if (flagged) pendingFlagRef.current -= 1;
         samplesRef.current.push({ v, flagged });
@@ -153,6 +189,8 @@ export function LiveWaveform({
       source.disconnect();
       analyser.disconnect();
       void ctx.close().catch(() => {});
+      // Never leave a stale "silent" hint behind for the next take.
+      if (reportedSilent) onSilenceChangeRef.current?.(false);
     };
   }, [stream]);
 

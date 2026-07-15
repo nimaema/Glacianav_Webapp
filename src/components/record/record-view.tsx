@@ -9,12 +9,12 @@ import {
   Desktop,
   Flag,
   Microphone,
+  MicrophoneSlash,
   Pause,
   Play,
   Stop,
   Trash,
   UploadSimple,
-  UsersThree,
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
@@ -85,7 +85,6 @@ function SourcePicker({
   const options: { key: CaptureSource; label: string; icon: React.ReactNode }[] = [
     { key: "mic", label: "Mic", icon: <Microphone size={14} /> },
     { key: "meeting", label: "Meeting", icon: <Desktop size={14} /> },
-    { key: "both", label: "Both", icon: <UsersThree size={14} /> },
   ];
   const shown = canShareAudio ? options : options.slice(0, 1);
   if (shown.length === 1) return null;
@@ -257,6 +256,9 @@ export function RecordView({
   const [canShareAudio, setCanShareAudio] = useState(false);
   const [captionsSupported, setCaptionsSupported] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Silence hint — set/cleared by LiveWaveform's analyser (it also reports
+  // false on teardown, so the hint never leaks into the next take).
+  const [silent, setSilent] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Feature-detect after mount — must run post-hydration (SSR HTML has to
@@ -297,7 +299,9 @@ export function RecordView({
 
   const capturing = rec.phase === "recording" || rec.phase === "paused";
   const reviewing = rec.phase === "ready" || rec.phase === "saving";
-  const showCaptions = captionsOn && rec.source !== "meeting" && rec.phase === "recording";
+  // Captions ride the mic's speech recognition — they need a live, unmuted mic.
+  const micLive = rec.source === "mic" || !rec.micMuted;
+  const showCaptions = captionsOn && micLive && rec.phase === "recording";
 
   const minimizeTo = () => (participants.length === 1 ? `/customers/${participants[0].id}` : "/");
 
@@ -306,9 +310,9 @@ export function RecordView({
       ? "File"
       : rec.source === "mic"
         ? "Microphone"
-        : rec.source === "meeting"
+        : rec.micMuted
           ? "Meeting audio"
-          : "Mic + meeting";
+          : "Meeting + mic";
 
   const consoleStatus = capturing ? (
     <span className="flex items-center gap-2">
@@ -330,6 +334,11 @@ export function RecordView({
       {rec.elapsed > 0 && (
         <span className="font-mono text-[13px] font-bold text-ink tabular-nums">{fmtElapsed(rec.elapsed)}</span>
       )}
+    </span>
+  ) : rec.phase === "arming" ? (
+    <span className="flex items-center gap-2">
+      <ArrowsClockwise size={13} className="animate-spin text-accent" />
+      <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-accent">Starting</span>
     </span>
   ) : (
     <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-ink-3">Standby</span>
@@ -366,8 +375,9 @@ export function RecordView({
       )}
       {capturing && rec.micError && (
         <p role="alert" className="recessed px-4 py-3 text-[13.5px] leading-snug text-ink-2">
-          No microphone access ({rec.micError}) — the timer is running, but nothing is being captured. Stop and save
-          to keep a text-only note, or allow the microphone and start again.
+          {rec.source === "meeting"
+            ? `${rec.micError}. Your side of the call isn't being captured — allow the microphone and start again to include it.`
+            : `No microphone access (${rec.micError}) — the timer is running, but nothing is being captured. Stop and save to keep a text-only note, or allow the microphone and start again.`}
         </p>
       )}
 
@@ -389,11 +399,27 @@ export function RecordView({
               {rec.mode === "record" && rec.phase === "idle" && (
                 <>
                   <SourcePicker value={rec.source} onChange={rec.setSource} canShareAudio={canShareAudio} />
-                  {rec.source !== "mic" && (
-                    <p className="max-w-md text-center text-[13px] leading-relaxed text-ink-3">
-                      You’ll pick a tab or screen and turn on “Share tab audio” — made for a call running in Meet,
-                      Zoom, or any browser tab.
-                    </p>
+                  {rec.source === "meeting" && (
+                    <>
+                      <p className="max-w-md text-center text-[13px] leading-relaxed text-ink-3">
+                        You’ll pick a tab or screen and turn on “Share tab audio” — made for a call running in Meet,
+                        Zoom, or any browser tab. Your microphone is recorded too, so the take has both sides of the
+                        call.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => rec.setMicMuted(!rec.micMuted)}
+                        aria-pressed={rec.micMuted}
+                        className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors duration-150 ${
+                          rec.micMuted
+                            ? "border-danger/40 bg-danger/5 text-danger"
+                            : "border-line text-ink-2 hover:text-ink"
+                        }`}
+                      >
+                        {rec.micMuted ? <MicrophoneSlash size={14} /> : <Microphone size={14} />}
+                        {rec.micMuted ? "My mic muted — tab audio only" : "My mic included"}
+                      </button>
+                    </>
                   )}
                   <button
                     type="button"
@@ -414,7 +440,7 @@ export function RecordView({
                   <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-ink-3">
                     Tap to record
                   </p>
-                  {captionsSupported && rec.source !== "meeting" && (
+                  {captionsSupported && micLive && (
                     <button
                       type="button"
                       onClick={() => setCaptionsOn((v) => !v)}
@@ -430,6 +456,37 @@ export function RecordView({
                     </button>
                   )}
                 </>
+              )}
+
+              {/* Arming — permission prompt (mic) or the share-a-tab picker
+                  (meeting/both) is open; nothing records until it resolves. */}
+              {rec.phase === "arming" && (
+                <div className="flex flex-col items-center gap-4 py-6 text-center">
+                  <span className="relative grid h-16 w-16 place-items-center">
+                    <span aria-hidden className="absolute inset-0 animate-ping rounded-full border-2 border-accent/30" />
+                    <span className="grid h-14 w-14 place-items-center rounded-full bg-accent/10 text-accent">
+                      {rec.source === "mic" ? <Microphone size={24} /> : <Desktop size={24} />}
+                    </span>
+                  </span>
+                  <div>
+                    <p className="text-[15px] font-semibold text-ink">
+                      {rec.source === "mic" ? "Waiting for the microphone…" : "Pick the tab or screen to share"}
+                    </p>
+                    <p className="mx-auto mt-1 max-w-md text-[13px] leading-relaxed text-ink-3">
+                      {rec.source === "mic"
+                        ? "Allow microphone access in the browser prompt. Recording starts the moment audio is live."
+                        : "In the browser dialog, choose the meeting's tab and turn on “Share tab audio”. Recording starts once audio is flowing — not before."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={rec.discardTake}
+                    className="flex h-9 cursor-pointer items-center gap-1.5 rounded-control border border-line px-3.5 text-[13px] font-bold text-ink-2 transition-colors duration-150 hover:border-ink-3 hover:text-ink"
+                  >
+                    <X size={14} />
+                    Cancel
+                  </button>
+                </div>
               )}
 
               {/* Idle · upload */}
@@ -483,7 +540,12 @@ export function RecordView({
                   </span>
                   <div className="w-full max-w-2xl">
                     <div className="h-24 w-full">
-                      <LiveWaveform stream={rec.stream} paused={rec.phase === "paused"} flagCount={rec.flags.length} />
+                      <LiveWaveform
+                        stream={rec.stream}
+                        paused={rec.phase === "paused"}
+                        flagCount={rec.flags.length}
+                        onSilenceChange={setSilent}
+                      />
                     </div>
                     <TickRuler />
                     <div className="mt-1 flex items-center justify-between font-mono text-[10.5px] font-semibold text-ink-3">
@@ -497,6 +559,17 @@ export function RecordView({
                       </span>
                     </div>
                   </div>
+                  {silent && rec.phase === "recording" && !rec.micError && (
+                    <p
+                      role="alert"
+                      className="flex max-w-2xl items-start gap-2 rounded-control border border-danger/30 bg-danger/5 px-4 py-3 text-left text-[13.5px] leading-snug text-danger"
+                    >
+                      <WarningCircle size={16} weight="fill" className="mt-0.5 shrink-0" />
+                      {rec.source === "mic"
+                        ? "No sound detected — check that your microphone isn't muted. A silent take can't be transcribed."
+                        : "No sound detected — make sure the meeting isn't muted and “Share tab audio” was turned on. A silent take can't be transcribed."}
+                    </p>
+                  )}
                   <LiveCaptions active={showCaptions} />
                 </>
               )}
@@ -561,6 +634,21 @@ export function RecordView({
                         <span className="font-mono text-[12px] tabular-nums">{rec.flags.length}</span>
                       )}
                     </button>
+                    {rec.source === "meeting" && !rec.micError && (
+                      <button
+                        type="button"
+                        onClick={() => rec.setMicMuted(!rec.micMuted)}
+                        aria-pressed={rec.micMuted}
+                        className={`${transportBtn} border ${
+                          rec.micMuted
+                            ? "border-danger/40 bg-danger/5 text-danger hover:bg-danger/10"
+                            : "border-line text-ink-2 hover:bg-surface hover:text-ink"
+                        }`}
+                      >
+                        {rec.micMuted ? <MicrophoneSlash size={15} /> : <Microphone size={15} />}
+                        {rec.micMuted ? "Mic muted" : "Mute mic"}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={rec.togglePause}

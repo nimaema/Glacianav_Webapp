@@ -20,13 +20,20 @@ import { createConversationFromRecording } from "@/lib/data/library-actions";
 // while the user works elsewhere in the app.
 //
 // Phase machine:
-//   idle → recording ⇄ paused → ready → saving → (reset + navigate)
-//                └──────────────┘  ready is the review step: listen back,
-//                                  name it, then Save & process. Upload mode
-//                                  enters at "ready" directly via acceptFile.
+//   idle → arming → recording ⇄ paused → ready → saving → (reset + navigate)
+//            └→ idle (picker cancelled / no tab audio)
+//   "arming" is the gap between tapping record and capture actually running —
+//   the mic permission prompt, or the meeting flow's share-a-tab picker. The
+//   REC state and timer only begin once the recorder is genuinely rolling,
+//   so a share picker left open never records (or claims to record) silence.
+//   ready is the review step: listen back, name it, then Save & process.
+//   Upload mode enters at "ready" directly via acceptFile.
 
-export type RecordingPhase = "idle" | "recording" | "paused" | "ready" | "saving";
-export type CaptureSource = "mic" | "meeting" | "both";
+export type RecordingPhase = "idle" | "arming" | "recording" | "paused" | "ready" | "saving";
+// "meeting" records the shared tab/screen's audio AND the mic together by
+// default — one take of the whole call. micMuted drops the mic from the mix
+// (toggleable before and during the take); there is no separate "both".
+export type CaptureSource = "mic" | "meeting";
 export type CaptureMode = "record" | "upload";
 
 const ACCEPT_MIME = [
@@ -55,6 +62,9 @@ export type RecordingState = {
   phase: RecordingPhase;
   mode: CaptureMode;
   source: CaptureSource;
+  // Meeting mode: drop the mic from the mix (tab audio only). A session
+  // preference — survives discards; flips live via track.enabled.
+  micMuted: boolean;
   elapsed: number; // seconds (recorded duration once phase = ready)
   flags: number[]; // elapsed seconds where moments were flagged
   // Session metadata — editable until save.
@@ -83,6 +93,8 @@ type RecordingApi = RecordingState & {
   hasTake: boolean; // a finished take/file is waiting in review
   setMode: (m: CaptureMode) => void;
   setSource: (s: CaptureSource) => void;
+  /** Meeting mode: mute/unmute the mic in the mix — works mid-take. */
+  setMicMuted: (muted: boolean) => void;
   setTitle: (t: string) => void;
   setTopicId: (id: string | null) => void;
   setShared: (v: boolean) => void;
@@ -115,6 +127,7 @@ function initialState(): RecordingState {
     phase: "idle",
     mode: "record",
     source: "mic",
+    micMuted: false,
     elapsed: 0,
     flags: [],
     title: "",
@@ -165,6 +178,10 @@ export function RecordingProvider({
   // mixing AudioContext — all torn down together.
   const allStreamsRef = useRef<MediaStream[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  // Meeting mode keeps its own handle on the mic stream so the mute toggle
+  // can flip track.enabled live, without touching the mixer graph.
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const micMutedRef = useRef(false);
   const captureRequestRef = useRef(0);
   const phaseRef = useRef<RecordingPhase>("idle");
   phaseRef.current = state.phase;
@@ -178,6 +195,7 @@ export function RecordingProvider({
   const teardownCapture = useCallback(() => {
     allStreamsRef.current.forEach((s) => s.getTracks().forEach((t) => t.stop()));
     allStreamsRef.current = [];
+    micStreamRef.current = null;
     if (audioCtxRef.current) {
       void audioCtxRef.current.close().catch(() => {});
       audioCtxRef.current = null;
@@ -206,8 +224,8 @@ export function RecordingProvider({
   // ── Metadata setters ────────────────────────────────────────────────
   const setMode = useCallback((mode: CaptureMode) => {
     setState((s) => {
-      // Never mode-switch mid-capture or mid-save.
-      if (s.phase === "recording" || s.phase === "paused" || s.phase === "saving") return s;
+      // Never mode-switch mid-arm, mid-capture, or mid-save.
+      if (s.phase === "arming" || s.phase === "recording" || s.phase === "paused" || s.phase === "saving") return s;
       if (s.mode === mode) return s;
       if (s.previewUrl) URL.revokeObjectURL(s.previewUrl);
       payloadRef.current = null;
@@ -230,6 +248,13 @@ export function RecordingProvider({
 
   const setSource = useCallback((source: CaptureSource) => {
     setState((s) => (s.phase === "idle" ? { ...s, source, captureError: null } : s));
+  }, []);
+  const setMicMuted = useCallback((micMuted: boolean) => {
+    micMutedRef.current = micMuted;
+    // Live mid-take mute: the mic track keeps flowing into the mixer but
+    // produces silence, so unmuting later needs no re-permission.
+    micStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = !micMuted));
+    setState((s) => ({ ...s, micMuted }));
   }, []);
   const setTitle = useCallback((title: string) => setState((s) => ({ ...s, title })), []);
   const setTopicId = useCallback((topicId: string | null) => setState((s) => ({ ...s, topicId })), []);
@@ -254,9 +279,12 @@ export function RecordingProvider({
 
   // ── Capture ─────────────────────────────────────────────────────────
 
-  // Build the stream for the chosen source. Mic = getUserMedia; Meeting =
-  // a shared tab/screen's audio via getDisplayMedia; Both = the two mixed
-  // through an AudioContext into one recordable stream.
+  // Build the stream for the chosen source. Mic = getUserMedia. Meeting =
+  // the shared tab/screen's audio via getDisplayMedia, with the mic mixed in
+  // through an AudioContext — the whole call in one take. The mic track is
+  // always acquired (so the mute toggle works mid-take via track.enabled),
+  // and a mic failure degrades honestly to tab-audio-only instead of
+  // aborting the meeting capture.
   const buildStream = useCallback(async (source: CaptureSource): Promise<MediaStream> => {
     if (source === "mic") {
       const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -270,13 +298,28 @@ export function RecordingProvider({
       throw new Error("no-system-audio");
     }
     allStreamsRef.current.push(display);
-    if (source === "meeting") {
-      const s = new MediaStream(displayAudio);
-      allStreamsRef.current.push(s);
-      return s;
+
+    let mic: MediaStream | null = null;
+    try {
+      mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      mic = null;
     }
-    const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!mic) {
+      // Tab audio still records; the view surfaces this via micError.
+      micStreamRef.current = null;
+      setState((s) => ({
+        ...s,
+        micError: "Microphone unavailable — recording the shared tab's audio only",
+      }));
+      const tabOnly = new MediaStream(displayAudio);
+      allStreamsRef.current.push(tabOnly);
+      return tabOnly;
+    }
+
     allStreamsRef.current.push(mic);
+    micStreamRef.current = mic;
+    mic.getAudioTracks().forEach((t) => (t.enabled = !micMutedRef.current));
     const ctx = new AudioContext();
     audioCtxRef.current = ctx;
     const dest = ctx.createMediaStreamDestination();
@@ -347,11 +390,13 @@ export function RecordingProvider({
       captureRequestRef.current = requestId;
       chunksRef.current = [];
       payloadRef.current = null;
+      // Arm first — REC and the timer wait until capture is actually live.
+      // For "meeting" this is the whole share-a-tab picker flow.
       setState((s) => {
         if (s.previewUrl) URL.revokeObjectURL(s.previewUrl);
         return {
           ...s,
-          phase: "recording",
+          phase: "arming",
           mode: "record",
           source,
           elapsed: 0,
@@ -370,7 +415,11 @@ export function RecordingProvider({
           throw new Error("Audio capture is not supported in this browser");
         }
         const stream = await buildStream(source);
-        if (captureRequestRef.current !== requestId || phaseRef.current === "idle") {
+        // The ref may have moved past the top guard's narrowing while the
+        // permission prompt / share picker was open (e.g. Cancel → "idle") —
+        // the cast undoes TS's stale control-flow narrowing across the await.
+        const phaseNow = phaseRef.current as RecordingPhase;
+        if (captureRequestRef.current !== requestId || phaseNow !== "arming") {
           teardownCapture();
           return;
         }
@@ -399,7 +448,8 @@ export function RecordingProvider({
           }),
         );
 
-        setState((s) => ({ ...s, stream }));
+        // Capture is genuinely rolling — only now does REC begin.
+        setState((s) => ({ ...s, phase: "recording", stream }));
       } catch (e) {
         teardownCapture();
         if (captureRequestRef.current !== requestId) return;
@@ -408,6 +458,7 @@ export function RecordingProvider({
           // Keep the session alive: timer runs, save() falls back honestly.
           setState((s) => ({
             ...s,
+            phase: "recording",
             micError: msg || "Microphone unavailable",
           }));
         } else {
@@ -453,7 +504,13 @@ export function RecordingProvider({
 
   // ── Upload mode ─────────────────────────────────────────────────────
   const acceptFile = useCallback((file: File) => {
-    if (phaseRef.current === "recording" || phaseRef.current === "paused" || phaseRef.current === "saving") return;
+    if (
+      phaseRef.current === "arming" ||
+      phaseRef.current === "recording" ||
+      phaseRef.current === "paused" ||
+      phaseRef.current === "saving"
+    )
+      return;
     if (!ACCEPT_MIME.includes(file.type) && !/\.(mp3|m4a|wav|webm|ogg)$/i.test(file.name)) {
       setState((s) => ({ ...s, processingError: "Unsupported file. Use MP3, M4A, WAV, WebM, or OGG." }));
       return;
@@ -677,6 +734,7 @@ export function RecordingProvider({
       hasTake: state.phase === "ready",
       setMode,
       setSource,
+      setMicMuted,
       setTitle,
       setTopicId,
       setShared,
@@ -699,6 +757,7 @@ export function RecordingProvider({
       state,
       setMode,
       setSource,
+      setMicMuted,
       setTitle,
       setTopicId,
       setShared,

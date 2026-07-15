@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   CaretDown,
   CheckCircle,
+  DownloadSimple,
   FileDoc,
   FilePdf,
   FileText,
@@ -641,6 +642,18 @@ export function ConversationWorkspace({
                       Nova
                     </span>
                   </button>
+                  {hasAudio && (
+                    <a
+                      role="menuitem"
+                      href={`/api/recordings/${c.id}/audio?download=1`}
+                      download
+                      onClick={() => setExportOpen(false)}
+                      className="flex w-full cursor-pointer items-center gap-2.5 rounded-md border-t border-line-2 px-2.5 py-2 text-left text-[14px] text-ink transition-colors duration-150 hover:bg-surface-2"
+                    >
+                      <DownloadSimple size={16} className="text-accent" />
+                      Download audio
+                    </a>
+                  )}
                 </div>
               )}
               {exportError && (

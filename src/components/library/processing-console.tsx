@@ -16,7 +16,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowClockwise, SpinnerGap, Warning, X } from "@phosphor-icons/react";
+import { ArrowClockwise, DownloadSimple, SpinnerGap, Warning, X } from "@phosphor-icons/react";
 import type { Conversation, ConversationStatus, ProcessingStage } from "@/lib/fixtures";
 
 const STATIONS = [
@@ -134,6 +134,12 @@ export function ProcessingConsole({ conversation }: { conversation: Conversation
   const failed = status === "failed";
   const failedStation = STATIONS[activeIndex];
   const wedged = processing && elapsedMs != null && elapsedMs > WEDGED_AFTER_MS;
+  // AssemblyAI's signature for a take with nothing to transcribe (muted mic,
+  // tab shared without audio). Retrying the same silent file fails the same
+  // way every time — download becomes the honest primary action instead.
+  const noSpeech = failed && /no spoken audio|no speech/i.test(error ?? "");
+  const hasAudio = Boolean(c.hasAudio);
+  const downloadHref = `/api/recordings/${c.id}/audio?download=1`;
 
   const stationState = (i: number): "done" | "active" | "failed" | "pending" => {
     if (i < activeIndex) return "done";
@@ -163,9 +169,11 @@ export function ProcessingConsole({ conversation }: { conversation: Conversation
           </p>
         </div>
         <p className="mt-1 max-w-[60ch] text-[14px] leading-relaxed text-ink-2">
-          {failed
-            ? "The audio is stored safely — nothing is lost. Retry re-runs the pipeline against the same file."
-            : "Transcript, summary, action items, and decisions land on this page as each stage finishes. No need to refresh."}
+          {noSpeech
+            ? "The audio is stored safely — you can download it below and listen to what was captured."
+            : failed
+              ? "The audio is stored safely — nothing is lost. Retry re-runs the pipeline against the same file."
+              : "Transcript, summary, action items, and decisions land on this page as each stage finishes. No need to refresh."}
         </p>
 
         {/* Station track — chart language, not a checklist. */}
@@ -279,18 +287,45 @@ export function ProcessingConsole({ conversation }: { conversation: Conversation
           <div className="flex items-start gap-3">
             <Warning size={20} weight="fill" className="mt-0.5 flex-none text-danger" />
             <div className="min-w-0">
-              <h3 className="text-[15px] font-semibold text-ink">Failed while {failedStation.label.toLowerCase()}</h3>
+              <h3 className="text-[15px] font-semibold text-ink">
+                {noSpeech ? "No speech found in this recording" : `Failed while ${failedStation.label.toLowerCase()}`}
+              </h3>
+              {noSpeech && (
+                <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-relaxed text-ink-2">
+                  The file uploaded fine, but transcription couldn&rsquo;t hear any spoken words — usually a muted
+                  microphone, or a meeting tab shared without &ldquo;Share tab audio&rdquo;. Retrying the same silent
+                  file will fail the same way; download it to check what was captured.
+                </p>
+              )}
               {error && (
                 <p className="mt-1.5 break-words rounded-[8px] bg-surface px-3 py-2 font-mono text-[12.5px] leading-relaxed text-ink-2">
                   {error}
                 </p>
               )}
               <div className="mt-3.5 flex flex-wrap items-center gap-3">
+                {hasAudio && (
+                  <a
+                    href={downloadHref}
+                    download
+                    className={
+                      noSpeech
+                        ? "inline-flex h-9.5 items-center gap-1.5 rounded-[11px] bg-accent px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong"
+                        : "inline-flex h-9.5 items-center gap-1.5 rounded-[11px] border border-line px-4 text-[13.5px] font-semibold text-ink transition-colors duration-150 hover:border-accent hover:text-accent"
+                    }
+                  >
+                    <DownloadSimple size={15} weight={noSpeech ? "bold" : "regular"} />
+                    Download audio
+                  </a>
+                )}
                 <button
                   type="button"
                   onClick={retry}
                   disabled={retrying}
-                  className="inline-flex h-9.5 items-center gap-1.5 rounded-[11px] bg-accent px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong disabled:opacity-60"
+                  className={
+                    noSpeech
+                      ? "inline-flex h-9.5 cursor-pointer items-center gap-1.5 rounded-[11px] border border-line px-4 text-[13.5px] font-semibold text-ink transition-colors duration-150 hover:border-accent hover:text-accent disabled:opacity-60"
+                      : "inline-flex h-9.5 cursor-pointer items-center gap-1.5 rounded-[11px] bg-accent px-4 text-[13.5px] font-bold text-white transition-colors duration-150 hover:bg-accent-strong disabled:opacity-60"
+                  }
                 >
                   {retrying ? <SpinnerGap size={15} className="animate-spin" /> : <ArrowClockwise size={15} weight="bold" />}
                   Retry transcription
