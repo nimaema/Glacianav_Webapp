@@ -384,8 +384,8 @@ export function blankDefinition(): Definition {
     showReview: true,
   };
 }
-export function allQuestions(definition: Definition) {
-  return definition.pages.flatMap((p) => p.elements);
+export function allQuestions(definition: Definition | null | undefined) {
+  return definition?.pages?.flatMap((p) => p.elements) ?? [];
 }
 export function alignCarriedChoices(definition: Definition): Definition {
   const seen = new Map<string, Question>();
