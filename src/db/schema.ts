@@ -10,6 +10,7 @@
 // messages) get a generated `uuid`.
 
 import { relations } from "drizzle-orm";
+export * from "./questionnaire-schema";
 import {
   boolean,
   doublePrecision,
@@ -60,7 +61,7 @@ export const entityTypeEnum = pgEnum("entity_type", ["conversation", "customer",
 // Extend as more real trigger points get wired up — kept to what actually
 // fires today (task assignment, a validation note landing on an account
 // you own) rather than every conceivable notification type.
-export const notificationKindEnum = pgEnum("notification_kind", ["task_assigned", "validation_note_added", "mentioned"]);
+export const notificationKindEnum = pgEnum("notification_kind", ["task_assigned", "validation_note_added", "mentioned", "questionnaire_submitted"]);
 
 // ─── People & workspace config ──────────────────────────────────────
 

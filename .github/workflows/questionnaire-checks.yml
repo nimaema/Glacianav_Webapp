@@ -1,0 +1,29 @@
+name: Questionnaire checks
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint -- --quiet
+      - run: npm run test:questionnaires
+      - run: npm run build
+      - name: Verify the isolated HTTP lifecycle
+        run: |
+          npm run dev:questionnaires -- --port 3100 > /tmp/questionnaire-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3100/questionnaires > /dev/null; then break; fi
+            sleep 1
+          done
+          QUESTIONNAIRE_TEST_ORIGIN=http://127.0.0.1:3100 npm run test:questionnaires

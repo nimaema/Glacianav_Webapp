@@ -35,6 +35,7 @@ const SECTIONS: Section[] = [
       { href: "/customers", label: "Customers", icon: Buildings },
       { href: "/contacts", label: "Contacts", icon: IdentificationCard },
       { href: "/library", label: "Library", icon: Books },
+      { href: "/questionnaires", label: "Questionnaires", icon: ListChecks },
     ],
   },
   {

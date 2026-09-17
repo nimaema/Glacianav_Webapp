@@ -1,4 +1,8 @@
 export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs" && process.env.QUESTIONNAIRE_MAIL_ENABLED === "true") {
+    const { startQuestionnaireMail } = await import("@/lib/questionnaires/mail");
+    startQuestionnaireMail();
+  }
   const localProcessorExplicitlyEnabled = process.env.NOVA_PROCESSOR_ENABLED === "true";
   if (
     process.env.NEXT_RUNTIME !== "nodejs" ||
