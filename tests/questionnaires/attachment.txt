@@ -1,0 +1,2 @@
+Synthetic questionnaire attachment for local browser testing.
+This is not customer data.

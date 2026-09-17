@@ -31,6 +31,17 @@ const PUBLIC_PATHS = ["/login", "/auth/callback"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const questionnairePublic = /^\/(q|respond)\//.test(request.nextUrl.pathname) || request.nextUrl.pathname.startsWith("/api/questionnaire-public/") || request.nextUrl.pathname === "/api/questionnaires/webhook";
+  if (process.env.NODE_ENV === "development" && process.env.QUESTIONNAIRE_LOCAL_PREVIEW === "true" && !process.env.DATABASE_URL && (/^\/questionnaires(?:\/|$)/.test(request.nextUrl.pathname) || request.nextUrl.pathname.startsWith("/api/questionnaires") || questionnairePublic)) {
+    if (!["localhost", "127.0.0.1"].includes(request.nextUrl.hostname)) return new NextResponse("Local preview only", { status: 403 });
+  }
+  if (questionnairePublic) {
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    return response;
+  }
   const novaInternalSecret =
     process.env.NOVA_INTERNAL_SECRET || process.env.NOVA_CONFIRMATION_SECRET;
 

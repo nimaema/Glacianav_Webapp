@@ -18,6 +18,7 @@
 /out/
 /.nova-runtime/
 /.nova-jobs/
+/.questionnaire-preview/
 
 # production
 /build

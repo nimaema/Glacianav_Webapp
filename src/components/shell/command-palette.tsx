@@ -40,6 +40,7 @@ const DESTINATIONS: Item[] = [
   { id: "go-validation-progress", group: "Go to", label: "Validation Progress", icon: Kanban, href: "/validation-progress" },
   { id: "go-contacts", group: "Go to", label: "Contacts", icon: IdentificationCard, href: "/contacts" },
   { id: "go-library", group: "Go to", label: "Library", icon: Books, href: "/library" },
+  { id: "go-questionnaires", group: "Go to", label: "Questionnaires", icon: Books, href: "/questionnaires" },
   { id: "go-work", group: "Go to", label: "Work", icon: ListChecks, href: "/work" },
   { id: "go-calendar", group: "Go to", label: "Calendar", icon: CalendarBlank, href: "/calendar" },
   { id: "go-insights", group: "Go to", label: "Insights", icon: ChartBar, href: "/insights" },

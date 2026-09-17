@@ -996,13 +996,13 @@ function ChoiceBlock({
 export function NovaBlocks({
   blocks,
   onPrompt,
-  onCustomReply,
+  onCustomReply = () => {},
   disabled = false,
   stagger = false,
 }: {
   blocks: NovaBlock[];
   onPrompt: (q: string) => void;
-  onCustomReply: () => void;
+  onCustomReply?: () => void;
   disabled?: boolean;
   stagger?: boolean;
 }) {
