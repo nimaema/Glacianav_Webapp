@@ -384,6 +384,24 @@ export function blankDefinition(): Definition {
     showReview: true,
   };
 }
+export function normalizeDefinition(value: unknown): Definition {
+  let candidate = value;
+  if (typeof candidate === "string") {
+    try {
+      candidate = JSON.parse(candidate);
+    } catch {
+      candidate = null;
+    }
+  }
+  if (
+    candidate &&
+    typeof candidate === "object" &&
+    Array.isArray((candidate as { pages?: unknown }).pages)
+  ) {
+    return candidate as Definition;
+  }
+  return blankDefinition();
+}
 export function allQuestions(definition: Definition | null | undefined) {
   return definition?.pages?.flatMap((p) => p.elements) ?? [];
 }

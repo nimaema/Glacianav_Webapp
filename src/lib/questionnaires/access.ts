@@ -3,7 +3,7 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import { getCurrentProfile } from "@/lib/data/current-user";
 import { localMode, qdb, type QDatabase } from "./database";
-import type { Questionnaire } from "./types";
+import { normalizeDefinition, type Questionnaire } from "./types";
 import { questionnairePermissions } from "./permissions";
 export class QuestionnaireError extends Error {
   constructor(
@@ -53,11 +53,12 @@ export async function access(
 ) {
   const me = await viewer();
   const db = database ?? (await qdb());
-  const [q] = await db.query<Questionnaire>(
+  const [raw] = await db.query<Questionnaire>(
     "SELECT * FROM questionnaires WHERE id=$1",
     [id],
   );
-  if (!q) throw new QuestionnaireError("Questionnaire not found.", 404);
+  if (!raw) throw new QuestionnaireError("Questionnaire not found.", 404);
+  const q = { ...raw, draft: normalizeDefinition(raw.draft) };
   const owner = q.owner_id === me.id || me.role === "admin";
   const [member] = await db.query<{ role: string }>(
     "SELECT role FROM questionnaire_access WHERE questionnaire_id=$1 AND profile_id=$2",
