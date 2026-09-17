@@ -74,7 +74,7 @@ export async function getDetail(id: string): Promise<QuestionnaireDetail> {
     ),
     a.canSend || a.canRead
       ? db.query<Invitation>(
-          "SELECT i.id,i.campaign_id,i.name,i.email,i.customer_id,i.customer_name,i.segment,i.status,i.delivery,i.created_at,i.sent_at,i.last_reminder_at,i.started_at,i.submitted_at,c.name campaign_name,v.number version_number FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id JOIN questionnaire_versions v ON v.id=c.version_id WHERE c.questionnaire_id=$1 ORDER BY i.created_at DESC",
+          "SELECT i.id,i.campaign_id,i.name,i.email,i.name_question_id,i.customer_id,i.customer_name,i.segment,i.status,i.delivery,i.created_at,i.sent_at,i.last_reminder_at,i.started_at,i.submitted_at,c.name campaign_name,v.number version_number FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id JOIN questionnaire_versions v ON v.id=c.version_id WHERE c.questionnaire_id=$1 ORDER BY i.created_at DESC",
           [id],
         )
       : [],
@@ -211,6 +211,7 @@ export async function invite(
   channel: "manual" | "email",
   scheduledAt?: string,
   reminderDays = 0,
+  nameQuestionId?: string,
 ) {
   const { db, me } = await access(id, "send");
   const [c] = await db.query<Campaign>(
@@ -223,6 +224,14 @@ export async function invite(
     (c.closes_at && Date.parse(c.closes_at) < Date.now())
   )
     throw new QuestionnaireError("Choose an open collection.");
+  const [version] = await db.query<Version>("SELECT * FROM questionnaire_versions WHERE id=$1", [c.version_id]);
+  if (nameQuestionId) {
+    const field = version.definition.pages.flatMap((p) => p.elements).find((q) => q.name === nameQuestionId && q.type === "text");
+    if (!field) throw new QuestionnaireError("Choose a short-answer name field from this collection’s published version.");
+    if (recipients.some((p) => p.name.length > field.maxLength)) throw new QuestionnaireError("A recipient name exceeds the selected field’s character limit.");
+  }
+  if (channel === "email" && recipients.some((p) => !p.email))
+    throw new QuestionnaireError("Add an email address for every recipient before sending email invitations.");
   const { queueMail } = await import("./mail");
   return db.transaction(async (tx) => {
     await tx.query("SELECT id FROM questionnaires WHERE id=$1 FOR UPDATE", [
@@ -244,7 +253,7 @@ export async function invite(
       const token = credential();
       const iid = randomUUID();
       const rows = await tx.query(
-        "INSERT INTO questionnaire_invitations(id,campaign_id,name,email,contact_id,customer_id,customer_name,segment,token_hash,delivery,sent_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(campaign_id,email) DO NOTHING RETURNING id",
+        "INSERT INTO questionnaire_invitations(id,campaign_id,name,email,contact_id,customer_id,customer_name,segment,token_hash,delivery,sent_at,name_question_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(campaign_id,email) WHERE email <> '' DO NOTHING RETURNING id",
         [
           iid,
           campaignId,
@@ -257,6 +266,7 @@ export async function invite(
           digest(token),
           channel === "email" ? "queued" : "manual",
           channel === "manual" ? new Date() : null,
+          nameQuestionId || null,
         ],
       );
       if (!rows.length) {

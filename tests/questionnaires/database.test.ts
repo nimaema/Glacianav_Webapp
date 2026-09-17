@@ -14,10 +14,13 @@ test("additive migration repeats safely, enables RLS, and protects immutable ver
     );
     await pg.exec(sql);
     await pg.exec(sql);
+    const contentSql = await readFile(new URL("../../src/db/migrations/0004_questionnaire_content.sql", import.meta.url), "utf8");
+    await pg.exec(contentSql);
+    await pg.exec(contentSql);
     const tables = await pg.query<{ relname: string; relrowsecurity: boolean }>(
       "SELECT relname,relrowsecurity FROM pg_class WHERE relname LIKE 'questionnaire%' AND relkind='r'",
     );
-    assert.equal(tables.rows.length, 13);
+    assert.equal(tables.rows.length, 14);
     assert.ok(tables.rows.every((r) => r.relrowsecurity));
     const q = crypto.randomUUID(),
       owner = crypto.randomUUID(),

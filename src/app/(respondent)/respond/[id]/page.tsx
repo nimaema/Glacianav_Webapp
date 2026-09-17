@@ -30,6 +30,7 @@ export default async function ResponsePage({
       revision={r.revision}
       page={r.page}
       submitted={r.status === "submitted"}
+      lockedFields={i.name_question_id ? [i.name_question_id] : []}
     />
   );
 }

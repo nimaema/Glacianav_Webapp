@@ -19,7 +19,7 @@ import {
 const recipient = z.object({
   id: z.string().max(100).default(""),
   name: z.string().trim().min(1).max(200),
-  email: z.email(),
+  email: z.union([z.email(), z.literal("")]).default(""),
   customerId: z.string().nullable().optional(),
   customerName: z.string().nullable().optional(),
   segment: z.string().nullable().optional(),
@@ -43,6 +43,7 @@ const command = z.discriminatedUnion("action", [
     campaignId: z.uuid(),
     recipients: z.array(recipient).min(1).max(200),
     channel: z.enum(["manual", "email"]),
+    nameQuestionId: z.string().regex(/^[a-z][a-z0-9_]{0,79}$/).optional(),
     scheduledAt: z.iso.datetime().optional(),
     reminderDays: z.number().int().min(0).max(30).default(0),
   }),
@@ -112,6 +113,7 @@ export async function POST(
           b.channel,
           b.scheduledAt,
           b.reminderDays,
+          b.nameQuestionId,
         ),
       );
     if (b.action === "invitation")

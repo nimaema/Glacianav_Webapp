@@ -12,6 +12,7 @@ import {
   timestamp,
   primaryKey,
   unique,
+  uniqueIndex,
   index,
   foreignKey,
   check,
@@ -19,6 +20,8 @@ import {
 const created = () =>
   timestamp("created_at", { withTimezone: true }).defaultNow().notNull();
 const time = (name: string) => timestamp(name, { withTimezone: true });
+// Author-provided context media uses capability URLs; submitted attachments
+// remain in questionnaire_assets with respondent authorization.
 export const questionnaires = pgTable(
   "questionnaires",
   {
@@ -35,6 +38,14 @@ export const questionnaires = pgTable(
   },
   (t) => [index("questionnaire_owner_idx").on(t.ownerId, t.updatedAt.desc())],
 ).enableRLS();
+export const questionnaireMedia = pgTable("questionnaire_media", {
+  id: uuid("id").primaryKey(),
+  questionnaireId: uuid("questionnaire_id").notNull().references(() => questionnaires.id),
+  name: text("name").notNull(),
+  mime: text("mime").notNull(),
+  size: integer("size").notNull(),
+  createdAt: created(),
+}, (t) => [index("questionnaire_media_owner_idx").on(t.questionnaireId)]).enableRLS();
 export const questionnaireVersions = pgTable(
   "questionnaire_versions",
   {
@@ -112,6 +123,7 @@ export const questionnaireInvitations = pgTable(
       .references(() => questionnaireCampaigns.id),
     name: text("name").notNull(),
     email: text("email").notNull(),
+    nameQuestionId: text("name_question_id"),
     contactId: text("contact_id"),
     customerId: text("customer_id"),
     customerName: text("customer_name"),
@@ -126,10 +138,10 @@ export const questionnaireInvitations = pgTable(
     submittedAt: time("submitted_at"),
   },
   (t) => [
-    unique("questionnaire_invitations_campaign_id_email_key").on(
+    uniqueIndex("questionnaire_invitation_email_idx").on(
       t.campaignId,
       t.email,
-    ),
+    ).where(sql`${t.email} <> ''`),
     index("questionnaire_invitation_campaign_idx").on(t.campaignId, t.status),
     check(
       "questionnaire_invitations_status_check",

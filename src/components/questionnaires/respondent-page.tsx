@@ -182,6 +182,7 @@ export function PublicResponse({
   revision,
   page,
   submitted,
+  lockedFields,
 }: {
   definition: Definition;
   responseId: string;
@@ -189,6 +190,7 @@ export function PublicResponse({
   revision: number;
   page: number;
   submitted: boolean;
+  lockedFields?: string[];
 }) {
   return (
     <RespondentShell>
@@ -197,6 +199,7 @@ export function PublicResponse({
         definition={definition}
         responseId={responseId}
         initialAnswers={answers}
+        lockedFields={lockedFields}
         revision={revision}
         page={page}
         submitted={submitted}

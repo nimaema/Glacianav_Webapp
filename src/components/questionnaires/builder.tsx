@@ -1,4 +1,5 @@
 "use client";
+import "./context-content.css";
 import { useState } from "react";
 import {
   Plus,
@@ -24,13 +25,18 @@ import {
 } from "@/lib/questionnaires/types";
 import { choiceTypes, numericTypes } from "@/lib/questionnaires/engine";
 import { Button, Field, Modal, Toggle } from "./ui";
+import { ContextEditor } from "./context-editor";
+import { ContextMediaEditor } from "./context-media-editor";
+import { ContextContent } from "./context-content";
 
 export function Builder({
+  questionnaireId,
   definition,
   onChange,
   readonly = false,
   logicOnly = false,
 }: {
+  questionnaireId: string;
   definition: Definition;
   onChange: (d: Definition) => void;
   readonly?: boolean;
@@ -396,7 +402,7 @@ export function Builder({
                       value={item.title}
                       onChange={(e) => patchQuestion({ title: e.target.value })}
                     />
-                    <input
+                    {item.type === "content" ? <ContextEditor key={item.name} questionnaireId={questionnaireId} value={item.description} onChange={(description) => patchQuestion({ description, contentFormat: "markdown" })} /> : <input
                       aria-label="Question description"
                       className="qn-question-description-input"
                       placeholder="A hint, an example, a little context…"
@@ -404,12 +410,12 @@ export function Builder({
                       onChange={(e) =>
                         patchQuestion({ description: e.target.value })
                       }
-                    />
+                    />}
                   </>
                 ) : (
                   <>
                     <h3>{item.title || "What would you like to ask?"}</h3>
-                    {item.description ? <p>{item.description}</p> : null}
+                    {item.type === "content" ? <ContextContent question={item} /> : item.description ? <p>{item.description}</p> : null}
                   </>
                 )}
                 {logicOnly ? (
@@ -610,6 +616,8 @@ export function Builder({
                     onChange={(isRequired) => patchQuestion({ isRequired })}
                   />
                 ) : null}
+                {q.type === "text" ? <Toggle label="Use as recipient name" checked={!!q.recipientName} onChange={(recipientName) => patchQuestion({ recipientName })} /> : null}
+                {q.type === "text" && q.recipientName ? <p className="qn-help">This field is suggested for name prefilling in Share. Publish your changes, then choose it when generating personal links.</p> : null}
                 {choiceTypes.has(q.type) || q.type.startsWith("matrix") ? (
                   <>
                     <h3 className="qn-property-section">Answer options</h3>
@@ -784,6 +792,7 @@ export function Builder({
                 ) : null}
                 {q.type === "content" ? (
                   <>
+                    <ContextMediaEditor key={q.name} questionnaireId={questionnaireId} question={q} onChange={patchQuestion} />
                     <Field label="Optional media type">
                       <select
                         value={q.mediaType}
@@ -803,7 +812,7 @@ export function Builder({
                       hint="Use a direct HTTPS media link. Include captions or a transcript in the description."
                     >
                       <input
-                        type="url"
+                        type="text"
                         value={q.mediaUrl}
                         onChange={(e) =>
                           patchQuestion({ mediaUrl: e.target.value })

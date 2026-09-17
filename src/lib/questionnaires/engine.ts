@@ -33,7 +33,7 @@ const question = z.object({
   name: id,
   type: z.enum(QUESTION_TYPES),
   title: z.string().max(2000),
-  description: z.string().max(5000),
+  description: z.string().max(20000),
   isRequired: z.boolean(),
   choices: z.array(choice).max(200),
   rows: z.array(choice).max(50),
@@ -62,6 +62,12 @@ const question = z.object({
   maxFiles: z.number().int().min(1).max(10),
   mediaUrl: z.string().max(2048),
   mediaType: z.enum(["image", "audio", "video"]),
+  contentFormat: z.enum(["plain", "markdown"]).optional(),
+  mediaAlt: z.string().max(500).optional(),
+  mediaCaption: z.string().max(1000).optional(),
+  mediaWidth: z.enum(["full", "medium", "small"]).optional(),
+  mediaAlign: z.enum(["left", "center", "right"]).optional(),
+  recipientName: z.boolean().optional(),
 });
 export const definitionSchema = z
   .object({
@@ -97,6 +103,7 @@ export const choiceTypes = new Set([
 ]);
 export const numericTypes = new Set(["number", "rating", "nps", "slider"]);
 export function safeMedia(url: string): boolean {
+  if (/^\/api\/questionnaire-public\/media\/[0-9a-f-]{36}$/.test(url)) return true;
   try {
     const u = new URL(url);
     return u.protocol === "https:" && !u.username && !u.password;

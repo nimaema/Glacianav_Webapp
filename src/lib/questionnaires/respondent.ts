@@ -6,8 +6,10 @@ import { credential, digest, event } from "./service";
 import { QuestionnaireError } from "./access";
 import { validateAnswers } from "./engine";
 import type { Answers, Definition, ResponseRecord } from "./types";
+import { recipientAnswers } from "./personalization";
 
 type InvitationContext = {
+  name_question_id: string | null;
   id: string;
   name: string;
   email: string;
@@ -19,7 +21,7 @@ type InvitationContext = {
   closes_at: string | null;
   archived: boolean;
 };
-const joined = `SELECT i.id,i.name,i.email,i.status,c.questionnaire_id,c.version_id,c.state,c.closes_at,v.definition,q.archived FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id JOIN questionnaire_versions v ON v.id=c.version_id JOIN questionnaires q ON q.id=c.questionnaire_id`;
+const joined = `SELECT i.id,i.name,i.email,i.status,i.name_question_id,c.questionnaire_id,c.version_id,c.state,c.closes_at,v.definition,q.archived FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id JOIN questionnaire_versions v ON v.id=c.version_id JOIN questionnaires q ON q.id=c.questionnaire_id`;
 export function assertOpen(i: InvitationContext) {
   if (i.archived || i.state !== "open")
     throw new QuestionnaireError("This questionnaire is closed.", 410);
@@ -84,8 +86,8 @@ export async function start(token: string) {
     );
     if (!r) {
       [r] = await tx.query<ResponseRecord>(
-        "INSERT INTO questionnaire_responses(id,invitation_id,version_id) VALUES($1,$2,$3) RETURNING *",
-        [randomUUID(), i.id, i.version_id],
+        "INSERT INTO questionnaire_responses(id,invitation_id,version_id,answers) VALUES($1,$2,$3,$4::jsonb) RETURNING *",
+        [randomUUID(), i.id, i.version_id, JSON.stringify(recipientAnswers(i.definition, i.name_question_id, i.name))],
       );
       await tx.query(
         "UPDATE questionnaire_invitations SET status='started',started_at=now() WHERE id=$1",
@@ -159,6 +161,7 @@ export async function respondent(
     r.invitation_id,
   ]);
   assertOpen(i);
+  r.answers = { ...r.answers, ...recipientAnswers(i.definition, i.name_question_id, i.name) };
   return { r, i, db };
 }
 export async function saveResponse(
@@ -186,7 +189,11 @@ export async function saveResponse(
       );
     let validated: ReturnType<typeof validateAnswers>;
     try {
-      validated = validateAnswers(i.definition, input, submit, r.id);
+      const locked = recipientAnswers(i.definition, i.name_question_id, i.name);
+      validated = validateAnswers(i.definition, { ...input, ...locked }, submit, r.id);
+      // Identity remains in results even if conditional logic hides this field.
+      Object.assign(validated.answers, locked);
+      for (const key of Object.keys(locked)) validated.states[key] = "answered";
     } catch (e) {
       throw new QuestionnaireError(
         e instanceof Error ? e.message : "Invalid response.",

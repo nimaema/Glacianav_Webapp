@@ -7,6 +7,7 @@ import { createFormModel, setFormPage } from "./form-model";
 import { ContourRelief } from "./form-identity";
 import type { FormAttachment } from "./form-controls";
 import "./respondent.css";
+import "./context-content.css";
 import { api, Button, Message, errorMessage } from "./ui";
 import { CheckCircle, ArrowCounterClockwise } from "@phosphor-icons/react";
 
@@ -19,6 +20,7 @@ export default function QuestionnaireRunner({
   submitted = false,
   readOnly = false,
   preview = false,
+  lockedFields = [],
 }: {
   definition: Definition;
   responseId?: string;
@@ -28,10 +30,15 @@ export default function QuestionnaireRunner({
   submitted?: boolean;
   readOnly?: boolean;
   preview?: boolean;
+  lockedFields?: string[];
 }) {
   const [model] = useState(() => {
     const m = createFormModel(definition, responseId ?? "preview");
     m.data = initialAnswers;
+    for (const name of lockedFields) {
+      const question = m.getQuestionByName(name);
+      if (question) question.readOnly = true;
+    }
     m.currentPageNo = page;
     if (readOnly) {
       m.questionsOnPageMode = "singlePage";

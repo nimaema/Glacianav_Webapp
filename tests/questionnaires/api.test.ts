@@ -55,8 +55,26 @@ test(
       f.title = "An optional attachment";
       f.acceptedTypes = ".txt";
       const d = detail.questionnaire.draft;
+      const nameField = newQuestion("text");
+      nameField.title = "Your name";
+      nameField.recipientName = true;
+      const context = newQuestion("content");
+      context.title = "Research context";
+      context.contentFormat = "markdown";
+      context.description = "## Welcome\n\n**Read this** before answering.\n\n- One\n- Two";
+      const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=", "base64");
+      const imageUpload = await fetch(origin + endpoint + "/media", { method: "POST", headers: { Origin: origin!, "X-File-Name": "qa.png" }, body: png });
+      assert.equal(imageUpload.status, 200, await imageUpload.clone().text());
+      context.mediaUrl = (await imageUpload.json()).url;
+      context.mediaAlt = "A test pixel";
+      context.mediaCaption = "Test image";
+      const imageRead = await fetch(origin + context.mediaUrl);
+      assert.equal(imageRead.headers.get("content-type"), "image/png");
+      assert.deepEqual(Buffer.from(await imageRead.arrayBuffer()), png);
+      const badImage = await fetch(origin + endpoint + "/media", { method: "POST", headers: { Origin: origin! }, body: "<svg onload='alert(1)'></svg>" });
+      assert.equal(badImage.status, 400);
       d.title = "QA · automated lifecycle";
-      d.pages[0].elements = [q, follow, f];
+      d.pages[0].elements = [nameField, context, q, follow, f];
       await request(endpoint, { action: "save", definition: d, revision: 1 });
       await request(
         endpoint,
@@ -79,6 +97,7 @@ test(
         campaignId: campaign.id,
         recipients,
         channel: "manual",
+        nameQuestionId: nameField.name,
       });
       assert.equal(invites.created, 2);
       const { data: duplicates } = await request(endpoint, {
@@ -89,6 +108,10 @@ test(
       });
       assert.equal(duplicates.created, 0);
       assert.equal(duplicates.duplicates, 2);
+      const namesOnly = await request(endpoint, { action: "invite", campaignId: campaign.id, recipients: [{ name: "Name Only A", email: "" }, { name: "Name Only B", email: "" }], channel: "manual", nameQuestionId: nameField.name });
+      assert.equal(namesOnly.data.created, 2);
+      await request(endpoint, { action: "invite", campaignId: campaign.id, recipients: [{ name: "No Email", email: "" }], channel: "email" }, "", 400);
+      await request(endpoint, { action: "invite", campaignId: campaign.id, recipients, channel: "manual", nameQuestionId: q.name }, "", 400);
       const token = invites.links[0].path.split("/").at(-1);
       const landing = await fetch(origin + invites.links[0].path);
       assert.equal(landing.status, 200);
@@ -107,6 +130,8 @@ test(
         { token },
       );
       const cookie = sessionRes.headers.get("set-cookie")!.split(";")[0];
+      const respondentPage = await fetch(origin + `/respond/${session.responseId}`, { headers: { Cookie: cookie } });
+      assert.equal(respondentPage.status, 200);
       assert.match(sessionRes.headers.get("set-cookie")!, /HttpOnly/i);
       const responsePath = `/api/questionnaire-public/response/${session.responseId}`;
       await request(
@@ -131,6 +156,7 @@ test(
       });
       assert.equal(denied.status, 403);
       const answers = {
+        [nameField.name]: "FORGED NAME",
         [q.name]: [q.choices[0].value],
         [follow.name]: "Synthetic response, not customer research.",
       };
@@ -186,6 +212,7 @@ test(
         400,
       );
       const finalAnswers = { ...answers, [f.name]: uploaded.files };
+      const expectedAnswers = { ...finalAnswers, [nameField.name]: "QA Person A" };
       await request(
         responsePath,
         { answers: finalAnswers, revision: 1, page: 0, submit: true },
@@ -203,7 +230,7 @@ test(
       );
       assert.deepEqual(
         results.responses.find((r) => r.id === session.responseId)?.answers,
-        finalAnswers,
+        expectedAnswers,
       );
       d.title = "QA · changed draft";
       await request(endpoint, { action: "save", definition: d, revision: 2 });
@@ -245,7 +272,7 @@ test(
         await request(`${endpoint}/responses/${session.responseId}/history`)
       ).data.revisions;
       assert.equal(history.length, 1);
-      assert.deepEqual(history[0].answers, finalAnswers);
+      assert.deepEqual(history[0].answers, expectedAnswers);
       await request(endpoint, {
         action: "collection",
         campaignId: campaign.id,

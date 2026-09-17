@@ -51,6 +51,7 @@ export async function queueMail(
     "SELECT i.email,i.name,v.definition->>'title' title FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id JOIN questionnaire_versions v ON v.id=c.version_id WHERE i.id=$1",
     [invitationId],
   );
+  if (!i.email) throw new QuestionnaireError("This recipient has no email address. Share their personal link instead.");
   const suppressed = await db.query(
     "SELECT id FROM questionnaire_invitations WHERE email=$1 AND delivery IN ('bounced','complained','suppressed') LIMIT 1",
     [i.email],

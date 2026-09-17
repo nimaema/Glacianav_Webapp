@@ -13,6 +13,7 @@ import {
   ArrowCounterClockwise,
 } from "@phosphor-icons/react";
 import type { QuestionnaireDetail, Person } from "@/lib/questionnaires/types";
+import { allQuestions } from "@/lib/questionnaires/types";
 import {
   Button,
   Field,
@@ -46,10 +47,14 @@ export function Share({
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [nameField, setNameField] = useState<string | null>(null);
   const [links, setLinks] = useState<
     { id: string; name: string; email: string; path: string }[]
   >([]);
   const campaign = detail.campaigns.find((c) => c.id === campaignId);
+  const version = detail.versions.find((v) => v.id === campaign?.version_id);
+  const nameFields = version ? allQuestions(version.definition).filter((q) => q.type === "text") : [];
+  const selectedNameField = nameField ?? nameFields.find((q) => q.recipientName)?.name ?? "";
   const invitations = detail.invitations.filter(
     (i) => i.campaign_id === campaignId,
   );
@@ -78,15 +83,17 @@ export function Share({
     });
     if (r) {
       setCampaignId(String(r.id));
+      setNameField(null);
       setCreateOpen(false);
     }
   }
   function add(p: Person) {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email) || !p.name.trim()) {
-      setError("Add a name and a valid email address.");
+    p = { ...p, name: p.name.trim(), email: p.email.trim() };
+    if ((p.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) || !p.name) {
+      setError("Add a name and, optionally, a valid email address.");
       return;
     }
-    if (recipients.some((x) => x.email.toLowerCase() === p.email.toLowerCase()))
+    if (p.email && recipients.some((x) => x.email.toLowerCase() === p.email.toLowerCase()))
       return;
     setRecipients([...recipients, p]);
     setPersonName("");
@@ -99,6 +106,7 @@ export function Share({
       campaignId,
       recipients,
       channel,
+      ...(selectedNameField ? { nameQuestionId: selectedNameField } : {}),
       reminderDays: channel === "email" ? reminderDays : 0,
       ...(channel === "email" && scheduled
         ? { scheduledAt: new Date(scheduled).toISOString() }
@@ -140,24 +148,23 @@ export function Share({
           "Import up to 200 people at a time. Split this file into smaller lists; no rows were imported.",
         );
       if (
-        new Set([...recipients, ...parsed].map((p) => p.email.toLowerCase()))
-          .size > 200
+        recipients.length + parsed.length > 200
       )
         throw new Error(
           "Keep the selected audience to 200 people per send. No rows were imported.",
         );
       if (
         parsed.some(
-          (p) => !p.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email),
+          (p) => !p.name.trim() || (p.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)),
         )
       )
         throw new Error(
-          "Include Name and Email columns, with a name and valid email on every row.",
+          "Include a Name column. Email is optional for personal links; supplied emails must be valid.",
         );
       setRecipients(
         [
           ...new Map(
-            [...recipients, ...parsed].map((p) => [p.email.toLowerCase(), p]),
+            [...recipients, ...parsed].map((p, index) => [p.email ? p.email.toLowerCase() : `name-only-${index}`, p]),
           ).values(),
         ].slice(0, 200),
       );
@@ -196,7 +203,7 @@ export function Share({
             <Field label="Collection">
               <select
                 value={campaignId}
-                onChange={(e) => setCampaignId(e.target.value)}
+                onChange={(e) => { setCampaignId(e.target.value); setNameField(null); }}
               >
                 <option value="">Choose a collection</option>
                 {detail.campaigns.map((c) => (
@@ -249,7 +256,7 @@ export function Share({
                       placeholder="Full name"
                     />
                   </Field>
-                  <Field label="Email">
+                  <Field label="Email (optional for personal links)">
                     <input
                       type="email"
                       value={email}
@@ -325,13 +332,13 @@ export function Share({
                 ) : null}
                 {recipients.length ? (
                   <div className="qn-recipient-chips">
-                    {recipients.map((p) => (
+                    {recipients.map((p, index) => (
                       <button
-                        key={p.email}
-                        title={`Remove ${p.email}`}
+                        key={`${p.email}-${index}`}
+                        title={`Remove ${p.name}`}
                         onClick={() =>
                           setRecipients(
-                            recipients.filter((r) => r.email !== p.email),
+                            recipients.filter((_, i) => i !== index),
                           )
                         }
                       >
@@ -353,6 +360,13 @@ export function Share({
                   Links are unique to each person. Responses stay connected to
                   the right contact.
                 </p>
+                <Field label="Prefill and lock a name field" hint="The name entered for each recipient is fixed on their link and in their results. No account is required; anyone holding the link can respond.">
+                  <select value={selectedNameField} onChange={(e) => setNameField(e.target.value)}>
+                    <option value="">No locked field</option>
+                    {nameFields.map((q) => <option key={q.name} value={q.name}>{q.title || "Untitled name field"}</option>)}
+                  </select>
+                </Field>
+                {!nameFields.length ? <p className="qn-help">Add a short-answer name field and publish it to enable prefilling.</p> : null}
                 <label className="qn-delivery-option">
                   <input
                     type="radio"
@@ -421,7 +435,7 @@ export function Share({
                 <Button
                   variant="primary"
                   disabled={
-                    busy || !recipients.length || campaign.state !== "open"
+                    busy || !recipients.length || campaign.state !== "open" || (channel === "email" && recipients.some((p) => !p.email))
                   }
                   onClick={send}
                 >
@@ -553,7 +567,7 @@ export function Share({
                                 </Button>
                                 <Button
                                   variant="quiet"
-                                  disabled={!detail.emailEnabled || busy}
+                                  disabled={!detail.emailEnabled || !i.email || busy}
                                   title="Send reminder"
                                   onClick={() =>
                                     mutate({

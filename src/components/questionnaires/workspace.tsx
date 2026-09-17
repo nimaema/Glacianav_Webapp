@@ -289,6 +289,7 @@ export function QuestionnaireWorkspace({
       ) : null}
       {tab === "build" || tab === "logic" ? (
         <Builder
+          questionnaireId={id}
           definition={definition}
           onChange={change}
           readonly={!detail.canEdit}

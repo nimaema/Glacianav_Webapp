@@ -1,4 +1,5 @@
 "use client";
+import { ContextContent } from "./context-content";
 
 import { useId, useRef, useState, type CSSProperties } from "react";
 import type {
@@ -83,21 +84,13 @@ export function FormQuestion({
   const id = useId();
   const runtime = model.getQuestionByName(q.name);
   if (!runtime?.isVisible) return null;
+  readOnly = readOnly || runtime.readOnly;
   if (q.type === "content")
     return (
       <section className="fa-content-block">
         <span className="fa-kicker">A little context</span>
         <h3>{q.title}</h3>
-        <p>{q.description}</p>
-        {q.mediaUrl && safeMedia(q.mediaUrl) ? (
-          q.mediaType === "image" ? (
-            <img src={q.mediaUrl} alt={q.title} loading="lazy" />
-          ) : q.mediaType === "video" ? (
-            <video src={q.mediaUrl} controls preload="metadata" />
-          ) : (
-            <audio src={q.mediaUrl} controls preload="metadata" />
-          )
-        ) : null}
+        <ContextContent question={q} />
       </section>
     );
   const answered = hasValue(runtime.value);
@@ -147,6 +140,7 @@ export function FormQuestion({
       <div className="fa-question-body">
         <p className="fa-question-help" id={`${id}-help`}>
           {q.description || hint}
+          {runtime.readOnly && !model.isDisplayMode ? " This name was set by the sender and cannot be changed." : ""}
           {q.unit
             ? `${q.description || hint ? " " : ""}Answer in ${q.unit}.`
             : ""}

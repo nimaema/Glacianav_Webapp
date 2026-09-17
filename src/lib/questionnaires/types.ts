@@ -66,6 +66,12 @@ export type Question = {
   maxFiles: number;
   mediaUrl: string;
   mediaType: "image" | "audio" | "video";
+  contentFormat?: "plain" | "markdown";
+  mediaAlt?: string;
+  mediaCaption?: string;
+  mediaWidth?: "full" | "medium" | "small";
+  mediaAlign?: "left" | "center" | "right";
+  recipientName?: boolean;
 };
 export type FormPage = {
   name: string;
@@ -126,6 +132,7 @@ export type Campaign = {
   created_at: string;
 };
 export type Invitation = {
+  name_question_id?: string | null;
   id: string;
   campaign_id: string;
   name: string;
@@ -400,7 +407,7 @@ export function normalizeDefinition(value: unknown): Definition {
   ) {
     return candidate as Definition;
   }
-  return blankDefinition();
+  throw new Error("This questionnaire has an invalid saved definition. Please contact the workspace administrator; its content has been preserved.");
 }
 export function allQuestions(definition: Definition | null | undefined) {
   return definition?.pages?.flatMap((p) => p.elements) ?? [];

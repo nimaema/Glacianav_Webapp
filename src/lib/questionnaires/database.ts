@@ -2,6 +2,7 @@ import "server-only";
 import postgres from "postgres";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { questionnaireJson } from "./json";
 
 export type QDatabase = {
   query<T = Record<string, unknown>>(
@@ -35,6 +36,7 @@ async function connect(): Promise<QDatabase> {
         "utf8",
       ),
     );
+    await pg.exec(await readFile(path.join(process.cwd(), "src/db/migrations/0004_questionnaire_content.sql"), "utf8"));
     const adapt = (p: Pick<typeof pg, "query">): QDatabase => ({
       query: async <T>(s: string, v: unknown[] = []) =>
         (await p.query<T>(s, v)).rows,
@@ -48,6 +50,7 @@ async function connect(): Promise<QDatabase> {
       "Connect the workspace database to use questionnaires, or run npm run dev:questionnaires for an isolated local preview.",
     );
   const pg = postgres(process.env.DATABASE_URL, {
+    types: { questionnaireJson },
     prepare: false,
     max: 5,
     idle_timeout: 20,
