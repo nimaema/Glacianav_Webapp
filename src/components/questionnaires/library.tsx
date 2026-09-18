@@ -1,100 +1,45 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Plus,
-  MagnifyingGlass,
-  ArrowUpRight,
-  Stack,
-  ArrowRight,
-  ChatCircleDots,
-  Compass,
-  Star,
-  FileText,
-  Archive,
-  Copy,
-  Clock,
-  Users,
-  SlidersHorizontal,
-} from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass, ArrowUpRight, Stack, FileText, Archive, Copy, ArrowCounterClockwise, X } from "@phosphor-icons/react";
 import { type Questionnaire, allQuestions } from "@/lib/questionnaires/types";
-import {
-  Button,
-  Empty,
-  Message,
-  Modal,
-  Status,
-  api,
-  errorMessage,
-  shortDate,
-} from "./ui";
-const templates = [
-  {
-    id: "research",
-    title: "Field research",
-    description: "Understand the work. Discover what matters.",
-    icon: Compass,
-    types: "Choice · Ranking · Matrix",
-    count: 6,
-  },
-  {
-    id: "feedback",
-    title: "Customer experience",
-    description: "Listen closely to the people who use your product.",
-    icon: Star,
-    types: "NPS · Rating · Feedback",
-    count: 4,
-  },
-  {
-    id: "discovery",
-    title: "Project discovery",
-    description: "Align on goals, priorities, and the way forward.",
-    icon: ChatCircleDots,
-    types: "Text · Choice · Ranking",
-    count: 4,
-  },
+import { libraryCounts, libraryItems, type LibraryFilter, type LibrarySort } from "@/lib/questionnaires/library-model";
+import { Button, Empty, Message, Status, api, errorMessage, shortDate } from "./ui";
+import "./library.css";
+
+const filters: { value: LibraryFilter; label: string }[] = [
+  { value: "all", label: "All surveys" },
+  { value: "published", label: "Published" },
+  { value: "draft", label: "Drafts" },
+  { value: "archived", label: "Archived" },
 ];
-export function QuestionnaireLibrary({
-  initial,
-  local,
-}: {
-  initial: Questionnaire[];
-  local: boolean;
-}) {
+
+export function QuestionnaireLibrary({ initial, local }: { initial: Questionnaire[]; local: boolean }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [creating, setCreating] = useState("");
+  const [filter, setFilter] = useState<LibraryFilter>("all");
+  const [sort, setSort] = useState<LibrarySort>("updated");
+  const [creating, setCreating] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [modal, setModal] = useState(false);
-  const visible = useMemo(
-    () =>
-      initial.filter(
-        (q) =>
-          (filter === "archived" ? q.archived : !q.archived) &&
-          (filter !== "published" || q.published_version) &&
-          (filter !== "draft" || !q.published_version) &&
-          `${q.title} ${q.description}`
-            .toLowerCase()
-            .includes(search.toLowerCase()),
-      ),
-    [initial, filter, search],
-  );
-  async function create(kind: string) {
-    setCreating(kind);
+  const counts = libraryCounts(initial);
+  const visible = libraryItems(initial, filter, search, sort);
+
+  async function create() {
+    setCreating(true);
     setError("");
     try {
-      const r = await api<{ id: string }>("/api/questionnaires", {
-        template: kind,
-      });
+      const r = await api<{ id: string }>("/api/questionnaires", { template: "blank" });
       router.push(`/questionnaires/${r.id}/build`);
     } catch (e) {
       setError(errorMessage(e));
-      setCreating("");
+      setCreating(false);
     }
   }
-  async function action(q: Questionnaire, name: string) {
+  async function action(q: Questionnaire, name: "duplicate" | "archive") {
+    setPending(q.id);
+    setError("");
     try {
       const r = await api<{ id?: string }>(`/api/questionnaires/${q.id}`, {
         action: name,
@@ -104,263 +49,91 @@ export function QuestionnaireLibrary({
       else router.refresh();
     } catch (e) {
       setError(errorMessage(e));
+    } finally {
+      setPending(null);
     }
   }
+  function resetFilters() { setSearch(""); setFilter("all"); }
+
   return (
-    <div className="qn qn-library">
-      {local ? (
-        <div className="qn-local-note">
-          Local preview · Changes are saved on this Mac. No emails are sent.
-        </div>
-      ) : null}
-      <header className="qn-library-header">
+    <div className="qn ql-library">
+      {local ? <div className="qn-local-note">Local preview · Changes are saved on this Mac. No emails are sent.</div> : null}
+      <header className="ql-header">
         <div>
-          <div className="qn-eyebrow">
-            <Stack size={16} /> Research workspace
-          </div>
-          <h1>
-            Questionnaires<span className="qn-heading-dot">.</span>
-          </h1>
-          <p>
-            Create thoughtful questions. Bring every perspective into focus.
-          </p>
+          <span className="ql-kicker"><Stack size={16} aria-hidden="true" /> Research workspace</span>
+          <h1>Questionnaires</h1>
+          <p>Your questions, shared perspectives, and results. In one place.</p>
         </div>
-        <Button variant="primary" onClick={() => setModal(true)}>
-          <Plus size={18} />
-          New questionnaire
+        <Button variant="primary" disabled={creating} onClick={create}>
+          <Plus size={19} aria-hidden="true" />{creating ? "Creating…" : "New questionnaire"}
         </Button>
       </header>
       {error ? <Message>{error}</Message> : null}
-      <section className="qn-template-section" aria-labelledby="template-title">
-        <div className="qn-section-heading">
-          <div>
-            <h2 id="template-title">Start with a good question</h2>
-            <p>A considered starting point. Make it your own.</p>
-          </div>
-          <Button
-            variant="quiet"
-            disabled={!!creating}
-            onClick={() => create("blank")}
-          >
-            Start from scratch
-            <ArrowRight size={16} />
-          </Button>
-        </div>
-        <div className="qn-template-grid">
-          {templates.map((t, index) => (
-            <button
-              key={t.id}
-              className="qn-template"
-              onClick={() => create(t.id)}
-              disabled={!!creating}
-            >
-              <div className={`qn-template-art qn-template-art--${index}`}>
-                <t.icon size={28} weight="duotone" />
-                <div className="qn-mini-form" aria-hidden="true">
-                  <span />
-                  {index === 0 ? (
-                    <>
-                      <i />
-                      <i />
-                      <i />
-                    </>
-                  ) : index === 1 ? (
-                    <div className="qn-mini-scale">
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <b key={n}>{n}</b>
-                      ))}
-                    </div>
-                  ) : (
-                    <>
-                      <em />
-                      <em />
-                    </>
-                  )}
-                </div>
-                <span className="qn-template-count">{t.count} questions</span>
-              </div>
-              <div className="qn-template-info">
-                <div>
-                  <h3>{t.title}</h3>
-                  <ArrowUpRight size={19} />
-                </div>
-                <p>{t.description}</p>
-                <small>{creating === t.id ? "Creating…" : t.types}</small>
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
-      <section className="qn-collection">
-        <div className="qn-section-heading">
-          <div className="qn-inline">
-            <h2>Your questionnaires</h2>
-            <span className="qn-count">
-              {initial.filter((q) => !q.archived).length}
-            </span>
-          </div>
-          <div className="qn-search">
-            <MagnifyingGlass size={17} />
-            <input
-              aria-label="Search questionnaires"
-              placeholder="Find a questionnaire…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="qn-filterbar">
-          <div className="qn-segments">
-            {["all", "published", "draft", "archived"].map((f) => (
-              <button
-                key={f}
-                aria-pressed={filter === f}
-                onClick={() => setFilter(f)}
-              >
-                {f === "all"
-                  ? "All questionnaires"
-                  : f.charAt(0).toUpperCase() + f.slice(1)}
+      <section aria-label="Questionnaire library" className="ql-collection">
+        <div className="ql-toolbar">
+          <div className="ql-filters" role="group" aria-label="Filter questionnaires">
+            {filters.map(({ value, label }) => (
+              <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>
+                {label}<span>{counts[value]}</span>
               </button>
             ))}
           </div>
-          <span className="qn-muted">
-            <SlidersHorizontal size={15} /> Last updated
-          </span>
+          <div className="ql-tools">
+            <div className="ql-search">
+              <MagnifyingGlass size={18} aria-hidden="true" />
+              <input aria-label="Search questionnaires" placeholder="Search questionnaires…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              {search ? <button aria-label="Clear search" onClick={() => setSearch("")}><X size={16} /></button> : null}
+            </div>
+            <label className="ql-sort">Sort by
+              <select value={sort} onChange={(e) => setSort(e.target.value as LibrarySort)}>
+                <option value="updated">Last updated</option>
+                <option value="title">Title</option>
+                <option value="responses">Most responses</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="ql-list-heading">
+          <h2>{filter === "archived" ? "Archived questionnaires" : filter === "draft" ? "Work in progress" : filter === "published" ? "Published questionnaires" : "Your questionnaires"}</h2>
+          <span role="status">{visible.length} {visible.length === 1 ? "questionnaire" : "questionnaires"}{search.trim() ? " found" : ""}</span>
         </div>
         {!visible.length ? (
-          <Empty
-            icon={<FileText size={32} />}
-            title={
-              search
-                ? "No matching questionnaires"
-                : "A new perspective starts here"
-            }
-            description={
-              search
-                ? "Try another title or clear your filters."
-                : "Create your first questionnaire, invite people, and discover what their answers have in common."
-            }
-            action={
-              !search ? (
-                <Button
-                  variant="primary"
-                  onClick={() => create("blank")}
-                  disabled={!!creating}
-                >
-                  <Plus size={17} />
-                  Create a questionnaire
-                </Button>
-              ) : undefined
-            }
-          />
+          <Empty icon={<FileText size={32} />} title={search.trim() ? "No matching questionnaires" : filter === "archived" ? "Nothing archived" : filter === "published" ? "No published questionnaires yet" : filter === "draft" ? "No drafts in progress" : "Start with your own questions"}
+            description={search.trim() ? "Try a different title or clear your search and filters." : filter === "archived" ? "Questionnaires you archive will appear here. You can restore them whenever you need." : filter === "published" ? "Open a draft and publish it when you’re ready to share." : "Create a blank questionnaire and add the questions that matter to you."}
+            action={search.trim() || filter !== "all" ? <Button onClick={resetFilters}>Show all surveys</Button> : <Button variant="primary" disabled={creating} onClick={create}><Plus size={18} />{creating ? "Creating…" : "New questionnaire"}</Button>} />
         ) : (
-          <div className="qn-form-list">
-            {visible.map((q) => (
-              <article className="qn-form-row" key={q.id}>
-                <Link className="qn-form-main" href={`/questionnaires/${q.id}`}>
-                  <span className="qn-form-icon">
-                    <FileText size={23} weight="duotone" />
-                  </span>
-                  <span>
-                    <strong>{q.title}</strong>
-                    <small>
-                      {q.description || "Add a description to set the context."}
-                    </small>
-                  </span>
-                </Link>
-                <div className="qn-row-details">
-                  <Status
-                    tone={
-                      q.archived
-                        ? "neutral"
-                        : q.published_version
-                          ? "green"
-                          : "neutral"
-                    }
-                  >
-                    {q.archived
-                      ? "Archived"
-                      : q.published_version
-                        ? `Published · v${q.published_version}`
-                        : "Draft"}
-                  </Status>
-                  <span>
-                    <Stack size={14} />
-                    {allQuestions(q.draft).length}{" "}
-                    {allQuestions(q.draft).length === 1
-                      ? "question"
-                      : "questions"}
-                  </span>
-                  <span>
-                    <Users size={14} />
-                    {q.submitted ?? 0} / {q.invited ?? 0} responses
-                  </span>
-                  <span>
-                    <Clock size={14} />
-                    {shortDate(q.updated_at)}
-                  </span>
-                </div>
-                <div className="qn-row-actions">
-                  <Button
-                    variant="quiet"
-                    aria-label={`Duplicate ${q.title}`}
-                    onClick={() => action(q, "duplicate")}
-                  >
-                    <Copy size={17} />
-                  </Button>
-                  <Button
-                    variant="quiet"
-                    aria-label={
-                      q.archived ? `Restore ${q.title}` : `Archive ${q.title}`
-                    }
-                    onClick={() => action(q, "archive")}
-                  >
-                    <Archive size={17} />
-                  </Button>
-                  <Link
-                    className="qn-open-arrow"
-                    aria-label={`Open ${q.title}`}
-                    href={`/questionnaires/${q.id}`}
-                  >
-                    <ArrowUpRight size={19} />
-                  </Link>
-                </div>
-              </article>
-            ))}
+          <div className="ql-grid">
+            {visible.map((q) => {
+              const questions = allQuestions(q.draft).filter((question) => question.type !== "content").length;
+              const published = !!q.published_version;
+              return (
+                <article className={`ql-card${q.archived ? " ql-card--archived" : published ? " ql-card--published" : ""}`} key={q.id}>
+                  <div className="ql-card-top">
+                    <span className="ql-document" aria-hidden="true"><FileText size={24} weight="duotone" /></span>
+                    <Status tone={q.archived ? "neutral" : published ? "green" : "neutral"}>{q.archived ? "Archived" : published ? `Published · v${q.published_version}` : "Draft"}</Status>
+                  </div>
+                  <Link className="ql-card-title" href={`/questionnaires/${q.id}`}><h3>{q.title}</h3><ArrowUpRight size={21} aria-hidden="true" /></Link>
+                  <p className="ql-description">{q.description || "No description added yet."}</p>
+                  <dl className="ql-metrics">
+                    <div><dt>Questions</dt><dd>{questions}</dd></div>
+                    <div><dt>Sections</dt><dd>{q.draft.pages.length}</dd></div>
+                    <div className="ql-responses"><dt>Responses</dt><dd>{q.submitted ?? 0}</dd></div>
+                  </dl>
+                  <footer className="ql-card-footer">
+                    <span>Updated <time dateTime={q.updated_at}>{shortDate(q.updated_at)}</time></span>
+                    <div>
+                      <Button variant="quiet" disabled={pending === q.id} aria-label={`Duplicate ${q.title}`} title="Duplicate questionnaire" onClick={() => action(q, "duplicate")}><Copy size={17} /></Button>
+                      <Button variant="quiet" disabled={pending === q.id} aria-label={`${q.archived ? "Restore" : "Archive"} ${q.title}`} title={q.archived ? "Restore questionnaire" : "Archive questionnaire"} onClick={() => action(q, "archive")}>
+                        {q.archived ? <ArrowCounterClockwise size={17} /> : <Archive size={17} />}
+                      </Button>
+                    </div>
+                  </footer>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
-      <Modal
-        open={modal}
-        onClose={() => setModal(false)}
-        title="What would you like to learn?"
-        description="Choose a starting point. Every question and option is yours to change."
-      >
-        <div className="qn-create-options">
-          <Button disabled={!!creating} onClick={() => create("blank")}>
-            <Plus size={22} />
-            <span>
-              <strong>Blank questionnaire</strong>
-              <small>A fresh canvas for your questions</small>
-            </span>
-            <ArrowRight size={18} />
-          </Button>
-          {templates.map((t) => (
-            <Button
-              key={t.id}
-              disabled={!!creating}
-              onClick={() => create(t.id)}
-            >
-              <t.icon size={22} />
-              <span>
-                <strong>{t.title}</strong>
-                <small>{t.types}</small>
-              </span>
-              <ArrowRight size={18} />
-            </Button>
-          ))}
-        </div>
-      </Modal>
     </div>
   );
 }
