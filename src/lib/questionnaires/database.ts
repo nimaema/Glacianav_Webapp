@@ -37,6 +37,7 @@ async function connect(): Promise<QDatabase> {
       ),
     );
     await pg.exec(await readFile(path.join(process.cwd(), "src/db/migrations/0004_questionnaire_content.sql"), "utf8"));
+    await pg.exec(await readFile(path.join(process.cwd(), "src/db/migrations/0005_questionnaire_public_links.sql"), "utf8"));
     const adapt = (p: Pick<typeof pg, "query">): QDatabase => ({
       query: async <T>(s: string, v: unknown[] = []) =>
         (await p.query<T>(s, v)).rows,

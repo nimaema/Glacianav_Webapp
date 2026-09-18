@@ -14,7 +14,8 @@ export async function POST(req: Request) {
       await decline(b.token);
       return Response.json({ declined: true });
     }
-    return Response.json(await start(b.token));
+    const visitorKey = (req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown").slice(0, 100);
+    return Response.json(await start(b.token, visitorKey));
   } catch (e) {
     return failure(e);
   }

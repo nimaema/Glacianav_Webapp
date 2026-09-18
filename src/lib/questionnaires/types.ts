@@ -123,6 +123,7 @@ export type Version = {
   created_at: string;
 };
 export type Campaign = {
+  public_token?: string | null;
   id: string;
   questionnaire_id: string;
   version_id: string;

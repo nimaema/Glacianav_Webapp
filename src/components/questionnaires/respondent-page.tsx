@@ -23,14 +23,14 @@ export const LazyRunner = dynamic(() => import("./runner"), {
     </div>
   ),
 });
-export function RespondentShell({ children }: { children: React.ReactNode }) {
+export function RespondentShell({ children, publicLink = false }: { children: React.ReactNode; publicLink?: boolean }) {
   return (
     <div className="fa fa-public">
       <header className="fa-public-header">
         <FormBrand />
         <span className="fa-header-privacy">
           <LockKey size={16} />
-          Private questionnaire
+          {publicLink ? "Public questionnaire" : "Private questionnaire"}
         </span>
       </header>
       <div className="fa-public-content">{children}</div>
@@ -58,6 +58,7 @@ export function InvitationLanding({
     questionCount: number;
     closesAt: string | null;
     submitted: boolean;
+    publicLink?: boolean;
   };
 }) {
   const router = useRouter();
@@ -80,7 +81,7 @@ export function InvitationLanding({
     }
   }
   return (
-    <RespondentShell>
+    <RespondentShell publicLink={data.publicLink}>
       <section className="fa-invitation">
         <div className="fa-invitation-body">
           {declined ? (
@@ -92,7 +93,7 @@ export function InvitationLanding({
           ) : (
             <>
               <span className="fa-kicker">
-                <span className="fa-tiny-rule" />A personal invitation
+                <span className="fa-tiny-rule" />{data.publicLink ? "An open invitation" : "A personal invitation"}
               </span>
               <h1>{data.title}</h1>
               <p>
@@ -124,12 +125,12 @@ export function InvitationLanding({
               <div className="fa-privacy-note">
                 <LockKey size={20} />
                 <p>
-                  This is your personal invitation. Your answers and saved
+                  {data.publicLink ? "Anyone with this link can take part. Your response is separate from other visitors. Return using this browser to continue. Clearing cookies or using another device starts a new response. Your answers are visible to the questionnaire team." : <>This is your personal invitation. Your answers and saved
                   progress are linked to you and visible to the questionnaire
-                  team. Please keep this link private.
+                  team. Please keep this link private.</>}
                 </p>
               </div>
-              {!data.submitted ? (
+              {!data.submitted && !data.publicLink ? (
                 <button
                   className="fa-text-action"
                   disabled={busy}
@@ -183,6 +184,7 @@ export function PublicResponse({
   page,
   submitted,
   lockedFields,
+  publicLink,
 }: {
   definition: Definition;
   responseId: string;
@@ -191,9 +193,10 @@ export function PublicResponse({
   page: number;
   submitted: boolean;
   lockedFields?: string[];
+  publicLink?: boolean;
 }) {
   return (
-    <RespondentShell>
+    <RespondentShell publicLink={publicLink}>
       <FormIntro definition={definition} />
       <LazyRunner
         definition={definition}

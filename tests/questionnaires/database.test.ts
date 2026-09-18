@@ -17,6 +17,9 @@ test("additive migration repeats safely, enables RLS, and protects immutable ver
     const contentSql = await readFile(new URL("../../src/db/migrations/0004_questionnaire_content.sql", import.meta.url), "utf8");
     await pg.exec(contentSql);
     await pg.exec(contentSql);
+    const publicSql = await readFile(new URL("../../src/db/migrations/0005_questionnaire_public_links.sql", import.meta.url), "utf8");
+    await pg.exec(publicSql);
+    await pg.exec(publicSql);
     const tables = await pg.query<{ relname: string; relrowsecurity: boolean }>(
       "SELECT relname,relrowsecurity FROM pg_class WHERE relname LIKE 'questionnaire%' AND relkind='r'",
     );

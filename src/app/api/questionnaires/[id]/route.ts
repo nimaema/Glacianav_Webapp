@@ -14,6 +14,7 @@ import {
   makeCampaign,
   invite,
   invitationAction,
+  publicLink,
   event,
 } from "@/lib/questionnaires/service";
 const recipient = z.object({
@@ -25,6 +26,7 @@ const recipient = z.object({
   segment: z.string().nullable().optional(),
 });
 const command = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("publicLink"), campaignId: z.uuid(), enabled: z.boolean() }),
   z.object({
     action: z.literal("save"),
     definition: z.unknown(),
@@ -89,6 +91,7 @@ export async function POST(
     const { id } = await ctx.params;
     z.uuid().parse(id);
     const b = command.parse(await jsonBody(req));
+    if (b.action === "publicLink") return Response.json(await publicLink(id, b.campaignId, b.enabled));
     if (b.action === "save")
       return Response.json(await saveDraft(id, b.definition, b.revision));
     if (b.action === "publish")

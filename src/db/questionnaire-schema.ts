@@ -94,6 +94,7 @@ export const questionnaireCampaigns = pgTable(
       .references(() => questionnaires.id),
     versionId: uuid("version_id").notNull(),
     name: text("name").notNull(),
+    publicToken: text("public_token"),
     state: text("state").default("open").notNull(),
     closesAt: time("closes_at"),
     createdAt: created(),
@@ -108,6 +109,7 @@ export const questionnaireCampaigns = pgTable(
       name: "questionnaire_campaigns_version_id_questionnaire_id_fkey",
     }),
     unique("questionnaire_campaigns_id_version_id_key").on(t.id, t.versionId),
+    uniqueIndex("questionnaire_public_token_idx").on(t.publicToken).where(sql`${t.publicToken} IS NOT NULL`),
     check(
       "questionnaire_campaigns_state_check",
       sql`${t.state} IN ('open','closed')`,
@@ -124,6 +126,7 @@ export const questionnaireInvitations = pgTable(
     name: text("name").notNull(),
     email: text("email").notNull(),
     nameQuestionId: text("name_question_id"),
+    publicLinkToken: text("public_link_token"),
     contactId: text("contact_id"),
     customerId: text("customer_id"),
     customerName: text("customer_name"),

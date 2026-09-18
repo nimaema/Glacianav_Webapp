@@ -273,6 +273,28 @@ test(
       ).data.revisions;
       assert.equal(history.length, 1);
       assert.deepEqual(history[0].answers, expectedAnswers);
+      const { data: publicLink } = await request(endpoint, { action: "publicLink", campaignId: campaign.id, enabled: true });
+      const publicToken = publicLink.path.split("/").at(-1);
+      const publicLanding = await fetch(origin + publicLink.path);
+      assert.match(await publicLanding.text(), /An open invitation/);
+      const publicA = await request("/api/questionnaire-public/session", { token: publicToken });
+      const publicB = await request("/api/questionnaire-public/session", { token: publicToken });
+      assert.notEqual(publicA.data.responseId, publicB.data.responseId);
+      const publicCookieA = publicA.response.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+      const publicCookieB = publicB.response.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+      const resumed = await request("/api/questionnaire-public/session", { token: publicToken }, publicCookieA);
+      assert.equal(resumed.data.responseId, publicA.data.responseId);
+      const publicPathA = `/api/questionnaire-public/response/${publicA.data.responseId}`;
+      await request(publicPathA, { answers: {}, revision: 0, page: 0, submit: false }, publicCookieB, 401);
+      await request(publicPathA, { answers: { [nameField.name]: "My chosen public name", [q.name]: [q.choices[1].value] }, revision: 0, page: 0, submit: true }, publicCookieA);
+      const publicResults = (await request(endpoint)).data.responses;
+      assert.equal(publicResults.find((r: { id: string }) => r.id === publicA.data.responseId).answers[nameField.name], "My chosen public name");
+      assert.deepEqual(publicResults.find((r: { id: string }) => r.id === publicB.data.responseId).answers, {});
+      await request(endpoint, { action: "publicLink", campaignId: campaign.id, enabled: false });
+      await request("/api/questionnaire-public/session", { token: publicToken }, publicCookieA, 404);
+      await request(`/api/questionnaire-public/response/${publicB.data.responseId}`, { answers: {}, revision: 0, page: 0, submit: false }, publicCookieB, 410);
+      const newPublic = await request(endpoint, { action: "publicLink", campaignId: campaign.id, enabled: true });
+      assert.notEqual(newPublic.data.path, publicLink.path);
       await request(endpoint, {
         action: "collection",
         campaignId: campaign.id,
@@ -284,6 +306,7 @@ test(
         cookie,
         410,
       );
+      await request("/api/questionnaire-public/session", { token: newPublic.data.path.split("/").at(-1) }, "", 410);
     } finally {
       await request(endpoint, { action: "archive", archived: true });
     }

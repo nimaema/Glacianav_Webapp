@@ -31,6 +31,7 @@ export default async function ResponsePage({
       page={r.page}
       submitted={r.status === "submitted"}
       lockedFields={i.name_question_id ? [i.name_question_id] : []}
+      publicLink={!!i.public_link_token}
     />
   );
 }

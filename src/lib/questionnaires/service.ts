@@ -298,6 +298,16 @@ export async function invite(
     return { links, duplicates, created: recipients.length - duplicates };
   });
 }
+export async function publicLink(id: string, campaignId: string, enabled: boolean) {
+  const { db, me } = await access(id, "send");
+  const [row] = await db.query<Campaign>(
+    "UPDATE questionnaire_campaigns SET public_token=CASE WHEN $3 THEN coalesce(public_token,$4) ELSE NULL END WHERE id=$1 AND questionnaire_id=$2 RETURNING *",
+    [campaignId, id, enabled, credential()],
+  );
+  if (!row) throw new QuestionnaireError("Collection not found.", 404);
+  await event(db, id, me.id, enabled ? "public_link_enabled" : "public_link_disabled", { campaignId });
+  return { path: row.public_token ? `/q/${row.public_token}` : null };
+}
 export async function invitationAction(
   id: string,
   iid: string,

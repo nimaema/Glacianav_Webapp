@@ -9,6 +9,8 @@ import type { Answers, Definition, ResponseRecord } from "./types";
 import { recipientAnswers } from "./personalization";
 
 type InvitationContext = {
+  public_link_token?: string | null;
+  public_token?: string | null;
   name_question_id: string | null;
   id: string;
   name: string;
@@ -21,8 +23,11 @@ type InvitationContext = {
   closes_at: string | null;
   archived: boolean;
 };
-const joined = `SELECT i.id,i.name,i.email,i.status,i.name_question_id,c.questionnaire_id,c.version_id,c.state,c.closes_at,v.definition,q.archived FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id JOIN questionnaire_versions v ON v.id=c.version_id JOIN questionnaires q ON q.id=c.questionnaire_id`;
+const joined = `SELECT i.id,i.name,i.email,i.status,i.name_question_id,i.public_link_token,c.public_token,c.questionnaire_id,c.version_id,c.state,c.closes_at,v.definition,q.archived FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id JOIN questionnaire_versions v ON v.id=c.version_id JOIN questionnaires q ON q.id=c.questionnaire_id`;
+const publicJoined = `SELECT c.id,c.public_token,c.questionnaire_id,c.version_id,c.state,c.closes_at,v.definition,q.archived FROM questionnaire_campaigns c JOIN questionnaire_versions v ON v.id=c.version_id JOIN questionnaires q ON q.id=c.questionnaire_id`;
 export function assertOpen(i: InvitationContext) {
+  if (i.public_link_token && i.public_link_token !== i.public_token)
+    throw new QuestionnaireError("This public link is no longer available.", 410);
   if (i.archived || i.state !== "open")
     throw new QuestionnaireError("This questionnaire is closed.", 410);
   if (i.closes_at && Date.parse(i.closes_at) < Date.now())
@@ -40,13 +45,19 @@ export async function landing(token: string) {
   if (!/^[A-Za-z0-9_-]{43}$/.test(token))
     throw new QuestionnaireError("Invitation not found.", 404);
   const db = await qdb();
-  const [i] = await db.query<InvitationContext>(
+  let [i] = await db.query<InvitationContext>(
     `${joined} WHERE i.token_hash=$1`,
     [digest(token)],
   );
+  let publicLink = false;
+  if (!i) {
+    [i] = await db.query<InvitationContext>(`${publicJoined} WHERE c.public_token=$1`, [token]);
+    publicLink = true;
+  }
   if (!i) throw new QuestionnaireError("Invitation not found.", 404);
   assertOpen(i);
   return {
+    publicLink,
     title: i.definition.title,
     description: i.definition.description,
     questionCount: i.definition.pages
@@ -68,8 +79,9 @@ export async function rateLimit(key: string, max = 120) {
       429,
     );
 }
-export async function start(token: string) {
-  await landing(token);
+export async function start(token: string, visitorKey = "unknown") {
+  const info = await landing(token);
+  if (info.publicLink) return startPublic(token, visitorKey);
   await rateLimit(`start:${token}`, 12);
   const db = await qdb();
   const session = credential();
@@ -108,6 +120,36 @@ export async function start(token: string) {
     maxAge: 14 * 86400,
   });
   return result;
+}
+async function startPublic(token: string, visitorKey: string) {
+  await rateLimit(`public-start:${token}:${visitorKey}`, 30);
+  const db = await qdb();
+  const jar = await cookies();
+  const result = await db.transaction(async (tx) => {
+    await tx.query("SELECT q.id FROM questionnaires q JOIN questionnaire_campaigns c ON c.questionnaire_id=q.id WHERE c.public_token=$1 FOR UPDATE OF q", [token]);
+    const [c] = await tx.query<InvitationContext>(`${publicJoined} WHERE c.public_token=$1 FOR UPDATE OF c`, [token]);
+    if (!c) throw new QuestionnaireError("This public link is no longer available.", 410);
+    assertOpen(c);
+    const previous = jar.get(`qpublic_${c.id}`)?.value;
+    if (previous) {
+      const [existing] = await tx.query<{ id: string }>(
+        "SELECT r.id FROM questionnaire_sessions s JOIN questionnaire_invitations i ON i.id=s.invitation_id JOIN questionnaire_responses r ON r.invitation_id=i.id WHERE s.token_hash=$1 AND s.expires_at>now() AND i.campaign_id=$2 AND i.public_link_token=$3 AND i.status NOT IN ('revoked','declined')",
+        [digest(previous), c.id, token]);
+      if (existing) return { responseId: existing.id, campaignId: c.id, session: previous };
+    }
+    const [capacity] = await tx.query<{ count: number }>("SELECT count(*)::int count FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id WHERE c.questionnaire_id=$1", [c.questionnaire_id]);
+    if (capacity.count >= 10000) throw new QuestionnaireError("This questionnaire has reached its response capacity.", 410);
+    const iid = randomUUID(), responseId = randomUUID(), session = credential();
+    await tx.query("INSERT INTO questionnaire_invitations(id,campaign_id,name,email,token_hash,delivery,status,started_at,public_link_token) VALUES($1,$2,$3,'',$4,'public','started',now(),$5)",
+      [iid, c.id, `Public respondent ${iid.slice(0, 8)}`, digest(credential()), token]);
+    await tx.query("INSERT INTO questionnaire_responses(id,invitation_id,version_id) VALUES($1,$2,$3)", [responseId, iid, c.version_id]);
+    await tx.query("INSERT INTO questionnaire_sessions(token_hash,invitation_id,expires_at) VALUES($1,$2,now()+interval '14 days')", [digest(session), iid]);
+    return { responseId, campaignId: c.id, session };
+  });
+  const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict" as const, path: "/", maxAge: 14 * 86400 };
+  jar.set(`qpublic_${result.campaignId}`, result.session, options);
+  jar.set(`qsession_${result.responseId}`, result.session, options);
+  return { responseId: result.responseId };
 }
 export async function respondent(
   responseId: string,
@@ -286,7 +328,7 @@ export async function saveResponse(
   });
 }
 export async function decline(token: string) {
-  await landing(token);
+  if ((await landing(token)).publicLink) throw new QuestionnaireError("Public links do not send reminders. You can simply close this page.");
   const db = await qdb();
   await db.transaction(async (tx) => {
     const [i] = await tx.query<{ id: string }>(

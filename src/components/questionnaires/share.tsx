@@ -242,6 +242,22 @@ export function Share({
             ) : null}
           </div>
           {campaign && detail.canSend ? (
+            <section className="qn-panel" style={{ marginBottom: 20 }}>
+              <span className="qn-eyebrow">Open to everyone with the link</span>
+              <h3>General public link</h3>
+              <p>Share one link on your website, in email, or in a group message. Each visitor gets their own response. Name fields stay editable. Returning visitors can resume in the same browser; clearing cookies or changing devices permits another response.</p>
+              <p className="qn-help">Uses this collection’s published version and deadline. Disabling the link also blocks unfinished responses from that link.</p>
+              {campaign.public_token ? <>
+                <Field label="Public survey path · copy for the full link"><input readOnly value={`/q/${campaign.public_token}`} /></Field>
+                <div className="qn-inline">
+                  <Button onClick={async () => { try { await navigator.clipboard.writeText(new URL(`/q/${campaign.public_token}`, location.origin).href); setNote("Public link copied."); } catch { setError("Open the public survey and copy its full address from your browser."); } }}>Copy public link</Button>
+                  <a className="qn-button qn-button--quiet" href={`/q/${campaign.public_token}`} target="_blank" rel="noreferrer">Open public survey</a>
+                  <Button variant="quiet" disabled={busy} onClick={() => mutate({ action: "publicLink", campaignId, enabled: false })}>Disable public link</Button>
+                </div>
+              </> : <Button disabled={busy || campaign.state !== "open"} onClick={() => mutate({ action: "publicLink", campaignId, enabled: true })}>Enable public link</Button>}
+            </section>
+          ) : null}
+          {campaign && detail.canSend ? (
             <div className="qn-share-grid">
               <section className="qn-panel">
                 <div className="qn-panel-heading">

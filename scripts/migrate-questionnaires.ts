@@ -15,6 +15,7 @@ async function main() {
     );
     console.log("Questionnaire schema is ready.");
     await sql.unsafe(await readFile("src/db/migrations/0004_questionnaire_content.sql", "utf8"));
+    await sql.unsafe(await readFile("src/db/migrations/0005_questionnaire_public_links.sql", "utf8"));
   } finally {
     await sql.end();
   }
