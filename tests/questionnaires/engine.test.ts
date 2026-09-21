@@ -225,7 +225,7 @@ for (const type of QUESTION_TYPES)
     m.dispose();
   });
 test("templates publish and begin without preselected opinions", () => {
-  for (const kind of ["research", "feedback", "discovery"]) {
+  for (const kind of ["research", "feedback", "discovery", "ice-navigation"]) {
     const d = template(kind);
     assert.deepEqual(publicationErrors(d), []);
     const model = new Model(engineDefinition(d));
@@ -243,6 +243,30 @@ test("templates publish and begin without preselected opinions", () => {
     assert.deepEqual(m.data, {}, `${kind} must start unanswered`);
     m.dispose();
   }
+});
+test("ice navigation template preserves the source survey structure and specialized controls", () => {
+  const d = template("ice-navigation");
+  assert.equal(d.pages.length, 8);
+  assert.deepEqual(
+    d.pages.map((page) => page.title),
+    [
+      "Respondent and company profile",
+      "Vessel and route profile",
+      "Operational impact of sea ice",
+      "Current navigational solutions",
+      "Critical ice hazards and forecasting needs",
+      "GlaciaNav integration and delivery",
+      "Purchase fit and willingness to trial",
+      "Open feedback",
+    ],
+  );
+  const questions = allQuestions(d);
+  assert.ok(questions.length >= 27);
+  assert.equal(questions.find((q) => q.title.startsWith("Which hazards"))?.maxSelectedChoices, 3);
+  assert.equal(questions.find((q) => q.title.startsWith("Rank these parameters"))?.type, "ranking");
+  assert.equal(questions.find((q) => q.title.startsWith("If fuel consumption"))?.type, "slider");
+  assert.equal(questions.find((q) => q.title.startsWith("Name for potential"))?.recipientName, true);
+  assert.deepEqual(publicationErrors(d), []);
 });
 test("hidden answers are discarded and required conditions enforced", () => {
   const first = newQuestion("checkbox"),

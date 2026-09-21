@@ -16,7 +16,13 @@ export async function POST(req: Request) {
     sameOrigin(req);
     const body = z
       .object({
-        template: z.enum(["blank", "research", "feedback", "discovery"]),
+        template: z.enum([
+          "blank",
+          "research",
+          "feedback",
+          "discovery",
+          "ice-navigation",
+        ]),
       })
       .parse(await jsonBody(req));
     return Response.json(await createQuestionnaire(body.template));

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, MagnifyingGlass, ArrowUpRight, Stack, FileText, Archive, Copy, ArrowCounterClockwise, X } from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass, ArrowUpRight, Stack, FileText, Archive, Copy, ArrowCounterClockwise, X, Compass } from "@phosphor-icons/react";
 import { type Questionnaire, allQuestions } from "@/lib/questionnaires/types";
 import { libraryCounts, libraryItems, type LibraryFilter, type LibrarySort } from "@/lib/questionnaires/library-model";
 import { Button, Empty, Message, Status, api, errorMessage, shortDate } from "./ui";
@@ -20,21 +20,21 @@ export function QuestionnaireLibrary({ initial, local }: { initial: Questionnair
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<LibraryFilter>("all");
   const [sort, setSort] = useState<LibrarySort>("updated");
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<"" | "blank" | "ice-navigation">("");
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
   const counts = libraryCounts(initial);
   const visible = libraryItems(initial, filter, search, sort);
 
-  async function create() {
-    setCreating(true);
+  async function create(kind: "blank" | "ice-navigation") {
+    setCreating(kind);
     setError("");
     try {
-      const r = await api<{ id: string }>("/api/questionnaires", { template: "blank" });
+      const r = await api<{ id: string }>("/api/questionnaires", { template: kind });
       router.push(`/questionnaires/${r.id}/build`);
     } catch (e) {
       setError(errorMessage(e));
-      setCreating(false);
+      setCreating("");
     }
   }
   async function action(q: Questionnaire, name: "duplicate" | "archive") {
@@ -64,9 +64,14 @@ export function QuestionnaireLibrary({ initial, local }: { initial: Questionnair
           <h1>Questionnaires</h1>
           <p>Your questions, shared perspectives, and results. In one place.</p>
         </div>
-        <Button variant="primary" disabled={creating} onClick={create}>
-          <Plus size={19} aria-hidden="true" />{creating ? "Creating…" : "New questionnaire"}
-        </Button>
+        <div className="ql-header-actions">
+          <Button variant="quiet" className="ql-ice-template" disabled={!!creating} onClick={() => create("ice-navigation")}>
+            <Compass size={18} aria-hidden="true" />{creating === "ice-navigation" ? "Creating…" : "Use ice navigation template"}
+          </Button>
+          <Button variant="primary" disabled={!!creating} onClick={() => create("blank")}>
+            <Plus size={19} aria-hidden="true" />{creating === "blank" ? "Creating…" : "New questionnaire"}
+          </Button>
+        </div>
       </header>
       {error ? <Message>{error}</Message> : null}
       <section aria-label="Questionnaire library" className="ql-collection">
@@ -100,7 +105,7 @@ export function QuestionnaireLibrary({ initial, local }: { initial: Questionnair
         {!visible.length ? (
           <Empty icon={<FileText size={32} />} title={search.trim() ? "No matching questionnaires" : filter === "archived" ? "Nothing archived" : filter === "published" ? "No published questionnaires yet" : filter === "draft" ? "No drafts in progress" : "Start with your own questions"}
             description={search.trim() ? "Try a different title or clear your search and filters." : filter === "archived" ? "Questionnaires you archive will appear here. You can restore them whenever you need." : filter === "published" ? "Open a draft and publish it when you’re ready to share." : "Create a blank questionnaire and add the questions that matter to you."}
-            action={search.trim() || filter !== "all" ? <Button onClick={resetFilters}>Show all surveys</Button> : <Button variant="primary" disabled={creating} onClick={create}><Plus size={18} />{creating ? "Creating…" : "New questionnaire"}</Button>} />
+            action={search.trim() || filter !== "all" ? <Button onClick={resetFilters}>Show all surveys</Button> : <Button variant="primary" disabled={!!creating} onClick={() => create("blank")}><Plus size={18} />{creating === "blank" ? "Creating…" : "New questionnaire"}</Button>} />
         ) : (
           <div className="ql-grid">
             {visible.map((q) => {

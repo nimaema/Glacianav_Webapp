@@ -441,7 +441,267 @@ export function template(kind: string): Definition {
       q.choices = labels.map((text, i) => ({ value: `choice_${i}`, text }));
     return q;
   };
-  if (kind === "feedback") {
+  if (kind === "ice-navigation") {
+    d.title = "GlaciaNav ice navigation and product-fit questionnaire";
+    d.description =
+      "Help us understand ice-navigation challenges, current tools, forecasting needs, and product fit for GlaciaNav’s ice forecasting solution.";
+    d.thankYou =
+      "Thank you for sharing your experience. Your input directly shapes the GlaciaNav ice forecasting product.";
+    const question = (type: QuestionType, title: string, labels?: string[]) =>
+      add(type, title, labels);
+    const text = (title: string, required = true) => {
+      const q = question("text", title);
+      q.isRequired = required;
+      return q;
+    };
+    const number = (title: string, unit = "") => {
+      const q = question("number", title);
+      q.min = 0;
+      q.unit = unit;
+      return q;
+    };
+    const profileRole = question("radiogroup", "What is your role?", [
+      "Master / Captain",
+      "Ice Navigator / Ice Advisor",
+      "Fleet / Operations Manager (shore-based)",
+      "Ship Owner / Charterer",
+    ]);
+    profileRole.showOtherItem = true;
+    const purchaseRole = question(
+      "radiogroup",
+      "Are you involved in purchasing decisions for navigation or software tools?",
+      [
+        "Yes, I am the primary decision-maker",
+        "Yes, I influence the decision",
+        "No, but I use the tools day-to-day",
+        "No involvement",
+      ],
+    );
+    const contactName = text("Name for potential pilot follow-up", false);
+    contactName.recipientName = true;
+    const contactEmail = question("email", "Email for potential pilot follow-up");
+    contactEmail.isRequired = false;
+    const operatingRegions = question(
+      "checkbox",
+      "In which primary regions do you operate during ice seasons?",
+      ["Baltic Sea", "Arctic routes (for example, Northern Sea Route or Northwest Passage)"],
+    );
+    operatingRegions.showOtherItem = true;
+    const operatingMode = question(
+      "radiogroup",
+      "Do you operate independently, with icebreaker escort, or in convoy?",
+      [
+        "Primarily independent navigation",
+        "Regularly request icebreaker escort",
+        "Regularly travel in convoy",
+        "A mix of the above, depending on conditions",
+      ],
+    );
+    operatingMode.description =
+      "This helps us understand how forecasting data should integrate with escort and convoy coordination.";
+    const severity = question(
+      "radiogroup",
+      "How often does your vessel encounter severe ice conditions that impede standard navigation?",
+      ["Rarely", "Occasionally", "Frequently", "Almost every voyage during the season"],
+    );
+    const costs = question(
+      "checkbox",
+      "Which operational costs are most impacted by ice conditions?",
+      [
+        "Route delays",
+        "Increased fuel consumption",
+        "Hull or equipment damage",
+        "Increased insurance premiums",
+        "Escort or icebreaker fees",
+        "Crew fatigue or overtime costs",
+      ],
+    );
+    const delayImpact = number("If route delays are impacted, estimate the average time lost per affected voyage", "hours or days");
+    delayImpact.isRequired = false;
+    delayImpact.conditions = [{ question: costs.name, operator: "contains", value: costs.choices[0].value }];
+    const fuelImpact = question("slider", "If fuel consumption is impacted, estimate the percentage increase", []);
+    fuelImpact.isRequired = false;
+    fuelImpact.min = 0;
+    fuelImpact.max = 50;
+    fuelImpact.step = 5;
+    fuelImpact.unit = "%";
+    fuelImpact.rateDescriptionMin = "0%";
+    fuelImpact.rateDescriptionMax = "50%+";
+    fuelImpact.conditions = [{ question: costs.name, operator: "contains", value: costs.choices[1].value }];
+    const sources = question(
+      "checkbox",
+      "Which solutions or data sources do you currently use, or have used in the past, to navigate ice?",
+      [
+        "National ice service charts",
+        "Onboard marine radar",
+        "Visual observation or bridge watch",
+        "Commercial satellite imagery or forecasting software",
+        "FOS",
+        "ECDIS",
+      ],
+    );
+    sources.showOtherItem = true;
+    sources.showNoneItem = true;
+    const shortcomings = question(
+      "checkbox",
+      "What are the main shortcomings of the solutions you currently use or have abandoned?",
+      [
+        "Data is outdated by the time it reaches the bridge",
+        "Resolution is too low to make tactical route decisions",
+        "Difficult to interpret or integrate into current workflows",
+        "Inaccurate predictions of ice thickness or concentration",
+        "Too expensive relative to the value provided",
+      ],
+    );
+    shortcomings.showOtherItem = true;
+    const hazards = question(
+      "checkbox",
+      "Which hazards cause the most severe operational difficulties? Select up to three.",
+      [
+        "Brash ice or jammed brash barriers",
+        "Ridged ice and ice keels",
+        "Rubble fields",
+        "Multi-year or old ice",
+        "Thick first-year ice",
+        "Fast ice boundaries",
+        "Glacial ice hazards (icebergs, bergy bits, growlers)",
+      ],
+    );
+    hazards.maxSelectedChoices = 3;
+    const routeFactors = question(
+      "ranking",
+      "Rank these parameters for route decisions, from most critical to least critical.",
+      [
+        "Ice concentration",
+        "Ice edge",
+        "Ice type, age, and stage of development",
+        "Ice thickness",
+        "Ice deformation and topography",
+        "Openings and navigation paths",
+      ],
+    );
+    const delivery = question(
+      "radiogroup",
+      "How would you prefer to interact with this forecasting data?",
+      [
+        "Direct overlay or integration into existing bridge ECDIS / navigation systems",
+        "Standalone, dedicated web interface or tablet application",
+      ],
+    );
+    delivery.showOtherItem = true;
+    const approval = question(
+      "radiogroup",
+      "Who typically approves a new software or data subscription in your organization?",
+      [
+        "Captain or Master, independently",
+        "Fleet or Operations Manager",
+        "Procurement or Purchasing department",
+        "Ship owner or senior management",
+      ],
+    );
+    approval.showOtherItem = true;
+    const providers = question(
+      "checkbox",
+      "Have you evaluated or used any of the following providers?",
+      ["ICYSEA", "Polar View", "National meteorological or ice service (for example, FMI, DMI, AARI)"],
+    );
+    providers.showOtherItem = true;
+    providers.showNoneItem = true;
+    d.pages = [
+      {
+        name: "respondent_company_profile",
+        title: "Respondent and company profile",
+        description: "A little context helps us interpret your operational experience.",
+        elements: [
+          profileRole,
+          text("Company name"),
+          number("Fleet size: number of vessels operating in ice", "vessels"),
+          purchaseRole,
+          contactName,
+          contactEmail,
+          question("consent", "I consent to being contacted for a follow-up interview or pilot program."),
+        ],
+      },
+      {
+        name: "vessel_route_profile",
+        title: "Vessel and route profile",
+        description: "Tell us about the vessel and routes you operate during ice season.",
+        elements: [
+          operatingRegions,
+          text("What type of vessel do you operate?"),
+          text("What ice class do you currently operate? For example, PC1-PC7, 1A Super, or 1A."),
+          number("How many vessels in your fleet regularly transit ice-covered waters?", "vessels"),
+          operatingMode,
+        ],
+      },
+      {
+        name: "operational_impact",
+        title: "Operational impact of sea ice",
+        description: "Help us understand the consequences of challenging ice conditions.",
+        elements: [severity, costs, delayImpact, fuelImpact],
+      },
+      {
+        name: "current_solutions",
+        title: "Current navigational solutions",
+        description: "Share the tools you rely on today and where they fall short.",
+        elements: [
+          sources,
+          shortcomings,
+          question("radiogroup", "How often do you need updated ice data for it to be operationally useful?", ["Real-time or continuous", "Every 1-6 hours", "Once or twice a day", "Daily is sufficient"]),
+        ],
+      },
+      {
+        name: "hazards_forecasting_needs",
+        title: "Critical ice hazards and forecasting needs",
+        description: "Identify the hazards and route information that matter most on the bridge.",
+        elements: [
+          hazards,
+          routeFactors,
+          question("radiogroup", "What spatial resolution is required for an ice forecast to be genuinely useful for your bridge team?", [
+            "40-50 m grid: detects narrow leads and individual ridges",
+            "100-250 m grid: identifies local ice structure and channels",
+            "250-500 m grid: suitable for port approaches and ice belts",
+            "1 km or more grid: broad macro-planning for seasonal or regional routes",
+          ]),
+        ],
+      },
+      {
+        name: "integration_delivery",
+        title: "GlaciaNav integration and delivery",
+        description: "Let us know how the information should fit into your operating environment.",
+        elements: [
+          delivery,
+          question("radiogroup", "What is the typical data bandwidth available on the bridge?", ["High (VSAT / Starlink)", "Medium (FleetBroadband)", "Low (Iridium / Inmarsat C)", "Don’t know"]),
+          question("radiogroup", "How valuable would an automated POLARIS Risk Index Outcome calculation be to your operation?", ["Extremely valuable", "Somewhat valuable", "Not valuable"]),
+          question("radiogroup", "Would documentation support for Polar Water Operational Manual (PWOM) or classification-society ice audits add value?", ["Yes, this is a significant purchase driver", "Somewhat useful, but not essential", "Not relevant to our operation"]),
+        ],
+      },
+      {
+        name: "purchase_fit_trial",
+        title: "Purchase fit and willingness to trial",
+        description: "These answers help us scope a trial and the right commercial model.",
+        elements: [
+          question("radiogroup", "What would a highly accurate, real-time ice forecasting solution be worth to your operation each month?", ["Under $500", "$500-$1,500", "$1,500-$3,000", "$3,000+"]),
+          approval,
+          question("radiogroup", "Would you be willing to participate in a free pilot or trial of GlaciaNav’s forecasting tool?", ["Yes, immediately", "Yes, but only after seeing a demo or case study", "Possibly, need more information", "No"]),
+          question("radiogroup", "How much crew training or onboarding time would be acceptable to adopt a new ice-forecasting tool?", ["Under 1 hour: it must be intuitive with no training", "1-3 hours", "Half-day session", "Full day or more, if benefits are clear"]),
+          providers,
+        ],
+      },
+      {
+        name: "open_feedback",
+        title: "Open feedback",
+        description: "Your direct experience can reveal the needs a standard question misses.",
+        elements: [
+          (() => {
+            const q = question("comment", "Do you have any additional comments or specific pain points regarding ice navigation that were not covered here?");
+            q.isRequired = false;
+            return q;
+          })(),
+        ],
+      },
+    ];
+  } else if (kind === "feedback") {
     d.title = "Customer experience";
     d.description =
       "Help us understand what works well and where we can do better.";
