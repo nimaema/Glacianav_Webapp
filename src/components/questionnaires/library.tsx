@@ -2,10 +2,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, MagnifyingGlass, ArrowUpRight, Stack, FileText, Archive, Copy, ArrowCounterClockwise, X, Compass } from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass, ArrowUpRight, Stack, FileText, Archive, Copy, ArrowCounterClockwise, X, Compass, Trash } from "@phosphor-icons/react";
 import { type Questionnaire, allQuestions } from "@/lib/questionnaires/types";
 import { libraryCounts, libraryItems, type LibraryFilter, type LibrarySort } from "@/lib/questionnaires/library-model";
-import { Button, Empty, Message, Status, api, errorMessage, shortDate } from "./ui";
+import { Button, Empty, Message, Modal, Status, api, errorMessage, shortDate } from "./ui";
 import "./library.css";
 
 const filters: { value: LibraryFilter; label: string }[] = [
@@ -22,6 +22,8 @@ export function QuestionnaireLibrary({ initial, local }: { initial: Questionnair
   const [sort, setSort] = useState<LibrarySort>("updated");
   const [creating, setCreating] = useState<"" | "blank" | "ice-navigation">("");
   const [pending, setPending] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<Questionnaire | null>(null);
+  const [removeText, setRemoveText] = useState("");
   const [error, setError] = useState("");
   const counts = libraryCounts(initial);
   const visible = libraryItems(initial, filter, search, sort);
@@ -47,6 +49,21 @@ export function QuestionnaireLibrary({ initial, local }: { initial: Questionnair
       });
       if (r.id) router.push(`/questionnaires/${r.id}/build`);
       else router.refresh();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setPending(null);
+    }
+  }
+  async function remove() {
+    if (!removing || removeText !== "REMOVE") return;
+    setPending(removing.id);
+    setError("");
+    try {
+      await api(`/api/questionnaires/${removing.id}`, { action: "remove", confirmation: true });
+      setRemoving(null);
+      setRemoveText("");
+      router.refresh();
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -131,6 +148,7 @@ export function QuestionnaireLibrary({ initial, local }: { initial: Questionnair
                       <Button variant="quiet" disabled={pending === q.id} aria-label={`${q.archived ? "Restore" : "Archive"} ${q.title}`} title={q.archived ? "Restore questionnaire" : "Archive questionnaire"} onClick={() => action(q, "archive")}>
                         {q.archived ? <ArrowCounterClockwise size={17} /> : <Archive size={17} />}
                       </Button>
+                      {q.archived ? <Button variant="quiet" className="ql-remove-button" disabled={pending === q.id} aria-label={`Remove ${q.title} permanently`} title="Remove permanently" onClick={() => { setRemoveText(""); setRemoving(q); }}><Trash size={17} /></Button> : null}
                     </div>
                   </footer>
                 </article>
@@ -139,6 +157,23 @@ export function QuestionnaireLibrary({ initial, local }: { initial: Questionnair
           </div>
         )}
       </section>
+      <Modal
+        open={!!removing}
+        onClose={() => { if (!pending) { setRemoving(null); setRemoveText(""); } }}
+        title="Remove questionnaire permanently?"
+        description="This cannot be undone. The questionnaire, its versions, invitations, responses, and uploaded files will be permanently deleted."
+      >
+        <label className="ql-remove-confirmation">
+          <span>Type REMOVE to confirm</span>
+          <input value={removeText} onChange={(event) => setRemoveText(event.target.value)} placeholder="REMOVE" autoComplete="off" />
+        </label>
+        <div className="qn-modal-actions">
+          <Button disabled={!!pending} onClick={() => { setRemoving(null); setRemoveText(""); }}>Cancel</Button>
+          <Button variant="danger" disabled={removeText !== "REMOVE" || !!pending} onClick={remove}>
+            <Trash size={17} />{pending ? "Removing…" : "Remove permanently"}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -20,6 +20,9 @@ test("additive migration repeats safely, enables RLS, and protects immutable ver
     const publicSql = await readFile(new URL("../../src/db/migrations/0005_questionnaire_public_links.sql", import.meta.url), "utf8");
     await pg.exec(publicSql);
     await pg.exec(publicSql);
+    const removalSql = await readFile(new URL("../../src/db/migrations/0006_questionnaire_removal.sql", import.meta.url), "utf8");
+    await pg.exec(removalSql);
+    await pg.exec(removalSql);
     const tables = await pg.query<{ relname: string; relrowsecurity: boolean }>(
       "SELECT relname,relrowsecurity FROM pg_class WHERE relname LIKE 'questionnaire%' AND relkind='r'",
     );
@@ -78,6 +81,15 @@ test("additive migration repeats safely, enables RLS, and protects immutable ver
       ),
       /duplicate/,
     );
+    const removableQuestionnaire = crypto.randomUUID(), removableVersion = crypto.randomUUID();
+    await pg.query("INSERT INTO questionnaires(id,owner_id,title,draft) VALUES($1,$2,'Removable','{}')", [removableQuestionnaire, owner]);
+    await pg.query("INSERT INTO questionnaire_versions(id,questionnaire_id,number,definition) VALUES($1,$2,1,'{}')", [removableVersion, removableQuestionnaire]);
+    await pg.transaction(async (tx) => {
+      await tx.query("SELECT set_config('questionnaire.allow_version_delete','on',true)");
+      await tx.query("DELETE FROM questionnaire_versions WHERE id=$1", [removableVersion]);
+    });
+    const deleted = await pg.query("SELECT id FROM questionnaire_versions WHERE id=$1", [removableVersion]);
+    assert.equal(deleted.rows.length, 0);
   } finally {
     await pg.close();
   }

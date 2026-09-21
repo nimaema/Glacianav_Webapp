@@ -15,6 +15,7 @@ import {
   invite,
   invitationAction,
   publicLink,
+  removeQuestionnaire,
   event,
 } from "@/lib/questionnaires/service";
 const recipient = z.object({
@@ -35,6 +36,7 @@ const command = z.discriminatedUnion("action", [
   z.object({ action: z.literal("publish"), revision: z.number().int() }),
   z.object({ action: z.literal("duplicate") }),
   z.object({ action: z.literal("archive"), archived: z.boolean() }),
+  z.object({ action: z.literal("remove"), confirmation: z.literal(true) }),
   z.object({
     action: z.literal("campaign"),
     name: z.string().trim().min(1).max(200),
@@ -105,6 +107,7 @@ export async function POST(
         }),
       );
     }
+    if (b.action === "remove") return Response.json(await removeQuestionnaire(id));
     if (b.action === "campaign")
       return Response.json(await makeCampaign(id, b.name, b.closesAt));
     if (b.action === "invite")

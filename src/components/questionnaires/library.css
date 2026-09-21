@@ -57,6 +57,10 @@
 .ql-card-footer > span { font-size: 11px; color: var(--ql-slate); }
 .ql-card-footer > div { display: flex; }
 .ql-card-footer .qn-button { padding: 9px; min-width: 38px; }
+.ql-remove-button { color: var(--danger); }
+.ql-remove-button:hover:not(:disabled) { background: #fff0ed; color: var(--danger); }
+.ql-remove-confirmation { display: grid; gap: 8px; margin-top: 22px; color: var(--ink-2); font-size: 13px; font-weight: 600; }
+.ql-remove-confirmation input { min-height: 42px; border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; color: var(--ink); background: var(--surface); font: inherit; }
 @media (max-width: 1250px) { .ql-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 800px) {
   .ql-library { padding: 0 22px 40px; }

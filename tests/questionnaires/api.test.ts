@@ -307,6 +307,18 @@ test(
         410,
       );
       await request("/api/questionnaire-public/session", { token: newPublic.data.path.split("/").at(-1) }, "", 410);
+      const { data: disposable } = await request("/api/questionnaires", { template: "blank" });
+      const disposableEndpoint = `/api/questionnaires/${disposable.id}`;
+      const disposableDetail = (await request(disposableEndpoint)).data;
+      const disposableQuestion = newQuestion("text");
+      disposableQuestion.title = "A removable published question";
+      disposableDetail.questionnaire.draft.pages[0].elements = [disposableQuestion];
+      await request(disposableEndpoint, { action: "save", definition: disposableDetail.questionnaire.draft, revision: 1 });
+      await request(disposableEndpoint, { action: "publish", revision: 2 });
+      await request(disposableEndpoint, { action: "remove", confirmation: true }, "", 409);
+      await request(disposableEndpoint, { action: "archive", archived: true });
+      await request(disposableEndpoint, { action: "remove", confirmation: true });
+      await request(disposableEndpoint, undefined, "", 404);
     } finally {
       await request(endpoint, { action: "archive", archived: true });
     }

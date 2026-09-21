@@ -14,6 +14,7 @@ import {
   type Person,
   type Definition,
 } from "./types";
+import { deleteAsset } from "./assets";
 
 export const digest = (s: string) =>
   createHash("sha256").update(s).digest("hex");
@@ -51,6 +52,67 @@ export async function createQuestionnaire(
     [id, me.id, d.title, d.description, JSON.stringify(d)],
   );
   return { id };
+}
+export async function removeQuestionnaire(id: string) {
+  const { db } = await access(id, "manage");
+  const assets = await db.transaction(async (tx) => {
+    await tx.query("SELECT id FROM questionnaires WHERE id=$1 FOR UPDATE", [id]);
+    const stored = await tx.query<{ key: string }>(
+      "SELECT a.storage_key key FROM questionnaire_assets a JOIN questionnaire_invitations i ON i.id=a.invitation_id JOIN questionnaire_campaigns c ON c.id=i.campaign_id WHERE c.questionnaire_id=$1",
+      [id],
+    );
+    const media = await tx.query<{ key: string }>(
+      "SELECT id key FROM questionnaire_media WHERE questionnaire_id=$1",
+      [id],
+    );
+    const [q] = await tx.query<{ archived: boolean }>(
+      "SELECT archived FROM questionnaires WHERE id=$1",
+      [id],
+    );
+    if (!q?.archived)
+      throw new QuestionnaireError(
+        "Archive this questionnaire before removing it permanently.",
+        409,
+      );
+    await tx.query(
+      "DELETE FROM questionnaire_assets WHERE invitation_id IN (SELECT i.id FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id WHERE c.questionnaire_id=$1)",
+      [id],
+    );
+    await tx.query(
+      "DELETE FROM questionnaire_response_revisions WHERE response_id IN (SELECT r.id FROM questionnaire_responses r JOIN questionnaire_versions v ON v.id=r.version_id WHERE v.questionnaire_id=$1)",
+      [id],
+    );
+    await tx.query(
+      "DELETE FROM questionnaire_sessions WHERE invitation_id IN (SELECT i.id FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id WHERE c.questionnaire_id=$1)",
+      [id],
+    );
+    await tx.query(
+      "DELETE FROM questionnaire_outbox WHERE invitation_id IN (SELECT i.id FROM questionnaire_invitations i JOIN questionnaire_campaigns c ON c.id=i.campaign_id WHERE c.questionnaire_id=$1)",
+      [id],
+    );
+    await tx.query(
+      "DELETE FROM questionnaire_responses WHERE version_id IN (SELECT id FROM questionnaire_versions WHERE questionnaire_id=$1)",
+      [id],
+    );
+    await tx.query(
+      "DELETE FROM questionnaire_invitations WHERE campaign_id IN (SELECT id FROM questionnaire_campaigns WHERE questionnaire_id=$1)",
+      [id],
+    );
+    await tx.query("DELETE FROM questionnaire_campaigns WHERE questionnaire_id=$1", [id]);
+    await tx.query("DELETE FROM questionnaire_media WHERE questionnaire_id=$1", [id]);
+    await tx.query("DELETE FROM questionnaire_events WHERE questionnaire_id=$1", [id]);
+    await tx.query("DELETE FROM questionnaire_access WHERE questionnaire_id=$1", [id]);
+    await tx.query("SELECT set_config('questionnaire.allow_version_delete','on',true)");
+    await tx.query("DELETE FROM questionnaire_versions WHERE questionnaire_id=$1", [id]);
+    await tx.query("DELETE FROM questionnaires WHERE id=$1", [id]);
+    return [...stored, ...media].map((item) => item.key);
+  });
+  const failed = (await Promise.allSettled(assets.map(deleteAsset))).filter(
+    (result) => result.status === "rejected",
+  ).length;
+  if (failed)
+    console.error(`Questionnaire ${id} removed with ${failed} storage cleanup failure(s).`);
+  return { ok: true };
 }
 export async function getDetail(id: string): Promise<QuestionnaireDetail> {
   const a = await access(id);
